@@ -1713,6 +1713,6 @@ export const t = (key, params) => {
   return typeof value === 'string' ? value : key;
 };
 
-export const init = (lang) => { currentLang = lang; };
+export const init = (lang) => { currentLang = lang; try { const { applyDirection } = require('../utils/formatters'); applyDirection(lang); } catch(e) {} };
 
 export const getLang = () => currentLang;

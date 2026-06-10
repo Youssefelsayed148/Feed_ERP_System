@@ -609,7 +609,7 @@ export default function FeedRecipes() {
         </div>
         <div className="stat-card">
           <p className="stat-label">{t('recipes.avgCost')}</p>
-          <p className="stat-value">{stats.avgCost.toFixed(0)} EGP</p>
+          <p className="stat-value">{t('common.currency')} {formatNumber(stats.avgCost, { decimals: 0 })}</p>
         </div>
         <div className="stat-card">
           <p className="stat-label">{t('recipes.mostUsed')}</p>
