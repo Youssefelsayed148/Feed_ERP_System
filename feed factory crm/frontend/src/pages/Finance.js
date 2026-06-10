@@ -773,7 +773,7 @@ export default function Finance() {
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                             onClick={() => handleSendReminder(item)}
                           >
-                            <Mail size={14} /> Send Reminder
+                            <Mail size={14} /> {t('finance.sendReminder')}
                           </button>
                         </td>
                       </tr>

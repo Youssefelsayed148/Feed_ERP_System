@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency, formatNumber } from '../utils/formatters';
-import { t } from '../utils/i18n';
+import { t, getLang } from '../utils/i18n';
 import {
   Factory, Plus, Search, Play, CheckCircle, Clock, AlertCircle,
   Package, TrendingUp, DollarSign, ChevronRight, ArrowRight, X, ChefHat,
@@ -56,8 +56,8 @@ const Production = () => {
             _id: o.id,
             id: o.id,
             productionNumber: o.order_number || o.productionNumber,
-            feedType: { name: o.feed_name_english || o.feed_name_arabic || o.feedType?.name || 'Unknown' },
-            recipe: { name: o.feed_name_english || 'Unknown', costPer1000kg: o.actual_cost || 0 },
+            feedType: { name: getLang() === 'ar' ? (o.feed_name_arabic || o.feed_name_english) : (o.feed_name_english || o.feed_name_arabic) || 'غير معروف' },
+            recipe: { name: getLang() === 'ar' ? (o.feed_name_arabic || o.feed_name_english) : (o.feed_name_english || o.feed_name_arabic) || 'غير معروف', costPer1000kg: o.actual_cost || 0 },
             quantityKg: parseFloat(o.quantity_kg) || 1000,
             quantityTons: (parseFloat(o.quantity_kg) || 1000) / 1000,
             packageSize: o.package_size || 50,

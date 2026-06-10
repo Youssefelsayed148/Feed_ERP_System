@@ -1013,7 +1013,7 @@ export default function Assets() {
                 </div>
               </div>
               <div className="form-group">
-                <label>Send Reminder X Days Before *</label>
+                <label>{t('assets.sendReminder')}</label>
                 <input 
                   type="number" 
                   className="form-input" 

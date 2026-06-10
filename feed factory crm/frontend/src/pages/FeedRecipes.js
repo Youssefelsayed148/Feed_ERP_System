@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatCurrency, formatNumber } from '../utils/formatters';
-import { t } from '../utils/i18n';
+import { t, getLang } from '../utils/i18n';
 import { 
   Plus, Search, Eye, Edit2, Copy, Printer, Check, X, 
   Calculator, AlertCircle, ArrowLeft, ChefHat, Package,
@@ -638,7 +638,7 @@ export default function FeedRecipes() {
         >
           <option value="all">{t('recipes.allFeedTypes')}</option>
           {feedTypes.map(ft => (
-            <option key={ft._id} value={ft._id}>{ft.name}</option>
+            <option key={ft._id} value={ft._id}>{(getLang() === 'ar' ? (ft.nameArabic || ft.name) : ft.name)}</option>
           ))}
         </select>
         <select
@@ -685,7 +685,7 @@ export default function FeedRecipes() {
                       <p className="text-sm text-gray-600">Used {recipe.usageCount || 0} times</p>
                     </td>
                     <td>
-                      <p>{recipe.feedType?.name || 'Unknown'}</p>
+                      <p>{(getLang() === 'ar' ? (recipe.feedType?.nameArabic || recipe.feedType?.name) : (recipe.feedType?.name)) || 'غير معروف'}</p>
                       {recipe.feedType?.nameArabic && (
                         <p className="text-sm text-blue-600" dir="rtl">{recipe.feedType?.nameArabic}</p>
                       )}
@@ -1023,7 +1023,7 @@ export default function FeedRecipes() {
                       >
                         <option value="">اختر نوع العلف</option>
                         {feedTypes.map(ft => (
-                          <option key={ft._id} value={ft._id}>{ft.name}</option>
+                          <option key={ft._id} value={ft._id}>{(getLang() === 'ar' ? (ft.nameArabic || ft.name) : ft.name)}</option>
                         ))}
                       </select>
                     </div>
