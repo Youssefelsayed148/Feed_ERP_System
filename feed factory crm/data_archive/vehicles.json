@@ -1,0 +1,46 @@
+[
+  {
+    "_id": "vh_1",
+    "company": "comp_1774737863573",
+    "plateNumber": "A-12345",
+    "model": "Hino 300",
+    "type": "truck",
+    "year": 2023,
+    "capacityKg": 10000,
+    "status": "available",
+    "driverPhone": "+971501234701"
+  },
+  {
+    "_id": "vh_2",
+    "company": "comp_1774737863573",
+    "plateNumber": "A-12346",
+    "model": "Isuzu NPR",
+    "type": "truck",
+    "year": 2022,
+    "capacityKg": 8000,
+    "status": "on_delivery",
+    "driverPhone": "+971501234702"
+  },
+  {
+    "_id": "vh_3",
+    "company": "comp_1774737863573",
+    "plateNumber": "A-12347",
+    "model": "Toyota Hiace",
+    "type": "van",
+    "year": 2024,
+    "capacityKg": 2000,
+    "status": "available",
+    "driverPhone": "+971501234703"
+  },
+  {
+    "_id": "vh_4",
+    "company": "comp_1774737863573",
+    "plateNumber": "A-12348",
+    "model": "Mercedes Sprinter",
+    "type": "truck",
+    "year": 2021,
+    "capacityKg": 12000,
+    "status": "maintenance",
+    "driverPhone": "+971501234704"
+  }
+]

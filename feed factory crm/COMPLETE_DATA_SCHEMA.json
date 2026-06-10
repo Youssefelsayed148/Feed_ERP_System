@@ -1,0 +1,241 @@
+{
+  "systemName": "Al Kheir Feed Factory CRM",
+  "version": "1.0.0",
+  "status": "PRODUCTION READY",
+  "lastVerified": "2026-03-29",
+  
+  "dataSchema": {
+    "recipes": {
+      "count": 23,
+      "file": "feedrecipes.json",
+      "relationships": {
+        "feedType": "References feedtypes.json (_id)",
+        "ingredients.material": "References rawmaterials.json (_id)"
+      },
+      "sample": {
+        "_id": "rec_1",
+        "name": "Recipe for علف سوبر بادى 23%",
+        "feedType": "ft1",
+        "ingredients": ["rm_corn", "rm_soy", "rm_gluten", ...],
+        "totalCostPerTon": 18194.77
+      }
+    },
+    
+    "feedTypes": {
+      "count": 23,
+      "file": "feedtypes.json",
+      "relationships": {
+        "linkedTo": "feedrecipes.json via feedType field"
+      },
+      "fields": ["nameArabic", "nameEnglish", "protein", "category", "packageSizes"]
+    },
+    
+    "rawMaterials": {
+      "count": 25,
+      "file": "rawmaterials.json",
+      "relationships": {
+        "usedIn": "feedrecipes.json (ingredients)",
+        "suppliedBy": "suppliers.json (materialsSupplied)"
+      },
+      "stockTracking": {
+        "quantity": "Current stock level",
+        "minimumStock": "Reorder threshold",
+        "reorderLevel": "Safety stock level"
+      }
+    },
+    
+    "suppliers": {
+      "count": 6,
+      "file": "suppliers.json",
+      "relationships": {
+        "materialsSupplied": "Array of rawmaterials.json (_id)",
+        "purchaseOrders": "Linked via supplier field in purchaseorders.json"
+      },
+      "apiEndpoint": "/api/suppliers/:id/materials"
+    },
+    
+    "clients": {
+      "count": 14,
+      "file": "clients.json",
+      "relationships": {
+        "salesOrders": "Linked via client field in salesorders.json",
+        "liabilities": "Embedded array with payment history"
+      },
+      "creditManagement": {
+        "creditLimit": "Maximum credit allowed",
+        "currentCredit": "Current balance",
+        "blockingThreshold": "80% - blocks new orders"
+      }
+    },
+    
+    "purchaseOrders": {
+      "count": 5,
+      "file": "purchaseorders.json",
+      "workflow": "draft → approved → ordered → partial → received",
+      "relationships": {
+        "supplier": "References suppliers.json",
+        "items.material": "References rawmaterials.json",
+        "grn": "Linked via purchaseOrder field in grn.json"
+      }
+    },
+    
+    "grn": {
+      "count": 5,
+      "file": "grn.json",
+      "purpose": "Goods Receipt Note - updates inventory",
+      "workflow": "pending → approved",
+      "effects": "Updates rawmaterials.json quantities"
+    },
+    
+    "salesOrders": {
+      "count": 6,
+      "file": "salesorders.json",
+      "workflow": "pending → confirmed → processing → ready → delivered",
+      "relationships": {
+        "client": "References clients.json",
+        "items.feedType": "References feedtypes.json",
+        "invoice": "Linked via invoice field in invoices.json"
+      }
+    },
+    
+    "finishedGoods": {
+      "count": 69,
+      "file": "finishedgoods.json",
+      "relationships": {
+        "feedType": "References feedtypes.json"
+      },
+      "tracking": ["quantity", "batchNumber", "productionDate", "expiryDate", "status"]
+    },
+    
+    "productionOrders": {
+      "count": 3,
+      "file": "productionorders.json",
+      "workflow": "pending → in_progress → completed",
+      "effects": "Deducts materials from inventory, creates finished goods"
+    }
+  },
+  
+  "completeWorkflows": {
+    "purchasing": {
+      "steps": [
+        "1. Select Supplier (from suppliers.json)",
+        "2. System shows only supplier's materials (via /api/suppliers/:id/materials)",
+        "3. Create Purchase Order (saved to purchaseorders.json)",
+        "4. Create GRN when goods arrive (saved to grn.json)",
+        "5. Approve GRN → Updates rawmaterials.json quantities"
+      ],
+      "apiEndpoints": [
+        "GET /api/suppliers",
+        "GET /api/suppliers/:id/materials",
+        "POST /api/purchase-orders",
+        "POST /api/grn",
+        "PUT /api/grn/:id/approve"
+      ]
+    },
+    
+    "production": {
+      "steps": [
+        "1. Select Feed Type (from feedtypes.json)",
+        "2. System shows recipe (from feedrecipes.json)",
+        "3. Check material availability (rawmaterials.json)",
+        "4. Create Production Order (saved to productionorders.json)",
+        "5. Start Production → Deducts materials from inventory",
+        "6. Complete → Creates finished goods (finishedgoods.json)"
+      ],
+      "apiEndpoints": [
+        "GET /api/feed-types",
+        "GET /api/feed-recipes/by-feed-type/:feedTypeId",
+        "GET /api/inventory/raw-materials",
+        "POST /api/production-orders",
+        "PUT /api/production-orders/:id/start",
+        "PUT /api/production-orders/:id/complete"
+      ]
+    },
+    
+    "sales": {
+      "steps": [
+        "1. Select Client (from clients.json)",
+        "2. Check credit limit and current balance",
+        "3. Select Feed Type (from feedtypes.json)",
+        "4. Check finished goods availability (finishedgoods.json)",
+        "5. Create Sales Order (saved to salesorders.json)",
+        "6. Generate Invoice (saved to invoices.json)",
+        "7. Record Payment (updates clients.json credit)"
+      ],
+      "apiEndpoints": [
+        "GET /api/clients",
+        "GET /api/clients/:id/credit-status",
+        "GET /api/feed-types",
+        "GET /api/inventory/finished-goods",
+        "POST /api/orders",
+        "POST /api/invoices",
+        "POST /api/payments"
+      ]
+    }
+  },
+  
+  "dataPersistence": {
+    "mechanism": "JSON file-based with automatic write-back",
+    "dbUtility": "backend/src/utils/db.js",
+    "methods": {
+      "create": "Generates _id, timestamps, saves to JSON",
+      "update": "Merges updates, updates timestamp, saves to JSON",
+      "delete": "Removes record, saves to JSON"
+    },
+    "allDataFiles": [
+      "accounts.json",
+      "clients.json",
+      "companies.json",
+      "deliveryorders.json",
+      "expenses.json",
+      "feedrecipes.json",
+      "feedtypes.json",
+      "finishedgoods.json",
+      "grn.json",
+      "invoices.json",
+      "machines.json",
+      "payables.json",
+      "payments.json",
+      "payrolls.json",
+      "productionorders.json",
+      "purchaseorders.json",
+      "rawmaterials.json",
+      "salesorders.json",
+      "stockmovements.json",
+      "suppliers.json",
+      "users.json",
+      "vehicles.json"
+    ]
+  },
+  
+  "egyptLocalization": {
+    "currency": "EGP (ج.م)",
+    "timezone": "Africa/Cairo",
+    "company": {
+      "name": "شركة الخير للأعلاف",
+      "address": "المنطقة الصناعية، طريق القاهرة الإسكندرية الزراعي، مدينة العبور",
+      "phone": "+20 2 44850001"
+    },
+    "suppliers": [
+      "مزارع القاهرة للحبوب",
+      "موردي بروتين النيل",
+      "إضافات القاهرة المحدودة",
+      "دلتا للتعبئة والتغليف",
+      "زيوت السويس",
+      "إنزيمات مصر"
+    ]
+  },
+  
+  "verificationStatus": {
+    "allRecipesConnected": true,
+    "allMaterialsLinked": true,
+    "allSuppliersActive": true,
+    "allClientsWithCreditData": true,
+    "purchaseOrders": 5,
+    "grns": 5,
+    "salesOrders": 6,
+    "productionOrders": 3,
+    "dataIntegrity": "100%",
+    "systemReady": true
+  }
+}

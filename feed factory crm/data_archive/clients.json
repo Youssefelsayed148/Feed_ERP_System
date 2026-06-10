@@ -1,0 +1,101 @@
+[
+  {
+    "_id": "cl_001",
+    "name": "مزارع النور للدواجن",
+    "nameEnglish": "Al Noor Poultry Farms",
+    "code": "CLI-001",
+    "category": "farm",
+    "contactPerson": "محمد النور",
+    "phone": "+20 10 1234 5678",
+    "email": "manager@alnoor-farms.com",
+    "address": "المنطقة الصناعية، مدينة العبور",
+    "city": "القاهرة",
+    "region": "القليوبية",
+    "paymentType": "credit",
+    "creditPeriod": 30,
+    "creditLimit": 100000,
+    "currentCredit": 25000,
+    "blockingThreshold": 80,
+    "status": "active",
+    "tags": [
+      "poultry",
+      "broiler"
+    ],
+    "createdAt": "2026-01-15",
+    "updatedAt": "2026-03-29"
+  },
+  {
+    "_id": "cl_002",
+    "name": "شركة الدواجن الكبرى",
+    "nameEnglish": "Grand Poultry Company",
+    "code": "CLI-002",
+    "category": "company",
+    "contactPerson": "أحمد الكبير",
+    "phone": "+20 2 2468 1357",
+    "email": "purchasing@grandpoultry.com",
+    "address": "المنطقة الصناعية الثانية، العاشر من رمضان",
+    "city": "الشرقية",
+    "region": "الشرقية",
+    "paymentType": "credit",
+    "creditPeriod": 45,
+    "creditLimit": 250000,
+    "currentCredit": 75000,
+    "blockingThreshold": 80,
+    "status": "active",
+    "tags": [
+      "poultry",
+      "layers"
+    ],
+    "createdAt": "2026-02-01",
+    "updatedAt": "2026-03-29"
+  },
+  {
+    "_id": "cl_003",
+    "name": "مزارع الصفا للإنتاج الحيواني",
+    "nameEnglish": "Al Safa Animal Production",
+    "code": "CLI-003",
+    "category": "farm",
+    "contactPerson": "خالد الصفا",
+    "phone": "+20 10 9876 5432",
+    "email": "info@alsafa-farms.com",
+    "address": "كيلو ٧٥ طريق القاهرة الإسكندرية الزراعي",
+    "city": "البحيرة",
+    "region": "البحيرة",
+    "paymentType": "cash",
+    "creditLimit": 0,
+    "currentCredit": 0,
+    "blockingThreshold": 0,
+    "status": "active",
+    "tags": [
+      "cattle",
+      "dairy"
+    ],
+    "createdAt": "2026-02-15",
+    "updatedAt": "2026-03-29"
+  },
+  {
+    "_id": "cl_004",
+    "name": "مؤسسة البركة للتربية والإنتاج",
+    "nameEnglish": "Al Baraka Breeding & Production",
+    "code": "CLI-004",
+    "category": "organization",
+    "contactPerson": "فاطمة البركة",
+    "phone": "+20 10 5555 9999",
+    "email": "orders@albaraka.org",
+    "address": "قرية النصر، مركز السنطة",
+    "city": "الغربية",
+    "region": "الغربية",
+    "paymentType": "credit",
+    "creditPeriod": 30,
+    "creditLimit": 50000,
+    "currentCredit": 12000,
+    "blockingThreshold": 80,
+    "status": "active",
+    "tags": [
+      "sheep",
+      "goats"
+    ],
+    "createdAt": "2026-03-01",
+    "updatedAt": "2026-03-29"
+  }
+]

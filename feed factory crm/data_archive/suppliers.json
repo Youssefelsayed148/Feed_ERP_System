@@ -1,0 +1,230 @@
+[
+  {
+    "_id": "sup_grains",
+    "name": "مزارع القاهرة للحبوب",
+    "nameEnglish": "Cairo Grain Farms",
+    "code": "SUP-GRAINS-001",
+    "category": "grain",
+    "contactPerson": "أحمد حسن",
+    "phone": "+20 2 2396 2451",
+    "email": "sales@egyptiangrain.com",
+    "whatsappNumber": "+20 10 1234 5678",
+    "address": "المنطقة الصناعية، طريق القاهرة الإسكندرية الزراعي",
+    "city": "القاهرة",
+    "bankDetails": {
+      "accountName": "مزارع القاهرة للحبوب",
+      "accountNumber": "1234567890",
+      "iban": "EG32000200012345678901234567890",
+      "bankName": "البنك الأهلي المصري",
+      "branch": "القاهرة الرئيسي"
+    },
+    "paymentTerms": "30 يوم",
+    "creditLimit": 500000,
+    "currency": "EGP",
+    "materialsSupplied": [
+      "rm_corn",
+      "rm_wheat",
+      "rm_bran"
+    ],
+    "performanceRating": 4,
+    "onTimeDeliveryRate": 92,
+    "status": "active",
+    "notes": "مورد أساسي للذرة والردة والسن. مورد محلي موثوق به مع ضبط جودة جيد."
+  },
+  {
+    "_id": "sup_protein",
+    "name": "موردي بروتين النيل",
+    "nameEnglish": "Nile Protein Suppliers",
+    "code": "SUP-PROTEIN-002",
+    "category": "protein",
+    "contactPerson": "محمد السيد",
+    "phone": "+20 3 4875 1234",
+    "email": "orders@nileprotein.eg",
+    "whatsappNumber": "+20 12 3456 7890",
+    "address": "٤٢ المنطقة الصناعية، برج العرب",
+    "city": "الإسكندرية",
+    "bankDetails": {
+      "accountName": "موردي بروتين النيل",
+      "accountNumber": "9876543210",
+      "iban": "EG32000300098765432109876543210",
+      "bankName": "بنك مصر",
+      "branch": "الإسكندرية الصناعية"
+    },
+    "paymentTerms": "15 يوم",
+    "creditLimit": 750000,
+    "currency": "EGP",
+    "materialsSupplied": [
+      "rm_soy",
+      "rm_gluten"
+    ],
+    "performanceRating": 5,
+    "onTimeDeliveryRate": 98,
+    "status": "active",
+    "notes": "مورد بروتين متميز. أفضل جودة صويا 46% وجلوتين في مصر."
+  },
+  {
+    "_id": "sup_additives",
+    "name": "إضافات القاهرة المحدودة",
+    "nameEnglish": "Cairo Additives Ltd",
+    "code": "SUP-ADD-003",
+    "category": "additive",
+    "contactPerson": "فاطمة إبراهيم",
+    "phone": "+20 2 2274 8910",
+    "email": "supply@cairoadditives.com",
+    "whatsappNumber": "+20 11 9876 5432",
+    "address": "٧٨ شارع التحرير، الدقي",
+    "city": "الجيزة",
+    "bankDetails": {
+      "accountName": "إضافات القاهرة المحدودة",
+      "accountNumber": "5555666677",
+      "iban": "EG32000400055556666775555666677",
+      "bankName": "البنك التجاري الدولي",
+      "branch": "الدقي"
+    },
+    "paymentTerms": "45 يوم",
+    "creditLimit": 300000,
+    "currency": "EGP",
+    "materialsSupplied": [
+      "rm_meth",
+      "rm_lysi",
+      "rm_prem",
+      "rm_salt",
+      "rm_sod",
+      "rm_ads",
+      "rm_myc",
+      "rm_thre",
+      "rm_madu",
+      "rm_beta",
+      "rm_biod"
+    ],
+    "performanceRating": 4,
+    "onTimeDeliveryRate": 94,
+    "status": "active",
+    "notes": "متخصص في البريمكس والفيتامينات والمعادن والإضافات للعلف الحيواني. استيراد من أوروبا."
+  },
+  {
+    "_id": "sup_minerals",
+    "name": "معادن الدلتا",
+    "nameEnglish": "Delta Minerals",
+    "code": "SUP-MIN-004",
+    "category": "mineral",
+    "contactPerson": "كريم مصطفى",
+    "phone": "+20 50 2345 6789",
+    "email": "info@deltaminerals.eg",
+    "whatsappNumber": "+20 10 8765 4321",
+    "address": "١٢٥ شارع النيل، المنصورة",
+    "city": "الدقهلية",
+    "bankDetails": {
+      "accountName": "معادن الدلتا",
+      "accountNumber": "1111222233",
+      "iban": "EG32000500011112222331111222233",
+      "bankName": "البنك الزراعي المصري",
+      "branch": "المنصورة"
+    },
+    "paymentTerms": "30 يوم",
+    "creditLimit": 200000,
+    "currency": "EGP",
+    "materialsSupplied": [
+      "rm_mcal",
+      "rm_lime",
+      "rm_trac"
+    ],
+    "performanceRating": 3,
+    "onTimeDeliveryRate": 88,
+    "status": "active",
+    "notes": "مورد مونو كالسيوم وحجر جيري ومعادن نادرة."
+  },
+  {
+    "_id": "sup_oils",
+    "name": "زيوت السويس",
+    "nameEnglish": "Suez Oils",
+    "code": "SUP-OIL-005",
+    "category": "oil",
+    "contactPerson": "سمير محمود",
+    "phone": "+20 3 4928 7654",
+    "email": "sales@suezoils.com",
+    "whatsappNumber": "+20 12 0987 6543",
+    "address": "٨٠ المنطقة الصناعية، السويس",
+    "city": "السويس",
+    "bankDetails": {
+      "accountName": "زيوت السويس",
+      "accountNumber": "7777888899",
+      "iban": "EG32000600077778888997777888899",
+      "bankName": "البنك العربي الأفريقي الدولي",
+      "branch": "السويس"
+    },
+    "paymentTerms": "60 يوم",
+    "creditLimit": 1000000,
+    "currency": "EGP",
+    "materialsSupplied": [
+      "rm_soyoil",
+      "rm_fat"
+    ],
+    "performanceRating": 4,
+    "onTimeDeliveryRate": 90,
+    "status": "active",
+    "notes": "مورد زيوت صويا ومستحلبات دهون للعلف. جودة عالية."
+  },
+  {
+    "_id": "sup_enzymes",
+    "name": "إنزيمات مصر",
+    "nameEnglish": "Egypt Enzymes",
+    "code": "SUP-ENZ-006",
+    "category": "enzyme",
+    "contactPerson": "نور الدين",
+    "phone": "+20 95 2278 3456",
+    "email": "export@egyptenzymes.com",
+    "whatsappNumber": "+20 10 1122 3344",
+    "address": "٥٥ المنطقة الصناعية، طيبة الجديدة",
+    "city": "الأقصر",
+    "bankDetails": {
+      "accountName": "إنزيمات مصر",
+      "accountNumber": "3333444455",
+      "iban": "EG32000700033334444553333444455",
+      "bankName": "بنك قطر الوطني مصر",
+      "branch": "الأقصر"
+    },
+    "paymentTerms": "30 يوم",
+    "creditLimit": 400000,
+    "currency": "EGP",
+    "materialsSupplied": [
+      "rm_phyt",
+      "rm_protz",
+      "rm_enz"
+    ],
+    "performanceRating": 3,
+    "onTimeDeliveryRate": 85,
+    "status": "active",
+    "notes": "مورد الإنزيمات بما في ذلك إنزيم فايتيز والإنزيمات البروتينية والطاقة."
+  },
+  {
+    "_id": "sup_packaging",
+    "name": "دلتا للتعبئة والتغليف",
+    "nameEnglish": "Delta Packaging",
+    "code": "SUP-PACK-007",
+    "category": "packaging",
+    "contactPerson": "يوسف أحمد",
+    "phone": "+20 50 8765 4321",
+    "email": "orders@deltapack.eg",
+    "whatsappNumber": "+20 10 5678 1234",
+    "address": "٣٠ المنطقة الصناعية الثانية، المنصورة",
+    "city": "الدقهلية",
+    "bankDetails": {
+      "accountName": "دلتا للتعبئة والتغليف",
+      "accountNumber": "9999000011",
+      "iban": "EG32000800099990000119999000011",
+      "bankName": "البنك المصري لتنمية الصادرات",
+      "branch": "المنصورة"
+    },
+    "paymentTerms": "30 يوم",
+    "creditLimit": 150000,
+    "currency": "EGP",
+    "materialsSupplied": [
+      "rm_bags"
+    ],
+    "performanceRating": 4,
+    "onTimeDeliveryRate": 95,
+    "status": "active",
+    "notes": "مورد شكاير بولي بروبلين للتعبئة. جودة ممتازة وأسعار تنافسية."
+  }
+]

@@ -1,0 +1,202 @@
+[
+  {
+    "_id": "mc_1",
+    "company": "comp_1774737863573",
+    "name": "Corn Grinder",
+    "code": "MCH-001",
+    "type": "grinder",
+    "brand": "Buhler",
+    "model": "MLSX-800",
+    "status": "active",
+    "location": "Production Hall A",
+    "totalHours": 4520,
+    "nextServiceDate": "2025-04-15T00:00:00Z",
+    "maintenanceSchedule": {
+      "type": "hours_based",
+      "intervalValue": 500,
+      "intervalUnit": "hours",
+      "lastMaintenanceDate": "2025-02-15",
+      "lastMaintenanceHours": 4000,
+      "nextMaintenanceDate": "2025-04-15",
+      "nextMaintenanceHours": 4500,
+      "reminderDaysBefore": 7
+    },
+    "reminders": {
+      "enabled": true,
+      "notifyUsers": ["user_1"],
+      "emailEnabled": false,
+      "whatsappEnabled": true
+    },
+    "maintenanceHistory": [
+      {
+        "date": "2025-02-15",
+        "type": "preventive",
+        "description": "Regular maintenance - replaced bearings",
+        "cost": 2500,
+        "hoursSpent": 8,
+        "partsReplaced": ["Bearings", "Seals"],
+        "performedBy": "Maintenance Team A"
+      }
+    ]
+  },
+  {
+    "_id": "mc_2",
+    "company": "comp_1774737863573",
+    "name": "Pellet Press",
+    "code": "MCH-002",
+    "type": "pelletizer",
+    "brand": "Andritz",
+    "model": "PM-2000",
+    "status": "active",
+    "location": "Production Hall A",
+    "totalHours": 3890,
+    "nextServiceDate": "2025-04-20T00:00:00Z",
+    "maintenanceSchedule": {
+      "type": "hours_based",
+      "intervalValue": 500,
+      "intervalUnit": "hours",
+      "lastMaintenanceDate": "2025-02-20",
+      "lastMaintenanceHours": 3400,
+      "nextMaintenanceDate": "2025-04-20",
+      "nextMaintenanceHours": 3900,
+      "reminderDaysBefore": 7
+    },
+    "reminders": {
+      "enabled": true,
+      "notifyUsers": ["user_1"],
+      "emailEnabled": true,
+      "whatsappEnabled": false
+    },
+    "maintenanceHistory": [
+      {
+        "date": "2025-02-20",
+        "type": "preventive",
+        "description": "Die inspection and lubrication",
+        "cost": 1800,
+        "hoursSpent": 4,
+        "partsReplaced": ["Lubricant"],
+        "performedBy": "Maintenance Team B"
+      }
+    ]
+  },
+  {
+    "_id": "mc_3",
+    "company": "comp_1774737863573",
+    "name": "Mix Master",
+    "code": "MCH-003",
+    "type": "mixer",
+    "brand": "Walinga",
+    "model": "H-500",
+    "status": "active",
+    "location": "Production Hall B",
+    "totalHours": 5210,
+    "nextServiceDate": "2025-04-10T00:00:00Z",
+    "maintenanceSchedule": {
+      "type": "time_based",
+      "intervalValue": 2,
+      "intervalUnit": "months",
+      "lastMaintenanceDate": "2025-02-10",
+      "lastMaintenanceHours": 4800,
+      "nextMaintenanceDate": "2025-04-10",
+      "nextMaintenanceHours": 5200,
+      "reminderDaysBefore": 5
+    },
+    "reminders": {
+      "enabled": true,
+      "notifyUsers": ["user_1", "user_2"],
+      "emailEnabled": false,
+      "whatsappEnabled": true
+    },
+    "maintenanceHistory": [
+      {
+        "date": "2025-02-10",
+        "type": "preventive",
+        "description": "Gearbox inspection and oil change",
+        "cost": 1200,
+        "hoursSpent": 3,
+        "partsReplaced": ["Gear Oil"],
+        "performedBy": "Maintenance Team A"
+      }
+    ]
+  },
+  {
+    "_id": "mc_4",
+    "company": "comp_1774737863573",
+    "name": "Crusher",
+    "code": "MCH-004",
+    "type": "crusher",
+    "brand": "Sturtevant",
+    "model": "SD-300",
+    "status": "under_maintenance",
+    "location": "Production Hall B",
+    "totalHours": 3150,
+    "nextServiceDate": "2025-03-30T00:00:00Z",
+    "maintenanceSchedule": {
+      "type": "hours_based",
+      "intervalValue": 400,
+      "intervalUnit": "hours",
+      "lastMaintenanceDate": "2024-12-30",
+      "lastMaintenanceHours": 2800,
+      "nextMaintenanceDate": "2025-03-30",
+      "nextMaintenanceHours": 3200,
+      "reminderDaysBefore": 7
+    },
+    "reminders": {
+      "enabled": true,
+      "notifyUsers": ["user_1"],
+      "emailEnabled": true,
+      "whatsappEnabled": true
+    },
+    "maintenanceHistory": [
+      {
+        "date": "2024-12-30",
+        "type": "corrective",
+        "description": "Blade sharpening and motor repair",
+        "cost": 3500,
+        "hoursSpent": 12,
+        "partsReplaced": ["Motor brushes", "Blades"],
+        "performedBy": "External Service"
+      }
+    ]
+  },
+  {
+    "_id": "mc_5",
+    "company": "comp_1774737863573",
+    "name": "Bagging Machine",
+    "code": "MCH-005",
+    "type": "packaging",
+    "brand": "Roberine",
+    "model": "RB-100",
+    "status": "active",
+    "location": "Packaging Area",
+    "totalHours": 2750,
+    "nextServiceDate": "2025-04-25T00:00:00Z",
+    "maintenanceSchedule": {
+      "type": "time_based",
+      "intervalValue": 1,
+      "intervalUnit": "months",
+      "lastMaintenanceDate": "2025-03-25",
+      "lastMaintenanceHours": 2600,
+      "nextMaintenanceDate": "2025-04-25",
+      "nextMaintenanceHours": 2800,
+      "reminderDaysBefore": 3
+    },
+    "reminders": {
+      "enabled": true,
+      "notifyUsers": ["user_2"],
+      "emailEnabled": true,
+      "whatsappEnabled": false
+    },
+    "maintenanceHistory": [
+      {
+        "date": "2025-03-25",
+        "type": "preventive",
+        "description": "Conveyor belt adjustment and sensor cleaning",
+        "cost": 800,
+        "hoursSpent": 2,
+        "partsReplaced": [],
+        "performedBy": "Maintenance Team B"
+      }
+    ]
+  }
+]

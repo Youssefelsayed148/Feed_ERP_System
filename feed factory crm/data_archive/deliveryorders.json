@@ -1,0 +1,71 @@
+[
+  {
+    "_id": "dlv_1",
+    "company": "comp_1774737863573",
+    "deliveryNumber": "DLV-202603-0001",
+    "order": "so_1",
+    "client": "cl_1",
+    "deliveryAddress": "Al Ain, Abu Dhabi",
+    "scheduledDate": "2026-03-26",
+    "vehicle": "vh_2",
+    "status": "delivered",
+    "deliveredAt": "2026-03-26T11:45:00",
+    "receivedBy": "Ahmed Al Mheiri"
+  },
+  {
+    "_id": "dlv_2",
+    "company": "comp_1774737863573",
+    "deliveryNumber": "DLV-202603-0002",
+    "order": "so_2",
+    "client": "cl_2",
+    "deliveryAddress": "Jebel Ali, Dubai",
+    "scheduledDate": "2026-03-25",
+    "vehicle": "vh_1",
+    "status": "delivered",
+    "deliveredAt": "2026-03-25T12:00:00",
+    "receivedBy": "Khalid Hassan"
+  },
+  {
+    "_id": "dlv_3",
+    "company": "comp_1774737863573",
+    "deliveryNumber": "DLV-202603-0003",
+    "order": "so_3",
+    "client": "cl_3",
+    "deliveryAddress": "Sharjah Industrial",
+    "scheduledDate": "2026-03-28",
+    "vehicle": "vh_1",
+    "status": "assigned"
+  },
+  {
+    "_id": "dlv_4",
+    "company": "comp_1774737863573",
+    "deliveryNumber": "DLV-202603-0004",
+    "order": "so_4",
+    "client": "cl_4",
+    "deliveryAddress": "Al Quoz, Dubai",
+    "scheduledDate": "2026-03-29",
+    "vehicle": "vh_2",
+    "status": "in_transit"
+  },
+  {
+    "_id": "dlv_5",
+    "company": "comp_1774737863573",
+    "deliveryNumber": "DLV-202603-0005",
+    "order": "so_5",
+    "client": "cl_5",
+    "deliveryAddress": "Abu Dhabi Mussafah",
+    "scheduledDate": "2026-03-28",
+    "vehicle": "vh_3",
+    "status": "ready"
+  },
+  {
+    "_id": "dlv_6",
+    "company": "comp_1774737863573",
+    "deliveryNumber": "DLV-202603-0006",
+    "order": "so_6",
+    "client": "cl_6",
+    "deliveryAddress": "Ajman Free Zone",
+    "scheduledDate": "2026-03-30",
+    "status": "pending"
+  }
+]

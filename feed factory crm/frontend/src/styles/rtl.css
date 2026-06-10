@@ -1,0 +1,172 @@
+/* RTL Support - applied when dir="rtl" on html element */
+[dir="rtl"] .sidebar {
+  left: auto;
+  right: 0;
+  border-right: none;
+  border-left: 1px solid #e2e8f0;
+}
+
+[dir="rtl"] .main-content {
+  margin-left: 0;
+  margin-right: 240px;
+}
+
+[dir="rtl"] .sidebar-logo {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .nav-item svg {
+  margin-right: 0;
+  margin-left: 12px;
+}
+
+[dir="rtl"] .nav-item {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .nav-section-title {
+  text-align: right;
+}
+
+[dir="rtl"] .page-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .form-group label {
+  text-align: right;
+  display: block;
+}
+
+[dir="rtl"] .table th,
+[dir="rtl"] .table td {
+  text-align: right;
+}
+
+[dir="rtl"] .card {
+  text-align: right;
+}
+
+[dir="rtl"] .stats-grid {
+  direction: rtl;
+}
+
+[dir="rtl"] .stat-card {
+  text-align: right;
+}
+
+[dir="rtl"] .search-box svg {
+  left: auto;
+  right: 12px;
+}
+
+[dir="rtl"] .search-box input {
+  padding-left: 12px;
+  padding-right: 40px;
+}
+
+[dir="rtl"] .modal-content {
+  text-align: right;
+}
+
+[dir="rtl"] .modal-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .btn svg {
+  margin-right: 0;
+  margin-left: 8px;
+}
+
+[dir="rtl"] .btn {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .filter-bar {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .form-row {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .tabs {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .action-buttons {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .breadcrumb {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .sidebar-footer {
+  text-align: right;
+}
+
+[dir="rtl"] .settings-layout {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .settings-sidebar {
+  border-right: none;
+  border-left: 1px solid #e2e8f0;
+}
+
+[dir="rtl"] .settings-tab {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+[dir="rtl"] .settings-tab svg {
+  margin-right: 0;
+  margin-left: 12px;
+}
+
+[dir="rtl"] .profile-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .table-container {
+  overflow-x: auto;
+}
+
+/* Force LTR for numbers and amounts in RTL mode */
+[dir="rtl"] .money,
+[dir="rtl"] .amount,
+[dir="rtl"] .numeric {
+  direction: ltr;
+  display: inline-block;
+}
+
+/* Logo in RTL */
+[dir="rtl"] .sidebar-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .stat-icon {
+  margin-right: 0;
+  margin-left: 16px;
+}
+
+[dir="rtl"] .section-card {
+  text-align: right;
+}
+
+[dir="rtl"] .entry-row {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .entry-number {
+  margin-right: 0;
+  margin-left: 12px;
+}
+
+[dir="rtl"] .entry-amount {
+  text-align: left;
+}
+
+[dir="rtl"] .sidebar-nav {
+  padding-right: 0;
+}

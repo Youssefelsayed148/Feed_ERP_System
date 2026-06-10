@@ -1,0 +1,133 @@
+[
+  {
+    "_id": "payable001",
+    "payableNumber": "PAY-2025-001",
+    "type": "supplier",
+    "supplier": "supplier001",
+    "purchaseOrder": "po001",
+    "grn": "grn001",
+    "supplierInvoiceNumber": "SUP-INV-001",
+    "supplierInvoiceDate": "2025-03-01T00:00:00Z",
+    "amount": 150000,
+    "paidAmount": 50000,
+    "balance": 100000,
+    "dueDate": "2025-03-30T00:00:00Z",
+    "daysOutstanding": 0,
+    "status": "partial",
+    "payments": [
+      {
+        "date": "2025-03-15T00:00:00Z",
+        "amount": 50000,
+        "method": "bank_transfer",
+        "reference": "BT-001",
+        "notes": "First installment"
+      }
+    ],
+    "notes": "Raw materials for March production"
+  },
+  {
+    "_id": "payable002",
+    "payableNumber": "PAY-2025-002",
+    "type": "supplier",
+    "supplier": "supplier002",
+    "purchaseOrder": "po002",
+    "supplierInvoiceNumber": "SUP-INV-002",
+    "supplierInvoiceDate": "2025-03-05T00:00:00Z",
+    "amount": 75000,
+    "paidAmount": 0,
+    "balance": 75000,
+    "dueDate": "2025-04-05T00:00:00Z",
+    "daysOutstanding": 0,
+    "status": "pending",
+    "payments": [],
+    "notes": "Packaging materials"
+  },
+  {
+    "_id": "payable003",
+    "payableNumber": "PAY-2025-003",
+    "type": "expense",
+    "expense": "expense001",
+    "amount": 25000,
+    "paidAmount": 0,
+    "balance": 25000,
+    "dueDate": "2025-03-20T00:00:00Z",
+    "daysOutstanding": 9,
+    "status": "overdue",
+    "payments": [],
+    "notes": "Utility bills"
+  },
+  {
+    "_id": "payable004",
+    "payableNumber": "PAY-2025-004",
+    "type": "salary",
+    "payroll": "payroll001",
+    "month": "2025-03",
+    "amount": 300000,
+    "paidAmount": 300000,
+    "balance": 0,
+    "dueDate": "2025-03-31T00:00:00Z",
+    "daysOutstanding": 0,
+    "status": "paid",
+    "payments": [
+      {
+        "date": "2025-03-31T00:00:00Z",
+        "amount": 300000,
+        "method": "bank_transfer",
+        "reference": "SAL-MAR-2025",
+        "notes": "March 2025 salaries"
+      }
+    ],
+    "notes": "Employee salaries for March"
+  },
+  {
+    "_id": "payable005",
+    "payableNumber": "PAY-2025-005",
+    "type": "tax",
+    "amount": 45000,
+    "paidAmount": 0,
+    "balance": 45000,
+    "dueDate": "2025-04-15T00:00:00Z",
+    "daysOutstanding": 0,
+    "status": "pending",
+    "payments": [],
+    "notes": "Q1 2025 VAT payment"
+  },
+  {
+    "_id": "payable006",
+    "payableNumber": "PAY-2025-006",
+    "type": "supplier",
+    "supplier": "supplier001",
+    "purchaseOrder": "po003",
+    "supplierInvoiceNumber": "SUP-INV-003",
+    "supplierInvoiceDate": "2025-02-01T00:00:00Z",
+    "amount": 120000,
+    "paidAmount": 0,
+    "balance": 120000,
+    "dueDate": "2025-02-28T00:00:00Z",
+    "daysOutstanding": 29,
+    "status": "overdue",
+    "payments": [],
+    "notes": "February raw materials - OVERDUE"
+  },
+  {
+    "_id": "payable007",
+    "payableNumber": "PAY-2025-007",
+    "type": "other",
+    "amount": 15000,
+    "paidAmount": 15000,
+    "balance": 0,
+    "dueDate": "2025-03-10T00:00:00Z",
+    "daysOutstanding": 0,
+    "status": "paid",
+    "payments": [
+      {
+        "date": "2025-03-10T00:00:00Z",
+        "amount": 15000,
+        "method": "cash",
+        "reference": "CASH-001",
+        "notes": "Office supplies"
+      }
+    ],
+    "notes": "Office maintenance"
+  }
+]

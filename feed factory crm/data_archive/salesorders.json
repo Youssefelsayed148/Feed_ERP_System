@@ -1,0 +1,44 @@
+[
+  {
+    "_id": "so_001",
+    "company": "comp_1774737863573",
+    "orderNumber": "SO-2026-001",
+    "client": "cl_001",
+    "clientName": "مزارع النور للدواجن",
+    "orderDate": "2026-03-20",
+    "deliveryDate": "2026-03-27",
+    "status": "delivered",
+    "items": [
+      {
+        "feedType": "ft1",
+        "feedTypeName": "علف سوبر بادى 23%",
+        "packageSize": 50,
+        "quantity": 100,
+        "unitPrice": 20963.98,
+        "totalPrice": 2096398,
+        "productionBatch": "B20260320-001"
+      },
+      {
+        "feedType": "ft2",
+        "feedTypeName": "علف سوبر نامى 21%",
+        "packageSize": 50,
+        "quantity": 50,
+        "unitPrice": 20775.32,
+        "totalPrice": 1038766,
+        "productionBatch": "B20260320-002"
+      }
+    ],
+    "subtotal": 3135164,
+    "vatRate": 14,
+    "vatAmount": 438923,
+    "total": 3574087,
+    "currency": "EGP",
+    "paymentType": "credit",
+    "creditPeriod": 30,
+    "dueDate": "2026-04-20",
+    "deliveryAddress": "مزارع النور، المنطقة الصناعية، العبور",
+    "notes": "توصيل سريع - أولوية عالية",
+    "createdAt": "2026-03-20",
+    "updatedAt": "2026-03-27"
+  }
+]

@@ -1,0 +1,36 @@
+[
+  {
+    "_id": "comp_1774737863573",
+    "name": "شركة الخير للأعلاف",
+    "nameEnglish": "Al Kheir Feed Company",
+    "logo": "",
+    "address": "المنطقة الصناعية، طريق القاهرة الإسكندرية الزراعي، مدينة العبور، محافظة القاهرة",
+    "addressEnglish": "Industrial Area, Cairo-Alexandria Agricultural Road, Obour City, Cairo Governorate",
+    "phone": "+20 2 44850001",
+    "phone2": "+20 10 1234 5678",
+    "email": "info@alkheir-feeds.com",
+    "website": "https://alkheir-feeds.com",
+    "taxNumber": "123-456-789",
+    "commercialRegister": "12345",
+    "settings": {
+      "timezone": "Africa/Cairo",
+      "currency": "EGP",
+      "currencySymbol": "ج.م",
+      "dateFormat": "DD/MM/YYYY",
+      "language": "ar",
+      "country": "Egypt",
+      "weightUnit": "kg",
+      "decimalPlaces": 2
+    },
+    "businessHours": {
+      "saturday": "08:00-17:00",
+      "sunday": "08:00-17:00",
+      "monday": "08:00-17:00",
+      "tuesday": "08:00-17:00",
+      "wednesday": "08:00-17:00",
+      "thursday": "08:00-14:00",
+      "friday": "closed"
+    },
+    "createdAt": "2026-03-28T22:44:23.573Z"
+  }
+]

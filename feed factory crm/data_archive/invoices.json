@@ -1,0 +1,41 @@
+[
+  {
+    "_id": "inv_001",
+    "company": "comp_1774737863573",
+    "invoiceNumber": "INV-2026-001",
+    "salesOrder": "so_001",
+    "client": "cl_001",
+    "clientName": "مزارع النور للدواجن",
+    "issueDate": "2026-03-27",
+    "dueDate": "2026-04-27",
+    "status": "partial",
+    "items": [
+      {
+        "feedType": "ft1",
+        "feedTypeName": "علف سوبر بادى 23%",
+        "description": "50 كجم × 100 كيس",
+        "quantity": 100,
+        "unitPrice": 20963.98,
+        "total": 2096398
+      },
+      {
+        "feedType": "ft2",
+        "feedTypeName": "علف سوبر نامى 21%",
+        "description": "50 كجم × 50 كيس",
+        "quantity": 50,
+        "unitPrice": 20775.32,
+        "total": 1038766
+      }
+    ],
+    "subtotal": 3135164,
+    "vatRate": 14,
+    "vatAmount": 438923,
+    "total": 3574087,
+    "paidAmount": 1000000,
+    "balance": 2574087,
+    "currency": "EGP",
+    "notes": "فاتورة أولى - بقية المبلغ خلال 30 يوم",
+    "createdAt": "2026-03-27",
+    "updatedAt": "2026-03-27"
+  }
+]

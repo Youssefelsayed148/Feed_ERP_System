@@ -1,0 +1,2 @@
+ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS cost_price DECIMAL(10,2) DEFAULT 0;
+ALTER TABLE sales_order_items ADD COLUMN IF NOT EXISTS total_cost DECIMAL(12,2) DEFAULT 0;

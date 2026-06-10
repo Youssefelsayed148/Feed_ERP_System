@@ -1,0 +1,578 @@
+[
+  {
+    "_id": "ft1",
+    "nameArabic": "علف سوبر بادى 23%",
+    "nameEnglish": "Super Starter 23%",
+    "code": "FT-SUPER-STARTER-23",
+    "category": "poultry",
+    "protein": 23,
+    "description": "علف بادى فائق الجودة للأفراخ 23% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 18194.77,
+        "sellingPrice7": 19468.4,
+        "sellingPrice75": 20216.19,
+        "sellingPrice8": 20963.98,
+        "maxPrice": 25000
+      },
+      {
+        "size": 25,
+        "costPrice": 18194.77,
+        "sellingPrice7": 19468.4,
+        "sellingPrice75": 20216.19,
+        "sellingPrice8": 20963.98,
+        "maxPrice": 25000
+      },
+      {
+        "size": 50,
+        "costPrice": 18194.77,
+        "sellingPrice7": 19468.4,
+        "sellingPrice75": 20216.19,
+        "sellingPrice8": 20963.98,
+        "maxPrice": 25000
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft2",
+    "nameArabic": "علف سوبر نامى 21%",
+    "nameEnglish": "Super Grower 21%",
+    "code": "FT-SUPER-GROWER-21",
+    "category": "poultry",
+    "protein": 21,
+    "description": "علف نامى فائق الجودة 21% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 18030.8,
+        "sellingPrice7": 19292.96,
+        "sellingPrice75": 20034.14,
+        "sellingPrice8": 20775.32,
+        "maxPrice": 24500
+      },
+      {
+        "size": 25,
+        "costPrice": 18030.8,
+        "sellingPrice7": 19292.96,
+        "sellingPrice75": 20034.14,
+        "sellingPrice8": 20775.32,
+        "maxPrice": 24500
+      },
+      {
+        "size": 50,
+        "costPrice": 18030.8,
+        "sellingPrice7": 19292.96,
+        "sellingPrice75": 20034.14,
+        "sellingPrice8": 20775.32,
+        "maxPrice": 24500
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft3",
+    "nameArabic": "علف سوبر ناهى 19%",
+    "nameEnglish": "Super Finisher 19%",
+    "code": "FT-SUPER-FINISHER-19",
+    "category": "poultry",
+    "protein": 19,
+    "description": "علف ناهى فائق الجودة 19% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 17683.65,
+        "sellingPrice7": 18921.51,
+        "sellingPrice75": 19608.05,
+        "sellingPrice8": 20294.6,
+        "maxPrice": 24000
+      },
+      {
+        "size": 25,
+        "costPrice": 17683.65,
+        "sellingPrice7": 18921.51,
+        "sellingPrice75": 19608.05,
+        "sellingPrice8": 20294.6,
+        "maxPrice": 24000
+      },
+      {
+        "size": 50,
+        "costPrice": 17683.65,
+        "sellingPrice7": 18921.51,
+        "sellingPrice75": 19608.05,
+        "sellingPrice8": 20294.6,
+        "maxPrice": 24000
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft4",
+    "nameArabic": "علف بادى نامى 21%",
+    "nameEnglish": "Starter-Grower 21%",
+    "code": "FT-STARTER-GROWER-21",
+    "category": "poultry",
+    "protein": 21,
+    "description": "علف بادى نامى 21% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 17500,
+        "sellingPrice7": 18725,
+        "sellingPrice75": 19406.25,
+        "sellingPrice8": 20087.5,
+        "maxPrice": 23500
+      },
+      {
+        "size": 25,
+        "costPrice": 17500,
+        "sellingPrice7": 18725,
+        "sellingPrice75": 19406.25,
+        "sellingPrice8": 20087.5,
+        "maxPrice": 23500
+      },
+      {
+        "size": 50,
+        "costPrice": 17500,
+        "sellingPrice7": 18725,
+        "sellingPrice75": 19406.25,
+        "sellingPrice8": 20087.5,
+        "maxPrice": 23500
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft5",
+    "nameArabic": "علف بادى بياض 20%",
+    "nameEnglish": "Starter-Layer 20%",
+    "code": "FT-STARTER-LAYER-20",
+    "category": "poultry",
+    "protein": 20,
+    "description": "علف بادى للدجاج البياض 20% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 17200,
+        "sellingPrice7": 18404,
+        "sellingPrice75": 19075,
+        "sellingPrice8": 19746,
+        "maxPrice": 23000
+      },
+      {
+        "size": 25,
+        "costPrice": 17200,
+        "sellingPrice7": 18404,
+        "sellingPrice75": 19075,
+        "sellingPrice8": 19746,
+        "maxPrice": 23000
+      },
+      {
+        "size": 50,
+        "costPrice": 17200,
+        "sellingPrice7": 18404,
+        "sellingPrice75": 19075,
+        "sellingPrice8": 19746,
+        "maxPrice": 23000
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft6",
+    "nameArabic": "علف نامى 1 بياض 18%",
+    "nameEnglish": "Grower 1 Layer 18%",
+    "code": "FT-GROWER1-LAYER-18",
+    "category": "poultry",
+    "protein": 18,
+    "description": "علف نامى 1 للدجاج البياض 18% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 16500,
+        "sellingPrice7": 17655,
+        "sellingPrice75": 18281.25,
+        "sellingPrice8": 18907.5,
+        "maxPrice": 22000
+      },
+      {
+        "size": 25,
+        "costPrice": 16500,
+        "sellingPrice7": 17655,
+        "sellingPrice75": 18281.25,
+        "sellingPrice8": 18907.5,
+        "maxPrice": 22000
+      },
+      {
+        "size": 50,
+        "costPrice": 16500,
+        "sellingPrice7": 17655,
+        "sellingPrice75": 18281.25,
+        "sellingPrice8": 18907.5,
+        "maxPrice": 22000
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft7",
+    "nameArabic": "علف نامى 2 بياض 16%",
+    "nameEnglish": "Grower 2 Layer 16%",
+    "code": "FT-GROWER2-LAYER-16",
+    "category": "poultry",
+    "protein": 16,
+    "description": "علف نامى 2 للدجاج البياض 16% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 15800,
+        "sellingPrice7": 16906,
+        "sellingPrice75": 17512.5,
+        "sellingPrice8": 18119,
+        "maxPrice": 21000
+      },
+      {
+        "size": 25,
+        "costPrice": 15800,
+        "sellingPrice7": 16906,
+        "sellingPrice75": 17512.5,
+        "sellingPrice8": 18119,
+        "maxPrice": 21000
+      },
+      {
+        "size": 50,
+        "costPrice": 15800,
+        "sellingPrice7": 16906,
+        "sellingPrice75": 17512.5,
+        "sellingPrice8": 18119,
+        "maxPrice": 21000
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft8",
+    "nameArabic": "علف بياض تحضيرى 17.5%",
+    "nameEnglish": "Pre-Layer 17.5%",
+    "code": "FT-PRE-LAYER-175",
+    "category": "poultry",
+    "protein": 17.5,
+    "description": "علف تحضيرى للدجاج البياض 17.5% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 16200,
+        "sellingPrice7": 17334,
+        "sellingPrice75": 17943.75,
+        "sellingPrice8": 18553.5,
+        "maxPrice": 21500
+      },
+      {
+        "size": 25,
+        "costPrice": 16200,
+        "sellingPrice7": 17334,
+        "sellingPrice75": 17943.75,
+        "sellingPrice8": 18553.5,
+        "maxPrice": 21500
+      },
+      {
+        "size": 50,
+        "costPrice": 16200,
+        "sellingPrice7": 17334,
+        "sellingPrice75": 17943.75,
+        "sellingPrice8": 18553.5,
+        "maxPrice": 21500
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft9",
+    "nameArabic": "علف بياض انتاجى 18%",
+    "nameEnglish": "Production Layer 18%",
+    "code": "FT-PROD-LAYER-18",
+    "category": "poultry",
+    "protein": 18,
+    "description": "علف انتاجى للدجاج البياض 18% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 16800,
+        "sellingPrice7": 17976,
+        "sellingPrice75": 18600,
+        "sellingPrice8": 19224,
+        "maxPrice": 22500
+      },
+      {
+        "size": 25,
+        "costPrice": 16800,
+        "sellingPrice7": 17976,
+        "sellingPrice75": 18600,
+        "sellingPrice8": 19224,
+        "maxPrice": 22500
+      },
+      {
+        "size": 50,
+        "costPrice": 16800,
+        "sellingPrice7": 17976,
+        "sellingPrice75": 18600,
+        "sellingPrice8": 19224,
+        "maxPrice": 22500
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft10",
+    "nameArabic": "علف بياض انتاجى 17%",
+    "nameEnglish": "Production Layer 17%",
+    "code": "FT-PROD-LAYER-17",
+    "category": "poultry",
+    "protein": 17,
+    "description": "علف انتاجى للدجاج البياض 17% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 16500,
+        "sellingPrice7": 17655,
+        "sellingPrice75": 18281.25,
+        "sellingPrice8": 18907.5,
+        "maxPrice": 22000
+      },
+      {
+        "size": 25,
+        "costPrice": 16500,
+        "sellingPrice7": 17655,
+        "sellingPrice75": 18281.25,
+        "sellingPrice8": 18907.5,
+        "maxPrice": 22000
+      },
+      {
+        "size": 50,
+        "costPrice": 16500,
+        "sellingPrice7": 17655,
+        "sellingPrice75": 18281.25,
+        "sellingPrice8": 18907.5,
+        "maxPrice": 22000
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft11",
+    "nameArabic": "علف بياض انتاجى 16%",
+    "nameEnglish": "Production Layer 16%",
+    "code": "FT-PROD-LAYER-16",
+    "category": "poultry",
+    "protein": 16,
+    "description": "علف انتاجى للدجاج البياض 16% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 16000,
+        "sellingPrice7": 17120,
+        "sellingPrice75": 17720,
+        "sellingPrice8": 18320,
+        "maxPrice": 21500
+      },
+      {
+        "size": 25,
+        "costPrice": 16000,
+        "sellingPrice7": 17120,
+        "sellingPrice75": 17720,
+        "sellingPrice8": 18320,
+        "maxPrice": 21500
+      },
+      {
+        "size": 50,
+        "costPrice": 16000,
+        "sellingPrice7": 17120,
+        "sellingPrice75": 17720,
+        "sellingPrice8": 18320,
+        "maxPrice": 21500
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft12",
+    "nameArabic": "علف بياض انتاجى 14%",
+    "nameEnglish": "Production Layer 14%",
+    "code": "FT-PROD-LAYER-14",
+    "category": "poultry",
+    "protein": 14,
+    "description": "علف انتاجى للدجاج البياض 14% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 15500,
+        "sellingPrice7": 16585,
+        "sellingPrice75": 17171.88,
+        "sellingPrice8": 17758.75,
+        "maxPrice": 21000
+      },
+      {
+        "size": 25,
+        "costPrice": 15500,
+        "sellingPrice7": 16585,
+        "sellingPrice75": 17171.88,
+        "sellingPrice8": 17758.75,
+        "maxPrice": 21000
+      },
+      {
+        "size": 50,
+        "costPrice": 15500,
+        "sellingPrice7": 16585,
+        "sellingPrice75": 17171.88,
+        "sellingPrice8": 17758.75,
+        "maxPrice": 21000
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft13",
+    "nameArabic": "علف بادى بط 22%",
+    "nameEnglish": "Duck Starter 22%",
+    "code": "FT-DUCK-STARTER-22",
+    "category": "duck",
+    "protein": 22,
+    "description": "علف بادى للبط 22% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 17800,
+        "sellingPrice7": 19046,
+        "sellingPrice75": 19735,
+        "sellingPrice8": 20424,
+        "maxPrice": 24000
+      },
+      {
+        "size": 25,
+        "costPrice": 17800,
+        "sellingPrice7": 19046,
+        "sellingPrice75": 19735,
+        "sellingPrice8": 20424,
+        "maxPrice": 24000
+      },
+      {
+        "size": 50,
+        "costPrice": 17800,
+        "sellingPrice7": 19046,
+        "sellingPrice75": 19735,
+        "sellingPrice8": 20424,
+        "maxPrice": 24000
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft14",
+    "nameArabic": "علف نامى بط 18%",
+    "nameEnglish": "Duck Grower 18%",
+    "code": "FT-DUCK-GROWER-18",
+    "category": "duck",
+    "protein": 18,
+    "description": "علف نامى للبط 18% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 16800,
+        "sellingPrice7": 17976,
+        "sellingPrice75": 18600,
+        "sellingPrice8": 19224,
+        "maxPrice": 22500
+      },
+      {
+        "size": 25,
+        "costPrice": 16800,
+        "sellingPrice7": 17976,
+        "sellingPrice75": 18600,
+        "sellingPrice8": 19224,
+        "maxPrice": 22500
+      },
+      {
+        "size": 50,
+        "costPrice": 16800,
+        "sellingPrice7": 17976,
+        "sellingPrice75": 18600,
+        "sellingPrice8": 19224,
+        "maxPrice": 22500
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft15",
+    "nameArabic": "علف بادى نامى منزلى 21%",
+    "nameEnglish": "Home Starter-Grower 21%",
+    "code": "FT-HOME-STARTER-GROWER-21",
+    "category": "home",
+    "protein": 21,
+    "description": "علف بادى نامى منزلى 21% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 17500,
+        "sellingPrice7": 18725,
+        "sellingPrice75": 19406.25,
+        "sellingPrice8": 20087.5,
+        "maxPrice": 23500
+      },
+      {
+        "size": 25,
+        "costPrice": 17500,
+        "sellingPrice7": 18725,
+        "sellingPrice75": 19406.25,
+        "sellingPrice8": 20087.5,
+        "maxPrice": 23500
+      },
+      {
+        "size": 50,
+        "costPrice": 17500,
+        "sellingPrice7": 18725,
+        "sellingPrice75": 19406.25,
+        "sellingPrice8": 20087.5,
+        "maxPrice": 23500
+      }
+    ],
+    "status": "active"
+  },
+  {
+    "_id": "ft16",
+    "nameArabic": "علف سوبر بادى 24%",
+    "nameEnglish": "Super Starter 24%",
+    "code": "FT-SUPER-STARTER-24",
+    "category": "poultry",
+    "protein": 24,
+    "description": "علف بادى فائق الجودة للأفراخ 24% بروتين",
+    "packageSizes": [
+      {
+        "size": 10,
+        "costPrice": 18500,
+        "sellingPrice7": 19795,
+        "sellingPrice75": 20531.25,
+        "sellingPrice8": 21267.5,
+        "maxPrice": 25500
+      },
+      {
+        "size": 25,
+        "costPrice": 18500,
+        "sellingPrice7": 19795,
+        "sellingPrice75": 20531.25,
+        "sellingPrice8": 21267.5,
+        "maxPrice": 25500
+      },
+      {
+        "size": 50,
+        "costPrice": 18500,
+        "sellingPrice7": 19795,
+        "sellingPrice75": 20531.25,
+        "sellingPrice8": 21267.5,
+        "maxPrice": 25500
+      }
+    ],
+    "status": "active"
+  }
+]

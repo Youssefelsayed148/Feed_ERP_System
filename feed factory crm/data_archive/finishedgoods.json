@@ -1,0 +1,47 @@
+[
+  {
+    "_id": "fg_001",
+    "company": "comp_1774737863573",
+    "feedType": "ft1",
+    "feedTypeName": "علف سوبر بادى 23%",
+    "packageSize": 50,
+    "quantity": 500,
+    "totalWeight": 25000,
+    "batchNumber": "B20260320-001",
+    "productionDate": "2026-03-20",
+    "expiryDate": "2026-09-20",
+    "productionCost": 18194.77,
+    "status": "available",
+    "location": "مستودع رئيسي - رف A1"
+  },
+  {
+    "_id": "fg_002",
+    "company": "comp_1774737863573",
+    "feedType": "ft2",
+    "feedTypeName": "علف سوبر نامى 21%",
+    "packageSize": 50,
+    "quantity": 300,
+    "totalWeight": 15000,
+    "batchNumber": "B20260320-002",
+    "productionDate": "2026-03-20",
+    "expiryDate": "2026-09-20",
+    "productionCost": 18030.8,
+    "status": "available",
+    "location": "مستودع رئيسي - رف A2"
+  },
+  {
+    "_id": "fg_003",
+    "company": "comp_1774737863573",
+    "feedType": "ft3",
+    "feedTypeName": "علف سوبر ناهى 19%",
+    "packageSize": 50,
+    "quantity": 200,
+    "totalWeight": 10000,
+    "batchNumber": "B20260320-003",
+    "productionDate": "2026-03-20",
+    "expiryDate": "2026-09-20",
+    "productionCost": 17683.65,
+    "status": "available",
+    "location": "مستودع رئيسي - رف A3"
+  }
+]
