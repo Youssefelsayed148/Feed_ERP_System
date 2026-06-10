@@ -170,3 +170,110 @@
 [dir="rtl"] .sidebar-nav {
   padding-right: 0;
 }
+
+/* ===== Page-level RTL overrides ===== */
+[dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4,
+[dir="rtl"] p, [dir="rtl"] span, [dir="rtl"] div:not(.money):not(.amount):not(.numeric),
+[dir="rtl"] label, [dir="rtl"] li, [dir="rtl"] th, [dir="rtl"] td {
+  text-align: right;
+}
+
+[dir="rtl"] .page-header {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+[dir="rtl"] .page-container {
+  direction: rtl;
+}
+
+[dir="rtl"] .page-title {
+  text-align: right;
+}
+
+[dir="rtl"] input, [dir="rtl"] textarea, [dir="rtl"] select {
+  text-align: right;
+}
+
+[dir="rtl"] input[type="number"],
+[dir="rtl"] input[type="tel"],
+[dir="rtl"] input[type="email"] {
+  text-align: right;
+  direction: ltr;
+}
+
+[dir="rtl"] .flex-row, [dir="rtl"] .flex {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .space-x-2 > *, [dir="rtl"] .space-x-3 > *, [dir="rtl"] .space-x-4 > * {
+  margin-left: 0;
+}
+
+[dir="rtl"] .ml-auto { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .mr-auto { margin-right: 0; margin-left: auto; }
+[dir="rtl"] .mr-2 { margin-right: 0; margin-left: 0.5rem; }
+[dir="rtl"] .ml-2 { margin-left: 0; margin-right: 0.5rem; }
+[dir="rtl"] .pl-2 { padding-left: 0; padding-right: 0.5rem; }
+[dir="rtl"] .pr-2 { padding-right: 0; padding-left: 0.5rem; }
+
+[dir="rtl"] .justify-start { justify-content: flex-end; }
+[dir="rtl"] .justify-end { justify-content: flex-start; }
+
+[dir="rtl"] .dropdown-menu, [dir="rtl"] [class*="dropdown"] {
+  text-align: right;
+}
+
+[dir="rtl"] select {
+  background-position: left 0.5rem center;
+  padding-right: 12px;
+  padding-left: 30px;
+}
+
+[dir="rtl"] .checkbox-label, [dir="rtl"] [class*="checkbox"] {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] table {
+  direction: rtl;
+}
+
+[dir="rtl"] .action-bar {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .data-table-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .stat-label, [dir="rtl"] .stat-value {
+  text-align: right;
+}
+
+[dir="rtl"] .section-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .flex.items-center.gap-2,
+[dir="rtl"] [class*="flex"] [class*="gap"] {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] [class*="data-table"] {
+  direction: rtl;
+}
+
+[dir="rtl"] [class*="badge"] {
+  direction: rtl;
+}
+
+/* Force tables to keep LTR for numbers */
+[dir="rtl"] td[class*="amount"],
+[dir="rtl"] td[class*="price"],
+[dir="rtl"] td[class*="cost"],
+[dir="rtl"] td[class*="balance"],
+[dir="rtl"] td[class*="currency"],
+[dir="rtl"] td[class*="numeric"] {
+  direction: ltr;
+  text-align: right;
+}
