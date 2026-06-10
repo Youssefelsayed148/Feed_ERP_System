@@ -617,11 +617,11 @@ const Expenses = () => {
 
       <div className="stats-overview" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
         <div className="stat-card" style={{ backgroundColor: '#3498db', color: 'white', padding: '20px', borderRadius: '8px' }}>
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.9 }}>Total Expenses</div>
+          <div style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.9 }}>إجمالي المصروفات</div>
           <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '5px' }}>{stats.totalExpenses || 0}</div>
         </div>
         <div className="stat-card" style={{ backgroundColor: '#27ae60', color: 'white', padding: '20px', borderRadius: '8px' }}>
-          <div style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.9 }}>Total Approved</div>
+          <div style={{ fontSize: '12px', textTransform: 'uppercase', opacity: 0.9 }}>المعتمد إجمالاً</div>
           <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '5px' }}>{formatCurrency(stats.totalApproved || 0)}</div>
         </div>
         <div className="stat-card" style={{ backgroundColor: '#f39c12', color: 'white', padding: '20px', borderRadius: '8px', position: 'relative' }}>
@@ -754,7 +754,7 @@ const Expenses = () => {
               </div>
             </div>
             <div className="form-group" style={{ marginTop: '15px' }}>
-              <label>Receipt Upload</label>
+              <label>رفع إيصال</label>
               <input 
                 type="file" 
                 name="receipt" 
@@ -886,9 +886,9 @@ const Expenses = () => {
                 <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>{t('common.category')}</th>
                 <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>{t('common.description')}</th>
                 <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #dee2e6' }}>{t('common.amount')}</th>
-                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>Payment Method</th>
+                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>طريقة الدفع</th>
                 <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>{t('common.status')}</th>
-                <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>Receipt</th>
+                <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>الإيصال</th>
                 <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>{t('common.actions')}</th>
               </tr>
             </thead>
@@ -1064,7 +1064,7 @@ const Expenses = () => {
                   </div>
                 </div>
                 <div>
-                  <label style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase' }}>Payment Method</label>
+                  <label style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase' }}>طريقة الدفع</label>
                   <div style={{ marginTop: '5px', fontSize: '16px', textTransform: 'capitalize' }}>
                     {selectedExpense.paymentMethod?.replace('_', ' ') || 'N/A'}
                   </div>
@@ -1113,7 +1113,7 @@ const Expenses = () => {
                 )}
                 {selectedExpense.rejectReason && (
                   <div>
-                    <label style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase' }}>Rejection Reason</label>
+                    <label style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase' }}>سبب الرفض</label>
                     <div style={{ marginTop: '5px', fontSize: '14px', color: '#e74c3c' }}>
                       {selectedExpense.rejectReason}
                     </div>
@@ -1123,7 +1123,7 @@ const Expenses = () => {
 
               {selectedExpense.receiptUrl && (
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase', marginBottom: '10px', display: 'block' }}>Receipt</label>
+                  <label style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase', marginBottom: '10px', display: 'block' }}>الإيصال</label>
                   <div style={{ 
                     border: '1px solid #ddd', 
                     borderRadius: '4px', 
@@ -1139,7 +1139,7 @@ const Expenses = () => {
                     ) : (
                       <div style={{ textAlign: 'center', padding: '40px' }}>
                         <div style={{ fontSize: '48px', marginBottom: '10px' }}>📄</div>
-                        <div>PDF Receipt</div>
+                        <div>إيصال PDF</div>
                         <a 
                           href={selectedExpense.receiptUrl} 
                           target="_blank" 
@@ -1256,7 +1256,7 @@ const Expenses = () => {
               padding: '20px',
               borderBottom: '1px solid #e0e0e0'
             }}>
-              <h3 style={{ margin: 0, color: '#e74c3c' }}>Reject Expense</h3>
+              <h3 style={{ margin: 0, color: '#e74c3c' }}>رفض المصروف</h3>
             </div>
             <div className="modal-body" style={{ padding: '20px' }}>
               <p style={{ marginBottom: '15px' }}>Please provide a reason for rejecting this expense:</p>
@@ -1275,7 +1275,7 @@ const Expenses = () => {
                 autoFocus
               />
               {!rejectReason.trim() && (
-                <small style={{ color: '#e74c3c', fontSize: '12px' }}>Rejection reason is required</small>
+                <small style={{ color: '#e74c3c', fontSize: '12px' }}>سبب الرفض مطلوب</small>
               )}
             </div>
             <div className="modal-footer" style={{

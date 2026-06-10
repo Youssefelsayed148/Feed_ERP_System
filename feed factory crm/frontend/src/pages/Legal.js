@@ -242,7 +242,7 @@ export default function Legal() {
                   <tr>
                     <th>{t('legal.document')}</th>
                     <th>{t('common.client')}</th>
-                    <th>Folder #</th>
+                    <th>رقم الملف</th>
                     <th>{t('common.type')}</th>
                     <th>{t('legal.expiryDate')}</th>
                     <th>{t('common.status')}</th>
@@ -275,7 +275,7 @@ export default function Legal() {
                             <>
                               <button className="btn btn-success btn-sm verify-btn" title="Verify Document" onClick={() => handleVerifyDocument(doc, true)}>
                                 <Check size={14} />
-                                <span>Verify</span>
+                                <span>تحقق</span>
                               </button>
                               <button className="btn btn-danger btn-sm reject-btn" title="Reject Document" onClick={() => handleVerifyDocument(doc, false)}>
                                 <X size={14} />
@@ -445,7 +445,7 @@ export default function Legal() {
                 <div className="process-step">
                   <div className="step-number">2</div>
                   <div className="step-content">
-                    <span className="step-title">Upload Documents</span>
+                    <span className="step-title">رفع مستندات</span>
                     <span className="step-desc">{t('legal.clientSubmits')}</span>
                   </div>
                 </div>
@@ -453,7 +453,7 @@ export default function Legal() {
                   <div className="step-number">3</div>
                   <div className="step-content">
                     <span className="step-title">{t('legal.review')}</span>
-                    <span className="step-desc">Verify all documents for authenticity</span>
+                    <span className="step-desc">تحقق من جميع المستندات للتأكد من صحتها</span>
                   </div>
                 </div>
                 <div className="process-step">

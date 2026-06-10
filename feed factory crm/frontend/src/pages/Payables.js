@@ -468,7 +468,7 @@ const Payables = () => {
                 </div>
               </div>
               <div className="form-group">
-                <label>Amount to Pay (EGP)</label>
+                <label>المبلغ المدفوع</label>
                 <input
                   type="number"
                   value={paymentForm.amount}
@@ -479,7 +479,7 @@ const Payables = () => {
                 />
               </div>
               <div className="form-group">
-                <label>Payment Method</label>
+                <label>طريقة الدفع</label>
                 <select
                   value={paymentForm.method}
                   onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
@@ -490,7 +490,7 @@ const Payables = () => {
                 </select>
               </div>
               <div className="form-group">
-                <label>Reference Number</label>
+                <label>الرقم المرجعي</label>
                 <input
                   type="text"
                   value={paymentForm.reference}
@@ -525,7 +525,7 @@ const Payables = () => {
         <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Payable Details</h3>
+              <h3>تفاصيل الدفع</h3>
               <button
                 className="modal-close"
                 onClick={() => setShowViewModal(false)}
@@ -544,7 +544,7 @@ const Payables = () => {
                   <div style={{ fontWeight: 600 }}>{selectedPayable.poReference}</div>
                 </div>
                 <div>
-                  <label style={{ color: '#64748b', fontSize: '0.9rem' }}>Total Amount</label>
+                  <label style={{ color: '#64748b', fontSize: '0.9rem' }}>المبلغ الإجمالي</label>
                   <div style={{ fontWeight: 600, color: '#3b82f6' }}>{formatCurrency(selectedPayable.amount)}</div>
                 </div>
                 <div>
@@ -572,7 +572,7 @@ const Payables = () => {
 
               {selectedPayable.payments && selectedPayable.payments.length > 0 && (
                 <div>
-                  <h4 style={{ marginBottom: '12px', color: '#1e293b' }}>Payment History</h4>
+                  <h4 style={{ marginBottom: '12px', color: '#1e293b' }}>سجل المدفوعات</h4>
                   <table className="data-table" style={{ fontSize: '0.9rem' }}>
                     <thead>
                       <tr>
@@ -623,7 +623,7 @@ const Payables = () => {
         <div className="modal-overlay" onClick={() => setShowReminderModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Set Payment Reminder</h3>
+              <h3>تعيين تذكير</h3>
               <button
                 className="modal-close"
                 onClick={() => setShowReminderModal(false)}
@@ -644,7 +644,7 @@ const Payables = () => {
               </div>
               
               <div className="form-group">
-                <label>Remind me (days before due date)</label>
+                <label>تذكيري قبل (عدد الأيام قبل الاستحقاق)</label>
                 <select
                   value={reminderForm.daysBeforeDue}
                   onChange={(e) => setReminderForm({ ...reminderForm, daysBeforeDue: e.target.value })}
@@ -659,7 +659,7 @@ const Payables = () => {
               </div>
               
               <div className="form-group">
-                <label>Reminder Type</label>
+                <label>نوع التذكير</label>
                 <select
                   value={reminderForm.reminderType}
                   onChange={(e) => setReminderForm({ ...reminderForm, reminderType: e.target.value })}
@@ -667,12 +667,12 @@ const Payables = () => {
                 >
                   <option value="dashboard">{t('payables.dashboardAlert')}</option>
                   <option value="email">{t('common.email')}</option>
-                  <option value="sms">SMS</option>
+                  <option value="sms">رسالة نصية</option>
                 </select>
               </div>
               
               <div className="form-group">
-                <label>Message (optional)</label>
+                <label>الرسالة (اختياري)</label>
                 <textarea
                   value={reminderForm.message}
                   onChange={(e) => setReminderForm({ ...reminderForm, message: e.target.value })}

@@ -598,7 +598,7 @@ const PurchaseOrders = () => {
                 value={formData.supplierId}
                 onChange={(e) => handleSupplierChange(e.target.value)}
               >
-                <option value="">Select Supplier</option>
+                <option value="">اختر المورد</option>
                 {suppliers.map(s => (
                   <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>
                 ))}
@@ -855,7 +855,7 @@ const PurchaseOrders = () => {
             </div>
 
             <div style={{ marginBottom: '24px' }}>
-              <h4 style={{ marginBottom: '12px' }}>Supplier Information</h4>
+              <h4 style={{ marginBottom: '12px' }}>معلومات المورد</h4>
               <p><strong>Name:</strong> {selectedPO.supplier_name || getSupplierName(selectedPO)}</p>
             </div>
 
@@ -866,7 +866,7 @@ const PurchaseOrders = () => {
                   <tr>
                     <th>{t('common.material')}</th>
                     <th>{t('common.quantity')}</th>
-                    <th>Unit Price</th>
+                    <th>سعر الوحدة</th>
                     <th>{t('common.total')}</th>
                   </tr>
                 </thead>

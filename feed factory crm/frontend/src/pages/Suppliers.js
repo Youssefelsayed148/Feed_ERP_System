@@ -429,7 +429,7 @@ const SupplierFormModal = ({
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div className="form-group">
-                  <label className="form-label">Tax ID (TIN)</label>
+                  <label className="form-label">الرقم الضريبي</label>
                   <input
                     type="text"
                     className="form-input"
@@ -440,7 +440,7 @@ const SupplierFormModal = ({
                 </div>
                 
                 <div className="form-group">
-                  <label className="form-label">Payment Terms</label>
+                  <label className="form-label">شروط الدفع</label>
                   <select
                     className="form-select"
                     value={formData.paymentTerms}
@@ -471,7 +471,7 @@ const SupplierFormModal = ({
               />
               
               <div className="form-group" style={{ marginTop: '16px' }}>
-                <label className="form-label">Lead Time (days)</label>
+                <label className="form-label">مهلة التوريد (أيام)</label>
                 <input
                   type="number"
                   className="form-input"
@@ -491,7 +491,7 @@ const SupplierFormModal = ({
               </h4>
               
               <div className="form-group">
-                <label className="form-label">Overall Rating</label>
+                <label className="form-label">التقييم العام</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <StarRating 
                     rating={formData.rating} 
@@ -519,7 +519,7 @@ const SupplierFormModal = ({
                 </div>
                 
                 <div className="form-group">
-                  <label className="form-label">Quality Rating</label>
+                  <label className="form-label">تقييم الجودة</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '8px' }}>
                     <StarRating 
                       rating={formData.qualityRating} 
@@ -672,7 +672,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
               <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
                 {supplier.rating.toFixed(1)}
               </div>
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>Rating</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>التقييم</div>
               <StarRating rating={supplier.rating} size={12} />
             </div>
             <div style={{ textAlign: 'center' }}>
@@ -685,13 +685,13 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
               <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6' }}>
                 {supplier.totalOrders}
               </div>
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>Orders</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>{t('nav.orders')}</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#8b5cf6' }}>
                 EGP {(supplier.totalSpend / 1000000).toFixed(1)}M
               </div>
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>Total Spend</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>إجمالي المشتريات</div>
             </div>
           </div>
           
@@ -834,7 +834,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
                 </div>
               </div>
               <div style={{ padding: '12px', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Quality Rating</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>تقييم الجودة</div>
                 <PerformanceBadge value={supplier.qualityRating} type="quality" />
                 <div style={{ marginTop: '8px' }}>
                   <StarRating rating={supplier.qualityRating} size={14} />
@@ -1406,13 +1406,13 @@ const Suppliers = () => {
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
               {suppliers.reduce((sum, s) => sum + (s.totalOrders || 0), 0)}
             </div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Total Orders</div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>إجمالي الطلبات</div>
           </div>
           <div style={{ padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px', textAlign: 'center' }}>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#8b5cf6' }}>
               EGP {(suppliers.reduce((sum, s) => sum + (s.totalSpend || 0), 0) / 1000000).toFixed(1)}M
             </div>
-            <div style={{ fontSize: '12px', color: '#6b7280' }}>Total Spend</div>
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>إجمالي المشتريات</div>
           </div>
         </div>
         
@@ -1448,11 +1448,11 @@ const Suppliers = () => {
             onChange={(e) => setSortBy(e.target.value)}
             style={{ width: '150px' }}
           >
-            <option value="name">Sort by Name</option>
-            <option value="rating">Sort by Rating</option>
-            <option value="orders">Sort by Orders</option>
-            <option value="spend">Sort by Spend</option>
-            <option value="delivery">Sort by Delivery</option>
+            <option value="name">ترتيب حسب الاسم</option>
+            <option value="rating">ترتيب حسب التقييم</option>
+            <option value="orders">ترتيب حسب الطلبات</option>
+            <option value="spend">ترتيب حسب المشتريات</option>
+            <option value="delivery">ترتيب حسب التوصيل</option>
           </select>
         </div>
       </div>
@@ -1463,9 +1463,9 @@ const Suppliers = () => {
           <thead>
             <tr>
               <th>{t('common.supplier')}</th>
-              <th>Materials</th>
-              <th>Performance</th>
-              <th>Orders</th>
+              <th>الخامات</th>
+              <th>الأداء</th>
+              <th>{t('nav.orders')}</th>
               <th>{t('common.status')}</th>
               <th>{t('common.actions')}</th>
             </tr>
@@ -1482,7 +1482,7 @@ const Suppliers = () => {
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
                   <Building2 size={48} style={{ color: '#d1d5db', marginBottom: '12px' }} />
-                  <p style={{ color: '#6b7280' }}>No suppliers found</p>
+                  <p style={{ color: '#6b7280' }}>لم يتم العثور على موردين</p>
                   <button className="btn btn-primary" onClick={openCreateSupplierModal} style={{ marginTop: '12px' }}>
                     Add Your First Supplier
                   </button>
@@ -1798,7 +1798,7 @@ const Suppliers = () => {
                   </div>
                   
                   <div className="form-group">
-                    <label className="form-label">Payment Terms</label>
+                    <label className="form-label">شروط الدفع</label>
                     <select
                       className="form-select"
                       value={supplierForm.paymentTerms}

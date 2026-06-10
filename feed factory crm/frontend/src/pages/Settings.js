@@ -362,7 +362,7 @@ const UserManagement = () => {
                 <th>{t('common.email')}</th>
                 <th>{t('settings.role')}</th>
                 <th>{t('common.status')}</th>
-                <th>Modules</th>
+                <th>الوحدات</th>
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
@@ -439,7 +439,7 @@ const UserManagement = () => {
             </div>
             <div className="modal-body">
               <div className="form-section">
-                <h4 className="section-title">Personal Information</h4>
+                <h4 className="section-title">المعلومات الشخصية</h4>
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">First Name *</label>
@@ -521,7 +521,7 @@ const UserManagement = () => {
 
               {!selectedUser && (
                 <div className="form-section">
-                  <h4 className="section-title">Password</h4>
+                  <h4 className="section-title">كلمة المرور</h4>
                   <div className="form-group">
                     <label className="toggle-switch">
                       <input
@@ -560,7 +560,7 @@ const UserManagement = () => {
 
               {selectedUser && (
                 <div className="form-section">
-                  <h4 className="section-title">Security</h4>
+                  <h4 className="section-title">الأمان</h4>
                   <button className="btn btn-outline">
                     <Lock size={16} /> Reset Password
                   </button>
@@ -738,7 +738,7 @@ const IntegrationSettings = () => {
   return (
     <div>
       <div className="settings-section-header">
-        <h3 className="card-title">Integrations</h3>
+        <h3 className="card-title">{t('settings.integrations')}</h3>
         <button className="btn btn-primary" onClick={saveIntegrations}>
           <Check size={16} /> Save All Changes
         </button>
@@ -795,7 +795,7 @@ const IntegrationSettings = () => {
                       {item.id === 'whatsapp' && (
                         <>
                           <div className="form-group">
-                            <label className="form-label">Phone Number</label>
+                            <label className="form-label">رقم الهاتف</label>
                             <input 
                               type="text" 
                               className="form-input"
@@ -817,7 +817,7 @@ const IntegrationSettings = () => {
                       {item.id === 'email' && (
                         <>
                           <div className="form-group">
-                            <label className="form-label">SMTP Host</label>
+                            <label className="form-label">خادم SMTP</label>
                             <input 
                               type="text" 
                               className="form-input"
@@ -827,7 +827,7 @@ const IntegrationSettings = () => {
                           </div>
                           <div className="form-row">
                             <div className="form-group">
-                              <label className="form-label">Port</label>
+                              <label className="form-label">المنفذ</label>
                               <input 
                                 type="text" 
                                 className="form-input"
@@ -836,7 +836,7 @@ const IntegrationSettings = () => {
                               />
                             </div>
                             <div className="form-group">
-                              <label className="form-label">Username</label>
+                              <label className="form-label">اسم المستخدم</label>
                               <input 
                                 type="text" 
                                 className="form-input"
@@ -850,13 +850,13 @@ const IntegrationSettings = () => {
                       {item.id === 'payment' && (
                         <>
                           <div className="form-group">
-                            <label className="form-label">Provider</label>
+                            <label className="form-label">المزود</label>
                             <select 
                               className="form-select"
                               value={config.provider}
                               onChange={(e) => updateField(item.id, 'provider', e.target.value)}
                             >
-                              <option value="">Select Provider</option>
+                              <option value="">اختر المزود</option>
                               <option value="stripe">Stripe</option>
                               <option value="paypal">PayPal</option>
                               <option value="telr">Telr</option>
@@ -874,7 +874,7 @@ const IntegrationSettings = () => {
                             />
                           </div>
                           <div className="form-group">
-                            <label className="form-label">Secret Key</label>
+                            <label className="form-label">المفتاح السري</label>
                             <input 
                               type="password" 
                               className="form-input"
@@ -888,13 +888,13 @@ const IntegrationSettings = () => {
                       {item.id === 'sms' && (
                         <>
                           <div className="form-group">
-                            <label className="form-label">Provider</label>
+                            <label className="form-label">المزود</label>
                             <select 
                               className="form-select"
                               value={config.provider}
                               onChange={(e) => updateField(item.id, 'provider', e.target.value)}
                             >
-                              <option value="">Select Provider</option>
+                              <option value="">اختر المزود</option>
                               <option value="twilio">Twilio</option>
                               <option value="vonage">Vonage</option>
                               <option value="messagebird">MessageBird</option>
@@ -915,13 +915,13 @@ const IntegrationSettings = () => {
                       {item.id === 'calendar' && (
                         <>
                           <div className="form-group">
-                            <label className="form-label">Provider</label>
+                            <label className="form-label">المزود</label>
                             <select 
                               className="form-select"
                               value={config.provider}
                               onChange={(e) => updateField(item.id, 'provider', e.target.value)}
                             >
-                              <option value="google">Google Calendar</option>
+                              <option value="google">{t('settings.googleCalendar')}</option>
                               <option value="outlook">Outlook Calendar</option>
                             </select>
                           </div>
@@ -953,7 +953,7 @@ const IntegrationSettings = () => {
                         {item.id === 'email' && `SMTP: ${config.smtpHost}:${config.smtpPort}`}
                         {item.id === 'payment' && (config.provider ? `Provider: ${config.provider}` : 'No provider configured')}
                         {item.id === 'sms' && (config.provider ? `Provider: ${config.provider}` : 'No provider configured')}
-                        {item.id === 'calendar' && `Provider: ${config.provider === 'google' ? 'Google Calendar' : 'Outlook Calendar'}`}
+                        {item.id === 'calendar' && `Provider: ${config.provider === 'google' ? 'تقويم Google' : 'Outlook Calendar'}`}
                       </div>
                       <div className="integration-actions">
                         <button 
@@ -1168,7 +1168,7 @@ const SettingsPage = () => {
     { id: 'branding', label: 'Branding', icon: Palette },
     { id: 'language', label: t('settings.language'), icon: Globe },
     { id: 'users', label: t('settings.userManagement'), icon: UserCheck },
-    { id: 'integrations', label: 'Integrations', icon: Database }
+    { id: 'integrations', label: 'التكاملات', icon: Database }
   ];
 
   return (
@@ -1248,7 +1248,7 @@ const SettingsPage = () => {
                 <input type="text" className="form-input" defaultValue="Osiris Labs Real Estate" />
               </div>
               <div className="form-group">
-                <label className="form-label">Default Currency</label>
+                <label className="form-label">{t('settings.defaultCurrency')}</label>
                 <select 
                   className="form-select" 
                   value={companySettings.currency}
@@ -1402,7 +1402,7 @@ const SettingsPage = () => {
                 >
                   <div style={{ fontSize: '48px', marginBottom: '12px' }}>🇬🇧</div>
                   <div style={{ fontSize: '18px', fontWeight: 600 }}>{t('settings.english')}</div>
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>English interface</div>
+                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>{t('settings.english')}</div>
                 </button>
                 <button
                   onClick={() => { localStorage.setItem('lang', 'ar'); window.location.reload(); }}

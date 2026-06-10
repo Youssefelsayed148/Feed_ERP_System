@@ -477,7 +477,7 @@ export default function Finance() {
                   <table className="table">
                     <thead>
                       <tr>
-                        <th>Expense #</th>
+                        <th>رقم المصروف</th>
                         <th>{t('common.description')}</th>
                         <th>{t('common.category')}</th>
                         <th>{t('common.amount')}</th>
@@ -518,7 +518,7 @@ export default function Finance() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Invoice #</th>
+                      <th>رقم الفاتورة</th>
                       <th>{t('common.client')}</th>
                       <th>{t('common.amount')}</th>
                       <th>{t('common.status')}</th>
@@ -592,9 +592,9 @@ export default function Finance() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Invoice #</th>
+                    <th>رقم الفاتورة</th>
                     <th>{t('common.client')}</th>
-                    <th>Order #</th>
+                    <th>رقم الطلب</th>
                     <th>{t('common.amount')}</th>
                     <th>{t('common.statuses.paid')}</th>
                     <th>{t('common.balance')}</th>
@@ -661,7 +661,7 @@ export default function Finance() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Payment #</th>
+                    <th>رقم الدفعة</th>
                     <th>{t('common.client')}</th>
                     <th>{t('common.amount')}</th>
                     <th>{t('common.method')}</th>

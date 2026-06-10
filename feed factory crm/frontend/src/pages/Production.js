@@ -483,7 +483,7 @@ const Production = () => {
         <table className="table">
           <thead>
             <tr>
-              <th>Order #</th>
+              <th>رقم الطلب</th>
               <th>{t('production.feedType')}</th>
               <th>{t('common.quantity')}</th>
               <th>{t('common.cost')}</th>
@@ -596,7 +596,7 @@ const Production = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Package Size (kg)</label>
+                  <label className="form-label">حجم العبوة (كجم)</label>
                   <select
                     className="form-select"
                     value={formData.packageSize}

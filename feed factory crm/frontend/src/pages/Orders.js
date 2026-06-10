@@ -851,14 +851,14 @@ export default function Orders() {
             onClick={() => navigate('/sales')}
             className="btn btn-outline"
           >
-            Payment
+            {t('orders.payment')}
           </button>
           <button 
             onClick={() => setShowModal(true)}
             className="btn btn-primary"
           >
             <Plus className="w-5 h-5" />
-            New Order
+            {t('common.newOrder')}
           </button>
         </div>
       </div>
@@ -921,7 +921,7 @@ export default function Orders() {
         <table className="table">
           <thead>
             <tr>
-              <th>Order #</th>
+              <th>رقم الطلب</th>
               <th>{t('common.client')}</th>
               <th>{t('common.items')}</th>
               <th>{t('common.total')}</th>
@@ -1007,7 +1007,7 @@ export default function Orders() {
                         <button
                           onClick={() => generateInvoicePreview(order)}
                           className="btn btn-sm btn-outline"
-                          title="{t('orders.generateInvoice')}"
+                          title={t('orders.generateInvoice')}
                         >
                           <FileText className="w-4 h-4" />
                         </button>
@@ -1058,7 +1058,7 @@ export default function Orders() {
         <div className="modal-overlay">
           <div className="modal modal-large">
             <div className="modal-header">
-              <h2 className="modal-title">New Sales Order</h2>
+              <h2 className="modal-title">طلب مبيعات جديد</h2>
               <button 
                 onClick={() => { setShowModal(false); resetForm(); }} 
                 className="modal-close"
@@ -1076,7 +1076,7 @@ export default function Orders() {
                   onChange={(e) => handleClientChange(e.target.value)}
                   className="form-select"
                 >
-                  <option value="">Select Client</option>
+                  <option value="">اختر العميل</option>
                   {clients.map((client) => {
                     const creditPercent = client.creditLimit > 0 ? ((client.currentCredit || 0) / client.creditLimit) * 100 : 0;
                     const isBlocked = client.isBlockedDueToCredit || client.status === 'blocked';
@@ -1155,7 +1155,7 @@ export default function Orders() {
               {/* Payment & Delivery */}
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="form-group">
-                  <label className="form-label">Payment Type</label>
+                  <label className="form-label">نوع الدفع</label>
                   <select
                     value={newOrder.paymentType}
                     onChange={(e) => setNewOrder({...newOrder, paymentType: e.target.value})}
@@ -1190,7 +1190,7 @@ export default function Orders() {
               {/* Order Items - Cart Section */}
               <div className="card mb-4">
                 <div className="card-header" style={{ marginBottom: '12px', paddingBottom: '12px' }}>
-                  <h3 className="card-title">Order Items</h3>
+                  <h3 className="card-title">عناصر الطلب</h3>
                   <button
                     type="button"
                     onClick={addItem}
@@ -1216,7 +1216,7 @@ export default function Orders() {
                               onChange={(e) => updateItem(index, 'feedTypeId', e.target.value)}
                               className="form-select"
                             >
-                              <option value="">Select Feed Type</option>
+                              <option value="">اختر نوع العلف</option>
                               {feedTypes.map((ft) => (
                                 <option key={ft._id} value={ft._id}>
                                   {ft.name} ({ft.category})
@@ -1225,7 +1225,7 @@ export default function Orders() {
                             </select>
                           </div>
                           <div className="w-28">
-                            <label className="form-label text-xs">Size</label>
+                            <label className="form-label text-xs">الحجم</label>
                             <select
                               value={item.packageSize}
                               onChange={(e) => updateItem(index, 'packageSize', parseInt(e.target.value))}
@@ -1237,7 +1237,7 @@ export default function Orders() {
                             </select>
                           </div>
                            <div className="w-24">
-                             <label className="form-label text-xs">Tons</label>
+                             <label className="form-label text-xs">طن</label>
                              <input
                                type="number"
                                min="0.1"
@@ -1321,7 +1321,7 @@ export default function Orders() {
               {/* Order Totals with Profit Summary */}
               <div className="card mb-4" style={{ background: '#f8fafc', border: '2px solid #e2e8f0' }}>
                 <div className="card-header" style={{ borderBottom: '1px solid #e2e8f0', marginBottom: '12px', paddingBottom: '12px' }}>
-                  <h3 className="card-title">Order Summary</h3>
+                  <h3 className="card-title">ملخص الطلب</h3>
                 </div>
                 
                 {/* Profit Summary Grid */}
@@ -1334,7 +1334,7 @@ export default function Orders() {
                       </p>
                     </div>
                     <div className="p-3 bg-white rounded-lg border border-gray-200">
-                      <p className="text-sm text-gray-500 mb-1">Total Cost</p>
+                      <p className="text-sm text-gray-500 mb-1">التكلفة الإجمالية</p>
                       <p className="text-xl font-bold text-gray-600">
                         {formatCurrency(calculateTotalCost())}
                       </p>
@@ -1448,7 +1448,7 @@ export default function Orders() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-gray-500">Invoice Number</p>
+                      <p className="text-sm text-gray-500">رقم الفاتورة</p>
                       <p className="text-lg font-bold" style={{ color: '#3b82f6' }}>
                         {invoicePreviewData.invoiceNumber}
                       </p>
@@ -1487,10 +1487,10 @@ export default function Orders() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Item</th>
+                      <th>العنصر</th>
                       <th>{t('common.description')}</th>
-                      <th className="text-right">Qty</th>
-                      <th className="text-right">Unit Price</th>
+                      <th className="text-right">الكمية</th>
+                      <th className="text-right">سعر الوحدة</th>
                       <th className="text-right">{t('common.amount')}</th>
                     </tr>
                   </thead>
@@ -1536,7 +1536,7 @@ export default function Orders() {
                     </div>
                   )}
                   <div className="flex justify-between items-center pt-3" style={{ borderTop: '2px solid #e2e8f0' }}>
-                    <span className="text-lg font-bold">Total Amount</span>
+                    <span className="text-lg font-bold">المبلغ الإجمالي</span>
                     <span className="text-2xl font-bold" style={{ color: '#3b82f6' }}>
                       {formatCurrency(invoicePreviewData.total || 0)}
                     </span>
@@ -1638,7 +1638,7 @@ export default function Orders() {
                     <div className="flex items-center gap-2">
                       <CreditCard className="w-4 h-4 text-gray-400" />
                       <div>
-                        <p className="text-xs text-gray-500">Payment Terms</p>
+                        <p className="text-xs text-gray-500">شروط الدفع</p>
                         <p className="font-semibold">
                           {invoiceDetails.paymentType === 'cash' ? 'Cash' : `Credit ${invoiceDetails.creditPeriod} days`}
                         </p>
@@ -1650,7 +1650,7 @@ export default function Orders() {
                     <div className="flex items-center gap-2">
                       <Calendar className="w-4 h-4 text-gray-400" />
                       <div>
-                        <p className="text-xs text-gray-500">Invoice Date</p>
+                        <p className="text-xs text-gray-500">تاريخ الفاتورة</p>
                         <p className="font-semibold">
                           {new Date(invoiceDetails.createdAt || Date.now()).toLocaleDateString()}
                         </p>
@@ -1683,10 +1683,10 @@ export default function Orders() {
                 <table className="table">
                   <thead>
                     <tr>
-                      <th>Item</th>
+                      <th>العنصر</th>
                       <th>{t('common.description')}</th>
-                      <th className="text-right">Qty</th>
-                      <th className="text-right">Unit Price</th>
+                      <th className="text-right">الكمية</th>
+                      <th className="text-right">سعر الوحدة</th>
                       <th className="text-right">{t('common.amount')}</th>
                     </tr>
                   </thead>
@@ -1725,7 +1725,7 @@ export default function Orders() {
                     <span className="font-semibold">{formatCurrency(invoiceDetails.subtotal || invoiceDetails.total * 0.86 || 0)}</span>
                   </div>
                   <div className="flex justify-between items-center pt-3" style={{ borderTop: '2px solid #e2e8f0' }}>
-                    <span className="text-lg font-bold">Total Amount</span>
+                    <span className="text-lg font-bold">المبلغ الإجمالي</span>
                     <span className="text-2xl font-bold" style={{ color: '#3b82f6' }}>
                       {formatCurrency(invoiceDetails.total || 0)}
                     </span>

@@ -197,22 +197,22 @@ const Accountant = () => {
           <ArrowRightLeft size={16} color="#64748b" />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShoppingCart size={20} color="#f97316" />
-            <strong>Purchases</strong> → Inventory + Payables
+            <strong>المشتريات</strong> → Inventory + Payables
           </div>
           <ArrowRightLeft size={16} color="#64748b" />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Users size={20} color="#3b82f6" />
-            <strong>Sales</strong> → Revenue + Receivables
+            <strong>{t('nav.sales')}</strong> → Revenue + Receivables
           </div>
           <ArrowRightLeft size={16} color="#64748b" />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <CreditCard size={20} color="#ec4899" />
-            <strong>Payroll</strong> → Salaries Expense
+            <strong>الرواتب</strong> → Salaries Expense
           </div>
           <ArrowRightLeft size={16} color="#64748b" />
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <DollarSign size={20} color="#10b981" />
-            <strong>Payments</strong> → Cash + AR/AP
+            <strong>المدفوعات</strong> → Cash + AR/AP
           </div>
         </div>
       </div>
@@ -330,7 +330,7 @@ const Accountant = () => {
 
           {/* Recent Journal Entries */}
           <div className="section-card" style={{ marginTop: '24px' }}>
-            <h3 style={{ marginBottom: '16px' }}>Recent Journal Entries</h3>
+            <h3 style={{ marginBottom: '16px' }}>آخر قيود اليومية</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {journalEntries.slice(0, 5).map(entry => (
                 <div key={entry.id} style={{ padding: '12px', background: '#f8fafc', borderRadius: '8px', borderLeft: `4px solid ${getTypeColor(entry.reference_type)}` }}>
@@ -397,15 +397,15 @@ const Accountant = () => {
 
           {/* Trial Balance */}
           <div className="section-card" style={{ marginTop: '24px' }}>
-            <h3>Trial Balance</h3>
+            <h3>ميزان المراجعة</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginTop: '16px' }}>
               <div style={{ textAlign: 'center', padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
                 <div style={{ color: '#3b82f6', fontSize: '1.3em', fontWeight: 600 }}>{formatMoneyRaw(accounts.reduce((s, a) => s + (parseFloat(a.totalDebit) || 0), 0))}</div>
-                <div style={{ color: '#6b7280', fontSize: '0.9em', marginTop: '4px' }}>Total Debits</div>
+                <div style={{ color: '#6b7280', fontSize: '0.9em', marginTop: '4px' }}>إجمالي المدين</div>
               </div>
               <div style={{ textAlign: 'center', padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
                 <div style={{ color: '#10b981', fontSize: '1.3em', fontWeight: 600 }}>{formatMoneyRaw(accounts.reduce((s, a) => s + (parseFloat(a.totalCredit) || 0), 0))}</div>
-                <div style={{ color: '#6b7280', fontSize: '0.9em', marginTop: '4px' }}>Total Credits</div>
+                <div style={{ color: '#6b7280', fontSize: '0.9em', marginTop: '4px' }}>إجمالي الدائن</div>
               </div>
               <div style={{ textAlign: 'center', padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
                 <div style={{ color: totals.accountingEquation ? '#10b981' : '#ef4444', fontSize: '1.3em', fontWeight: 600 }}>{totals.accountingEquation ? 'Balanced' : 'Unbalanced'}</div>
@@ -479,7 +479,7 @@ const Accountant = () => {
               </div>
             ))}
             {filteredEntries.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>No journal entries found</div>
+              <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>لم يتم العثور على قيود يومية</div>
             )}
           </div>
         </div>

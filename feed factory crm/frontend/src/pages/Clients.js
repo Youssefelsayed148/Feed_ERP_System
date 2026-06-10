@@ -741,7 +741,7 @@ export default function Clients() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="form-group">
-                        <label className="form-label">Payment Type</label>
+                        <label className="form-label">نوع الدفع</label>
                         <select
                           value={formData.paymentType}
                           onChange={(e) => setFormData({...formData, paymentType: e.target.value})}
@@ -752,14 +752,14 @@ export default function Clients() {
                         </select>
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Credit Period (days)</label>
+                        <label className="form-label">فترة الائتمان (أيام)</label>
                         <select
                           value={formData.creditPeriod}
                           onChange={(e) => setFormData({...formData, creditPeriod: parseInt(e.target.value)})}
                           className="form-select"
                           disabled={formData.paymentType !== 'credit'}
                         >
-                          <option value={0}>No Credit</option>
+                          <option value={0}>بدون ائتمان</option>
                           <option value={7}>7 Days</option>
                           <option value={15}>15 Days</option>
                           <option value={30}>30 Days</option>
@@ -769,7 +769,7 @@ export default function Clients() {
                         </select>
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Credit Limit (EGP)</label>
+                        <label className="form-label">حد الائتمان</label>
                         <input
                           type="number"
                           min="0"
@@ -822,7 +822,7 @@ export default function Clients() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Favorite Feed Type</label>
+                        <label className="form-label">نوع العلف المفضل</label>
                         <select
                           value={formData.favoriteFeedType}
                           onChange={(e) => setFormData({...formData, favoriteFeedType: e.target.value})}
@@ -958,7 +958,7 @@ export default function Clients() {
                 <div className="card mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800">Payment Summary</h3>
+                      <h3 className="text-lg font-semibold text-gray-800">ملخص الدفع</h3>
                     </div>
                     <div className="flex items-center gap-2">
                       <DollarSign className="w-6 h-6 text-green-600" />
@@ -966,7 +966,7 @@ export default function Clients() {
                   </div>
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div className="bg-white rounded-lg p-3 shadow-sm">
-                      <p className="text-sm text-gray-600">Total Receivables</p>
+                      <p className="text-sm text-gray-600">إجمالي المستحقات</p>
                       <p className="text-xl font-bold text-gray-900">
                         EGP {selectedClient.summary.totalPending?.toFixed(2) || '0.00'}
                       </p>
@@ -996,15 +996,15 @@ export default function Clients() {
               {/* Account Summary */}
               <div className="stats-grid mb-6">
                 <div className="stat-card bg-blue-50">
-                  <p className="stat-label">Total Orders</p>
+                  <p className="stat-label">إجمالي الطلبات</p>
                   <p className="stat-value">{selectedClient.summary.totalOrders}</p>
                 </div>
                 <div className="stat-card bg-green-50">
-                  <p className="stat-label">Total Amount</p>
+                  <p className="stat-label">المبلغ الإجمالي</p>
                   <p className="stat-value">{selectedClient.summary.totalAmount?.toFixed(2)}</p>
                 </div>
                 <div className="stat-card bg-yellow-50">
-                  <p className="stat-label">Total Paid</p>
+                  <p className="stat-label">إجمالي المدفوع</p>
                   <p className="stat-value">{selectedClient.summary.totalPaid?.toFixed(2)}</p>
                 </div>
                 <div className="stat-card bg-red-50">
@@ -1015,7 +1015,7 @@ export default function Clients() {
 
               {/* Payment Terms */}
               <div className="card mb-6">
-                <h3 className="card-title">Payment Terms</h3>
+                <h3 className="card-title">شروط الدفع</h3>
                 <div className="flex gap-4 flex-wrap">
                   <span className={`badge ${selectedClient.client.paymentType === 'cash' ? 'badge-primary' : 'badge-warning'}`}>
                     {selectedClient.client.paymentType === 'cash' ? 'Cash' : `Credit ${selectedClient.client.creditPeriod} days`}
@@ -1047,8 +1047,8 @@ export default function Clients() {
                           <th>{t('common.date')}</th>
                           <th>{t('common.amount')}</th>
                           <th>{t('common.method')}</th>
-                          <th>Received By</th>
-                          <th>Receipt #</th>
+                          <th>استلم بواسطة</th>
+                          <th>رقم الإيصال</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1182,7 +1182,7 @@ export default function Clients() {
                           onChange={(e) => setPaymentData({...paymentData, applyTo: e.target.value})}
                           className="form-radio"
                         />
-                        <span>Select specific invoices</span>
+                        <span>اختر فواتير محددة</span>
                       </label>
                     </div>
                   </div>
@@ -1190,13 +1190,13 @@ export default function Clients() {
                   {/* Select Invoices Table */}
                   {paymentData.applyTo === 'specific' && paymentSummary.pendingInvoices?.length > 0 && (
                     <div className="form-group mb-4">
-                      <label className="form-label">Select Invoices</label>
+                      <label className="form-label">اختر الفواتير</label>
                       <div className="table-container max-h-48 overflow-y-auto">
                         <table className="table table-sm">
                           <thead>
                             <tr>
-                              <th>Select</th>
-                              <th>Invoice #</th>
+                              <th>اختيار</th>
+                              <th>رقم الفاتورة</th>
                               <th>{t('common.balance')}</th>
                               <th>{t('orders.dueDate')}</th>
                             </tr>
@@ -1282,7 +1282,7 @@ export default function Clients() {
 
                   {/* Summary */}
                   <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                    <h4 className="font-semibold mb-2">Payment Summary</h4>
+                    <h4 className="font-semibold mb-2">ملخص الدفع</h4>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span>Total Payment:</span>

@@ -525,7 +525,7 @@ export default function Inventory() {
                   }}
                   required
                 >
-                  <option value="">Select Material</option>
+                  <option value="">اختر الخامة</option>
                   {rawMaterials.map(m => (
                     <option key={m._id} value={m._id}>{m.name} ({m.code}) - Current: {m.quantity} {m.unit}</option>
                   ))}
@@ -569,7 +569,7 @@ export default function Inventory() {
                       <option value="protein">{t('inventory.protein')}</option>
                       <option value="fiber">{t('inventory.fiber')}</option>
                       <option value="mineral">{t('inventory.mineral')}</option>
-                      <option value="oil">Oil</option>
+                      <option value="oil">زيت</option>
                       <option value="additive">{t('inventory.additive')}</option>
                       <option value="other">{t('common.other')}</option>
                     </select>
@@ -634,7 +634,7 @@ export default function Inventory() {
                     });
                   }}
                 >
-                  <option value="">Select Supplier</option>
+                  <option value="">اختر المورد</option>
                   {suppliers.map(s => (
                     <option key={s._id} value={s._id}>{s.name}</option>
                   ))}
@@ -654,7 +654,7 @@ export default function Inventory() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Expiry Date</label>
+                  <label className="form-label">تاريخ الانتهاء</label>
                   <input
                     type="date"
                     className="form-input"
@@ -849,7 +849,7 @@ export default function Inventory() {
                   onChange={(e) => handleMaterialChange(e.target.value)}
                   required
                 >
-                  <option value="">Select Material</option>
+                  <option value="">اختر الخامة</option>
                   {rawMaterials.map(m => (
                     <option key={m._id} value={m._id}>
                       {m.name} ({m.code}) - Available: {m.quantity} {m.unit}
@@ -937,7 +937,7 @@ export default function Inventory() {
               
               {/* Reference */}
               <div className="form-group">
-                <label className="form-label">Reference (PO/Production Order #)</label>
+                <label className="form-label">المرجع (رقم أمر الشراء/الإنتاج)</label>
                 <input
                   type="text"
                   className="form-input"
@@ -949,7 +949,7 @@ export default function Inventory() {
               
               {/* Reason */}
               <div className="form-group">
-                <label className="form-label">Reason for Transfer</label>
+                <label className="form-label">سبب النقل</label>
                 <textarea
                   className="form-textarea"
                   value={formData.reason}
@@ -1167,15 +1167,15 @@ export default function Inventory() {
           {activeTab === 'finished' && (
             <>
               <div className="stat-card">
-                <p className="stat-label">Total Items</p>
+                <p className="stat-label">إجمالي العناصر</p>
                 <p className="stat-value">{stats.total}</p>
               </div>
               <div className="stat-card">
-                <p className="stat-label">Total Tons</p>
+                <p className="stat-label">إجمالي الأطنان</p>
                 <p className="stat-value" style={{ color: '#10b981' }}>{stats.totalTons || 0}</p>
               </div>
               <div className="stat-card">
-                <p className="stat-label">Total Bags</p>
+                <p className="stat-label">إجمالي الأكياس</p>
                 <p className="stat-value">{stats.totalBags || 0}</p>
               </div>
               <div className="stat-card">
@@ -1193,15 +1193,15 @@ export default function Inventory() {
           {activeTab === 'production' && (
             <>
               <div className="stat-card">
-                <p className="stat-label">Total Orders</p>
+                <p className="stat-label">إجمالي الطلبات</p>
                 <p className="stat-value">{stats.total}</p>
               </div>
               <div className="stat-card">
-                <p className="stat-label">Today</p>
+                <p className="stat-label">اليوم</p>
                 <p className="stat-value">{stats.todayOrders || 0}</p>
               </div>
               <div className="stat-card">
-                <p className="stat-label">Output (kg)</p>
+                <p className="stat-label">الإنتاج (كجم)</p>
                 <p className="stat-value" style={{ color: '#10b981' }}>{(stats.todayOutput || stats.todayOutputWeight || 0).toFixed(0)}</p>
               </div>
               <div className="stat-card">
@@ -1221,7 +1221,7 @@ export default function Inventory() {
           {activeTab === 'recipes' && (
             <>
               <div className="stat-card">
-                <p className="stat-label">Total Recipes</p>
+                <p className="stat-label">إجمالي التركيبات</p>
                 <p className="stat-value">{stats.total}</p>
               </div>
               <div className="stat-card">
@@ -1252,15 +1252,15 @@ export default function Inventory() {
               <tr>
                 <th>{t('common.material')}</th>
                 <th>{t('common.category')}</th>
-                <th>Current Stock</th>
-                <th>Avg Cost (EGP)</th>
-                <th>Total Value (EGP)</th>
+                <th>المخزون الحالي</th>
+                <th>متوسط التكلفة</th>
+                <th>إجمالي القيمة</th>
                 <th>{t('common.status')}</th>
               </tr>
             </thead>
             <tbody>
               {rawMaterials.length === 0 ? (
-                <tr><td colSpan="6" className="text-center">No raw materials</td></tr>
+                <tr><td colSpan="6" className="text-center">لا توجد خامات</td></tr>
               ) : rawMaterials.map((mat) => (
                 <tr key={mat._id}>
                   <td>
@@ -1292,7 +1292,7 @@ export default function Inventory() {
           <table className="table">
             <thead>
               <tr>
-                <th>Feed Type</th>
+                <th>نوع العلف</th>
                 <th>Package</th>
                 <th>{t('common.bags')}</th>
                 <th>{t('common.quantity')}</th>
@@ -1336,8 +1336,8 @@ export default function Inventory() {
           <table className="table">
             <thead>
               <tr>
-                <th>Order #</th>
-                <th>Feed Type</th>
+                <th>رقم الطلب</th>
+                <th>نوع العلف</th>
                 <th>Output</th>
                 <th>{t('common.status')}</th>
                 <th>{t('common.date')}</th>
@@ -1406,8 +1406,8 @@ export default function Inventory() {
             <thead>
                <tr>
                   <th>Recipe Name</th>
-                  <th>Feed Type</th>
-                  <th>Version</th>
+                  <th>نوع العلف</th>
+                  <th>الإصدار</th>
                   <th>Ingredients</th>
                   <th>Cost/ton</th>
                   <th>Sell/ton (15%)</th>
@@ -1485,7 +1485,7 @@ export default function Inventory() {
                     <th>Req #</th>
                     <th>{t('common.status')}</th>
                     <th>{t('common.items')}</th>
-                    <th>Total Cost</th>
+                    <th>التكلفة الإجمالية</th>
                     <th>Created</th>
                     <th>{t('common.actions')}</th>
                   </tr>
@@ -1574,10 +1574,10 @@ export default function Inventory() {
                           <thead>
                             <tr>
                               <th>{t('common.material')}</th>
-                              <th>Current Stock</th>
+                              <th>المخزون الحالي</th>
                               <th>Reorder Level</th>
                               <th>Suggested Qty</th>
-                              <th>Unit Price</th>
+                              <th>سعر الوحدة</th>
                               <th>{t('common.total')}</th>
                             </tr>
                           </thead>
@@ -1779,7 +1779,7 @@ export default function Inventory() {
                 <option value="">{t('inventory.allTypes')}</option>
                 <option value="PURCHASE">Purchase</option>
                 <option value="TRANSFER">Transfer</option>
-                <option value="RECEIPT">Receipt</option>
+                <option value="RECEIPT">الإيصال</option>
                 <option value="PRODUCTION">{t('nav.production')}</option>
                 <option value="ADJUSTMENT">{t('inventory.adjustment')}</option>
               </select>

@@ -472,19 +472,19 @@ const Payroll = () => {
         {/* Payroll List */}
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title">Payroll Periods</h3>
+            <h3 className="card-title">فترات الرواتب</h3>
             <span className="text-muted">{filteredPayrolls.length} payrolls found</span>
           </div>
           <div className="table-container">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Period</th>
-                  <th>Employees</th>
+                  <th>الفترة</th>
+                  <th>الموظفون</th>
                   <th>{t('orders.dueDate')}</th>
-                  <th>Total Net Salary</th>
+                  <th>صافي الراتب الإجمالي</th>
                   <th>{t('common.status')}</th>
-                  <th>Finance Status</th>
+                  <th>الحالة المالية</th>
                   <th>{t('common.actions')}</th>
                 </tr>
               </thead>
@@ -510,7 +510,7 @@ const Payroll = () => {
                           <span>{formatDate(payroll.dueDate)}</span>
                         </div>
                       ) : (
-                        <span className="text-muted">Not set</span>
+                        <span className="text-muted">غير محدد</span>
                       )}
                     </td>
                     <td className="net-salary font-bold">{formatCurrency(payroll.totalNetSalary || 0)}</td>
@@ -668,7 +668,7 @@ const Payroll = () => {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>Payment Due Date</label>
+                    <label>تاريخ استحقاق الدفع</label>
                     <input
                       type="date"
                       className="form-input"
@@ -1050,35 +1050,35 @@ const Payroll = () => {
               <Users size={20} />
             </div>
             <div className="stat-value">{selectedPayroll.employeePayrolls?.length || 0}</div>
-            <div className="stat-label">Employees</div>
+            <div className="stat-label">الموظفون</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-blue text-blue">
               <Briefcase size={20} />
             </div>
             <div className="stat-value">{formatCurrency(selectedPayroll.totalBasicSalary || 0)}</div>
-            <div className="stat-label">Total Basic Salaries</div>
+            <div className="stat-label">إجمالي الرواتب الأساسية</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-green text-green">
               <TrendingUp size={20} />
             </div>
             <div className="stat-value">{formatCurrency(selectedPayroll.totalAllowances || 0)}</div>
-            <div className="stat-label">Total Allowances</div>
+            <div className="stat-label">إجمالي البدلات</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-red text-red">
               <TrendingDown size={20} />
             </div>
             <div className="stat-value">{formatCurrency(selectedPayroll.totalDeductions || 0)}</div>
-            <div className="stat-label">Total Deductions</div>
+            <div className="stat-label">إجمالي الخصومات</div>
           </div>
           <div className="stat-card stat-highlight">
             <div className="stat-icon bg-purple text-purple">
               <Wallet size={20} />
             </div>
             <div className="stat-value">{formatCurrency(selectedPayroll.totalNetSalary || 0)}</div>
-            <div className="stat-label">Total Net Salary</div>
+            <div className="stat-label">صافي الراتب الإجمالي</div>
           </div>
         </div>
 
@@ -1113,7 +1113,7 @@ const Payroll = () => {
               </tbody>
               <tfoot>
                 <tr className="totals-row">
-                  <td colSpan="2" className="font-bold">TOTALS</td>
+                  <td colSpan="2" className="font-bold">الإجمالي</td>
                   <td className="font-bold">{formatCurrency(selectedPayroll.totalBasicSalary || 0)}</td>
                   <td className="font-bold">{formatCurrency(selectedPayroll.totalAllowances || 0)}</td>
                   <td className="font-bold text-red">{formatCurrency(selectedPayroll.totalDeductions || 0)}</td>
@@ -1129,7 +1129,7 @@ const Payroll = () => {
         {selectedPayroll.employeePayrolls?.length > 0 && (
           <div className="card">
             <div className="card-header">
-              <h3 className="card-title">Salary Breakdown Details</h3>
+              <h3 className="card-title">تفاصيل الراتب</h3>
             </div>
             <div className="card-body">
               <div className="salary-breakdown-grid">
@@ -1140,8 +1140,8 @@ const Payroll = () => {
                       <thead>
                         <tr>
                           <th>{t('hr.employee')}</th>
-                          <th>Housing</th>
-                          <th>Transport</th>
+                          <th>سكن</th>
+                          <th>مواصلات</th>
                           <th>{t('common.other')}</th>
                           <th>{t('common.total')}</th>
                         </tr>

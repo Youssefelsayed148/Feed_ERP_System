@@ -700,7 +700,7 @@ export default function Delivery() {
       return (
         <div style={{ padding: '48px', textAlign: 'center' }}>
           <Truck className="w-12 h-12" style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
-          <p style={{ color: '#64748b' }}>No active deliveries assigned to you</p>
+          <p style={{ color: '#64748b' }}>لا توجد توصيلات نشطة مسندة إليك</p>
           <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '8px' }}>
             Check back later for new assignments
           </p>
@@ -906,10 +906,10 @@ export default function Delivery() {
           <table className="table">
             <thead>
               <tr>
-                <th>Delivery #</th>
+                <th>رقم التوصيل</th>
                 <th>{t('common.client')}</th>
                 <th>{t('common.items')}</th>
-                <th>Scheduled</th>
+                <th>مجدول</th>
                 <th>{t('common.status')}</th>
                 <th>{t('delivery.assignedTo')}</th>
                 <th>{t('common.actions')}</th>
@@ -920,7 +920,7 @@ export default function Delivery() {
                 <tr>
                   <td colSpan="7" style={{ textAlign: 'center', padding: '48px' }}>
                     <Package className="w-12 h-12" style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
-                    <p style={{ color: '#64748b' }}>No pending deliveries to assign</p>
+                    <p style={{ color: '#64748b' }}>لا توجد توصيلات معلقة</p>
                   </td>
                 </tr>
               ) : (
@@ -971,12 +971,12 @@ export default function Delivery() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Delivery #</th>
+                  <th>رقم التوصيل</th>
                   <th>{t('common.client')}</th>
                   <th>{t('delivery.driver')}</th>
                   <th>{t('delivery.vehicle')}</th>
                   <th>{t('common.status')}</th>
-                  <th>Progress</th>
+                  <th>التقدم</th>
                   <th>{t('common.actions')}</th>
                 </tr>
               </thead>
@@ -1049,11 +1049,11 @@ export default function Delivery() {
       <div className="page-header">
         <div>
           <h1>{t('nav.delivery')}</h1>
-          <p>Manage deliveries and vehicles</p>
+          <p>إدارة التوصيلات والمركبات</p>
         </div>
         {userRole === 'driver' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span className="badge badge-primary">Driver Mode</span>
+            <span className="badge badge-primary">وضع السائق</span>
           </div>
         )}
       </div>
@@ -1114,7 +1114,7 @@ export default function Delivery() {
                     <Clock className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="stat-label">Today Scheduled</p>
+                    <p className="stat-label">مجدول اليوم</p>
                     <p className="stat-value">{stats.todayScheduled || 0}</p>
                   </div>
                 </div>
@@ -1125,7 +1125,7 @@ export default function Delivery() {
                     <Check className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="stat-label">Delivered Today</p>
+                    <p className="stat-label">{t('delivery.today')}</p>
                     <p className="stat-value" style={{ color: '#059669' }}>{stats.todayDelivered || 0}</p>
                   </div>
                 </div>
@@ -1163,7 +1163,7 @@ export default function Delivery() {
                     <Truck className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="stat-label">Total Vehicles</p>
+                    <p className="stat-label">إجمالي المركبات</p>
                     <p className="stat-value">{stats.total}</p>
                   </div>
                 </div>
@@ -1185,7 +1185,7 @@ export default function Delivery() {
                     <Route className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="stat-label">On Delivery</p>
+                    <p className="stat-label">قيد التوصيل</p>
                     <p className="stat-value" style={{ color: '#2563eb' }}>{stats.onDelivery || 0}</p>
                   </div>
                 </div>
@@ -1201,8 +1201,8 @@ export default function Delivery() {
               <table className="table">
                 <thead>
                   <tr>
-                    <th>Plate #</th>
-                    <th>Model</th>
+                    <th>رقم اللوحة</th>
+                    <th>الموديل</th>
                     <th>{t('common.type')}</th>
                     <th>{t('delivery.driver')}</th>
                     <th>{t('delivery.capacity')}</th>
@@ -1214,7 +1214,7 @@ export default function Delivery() {
                     <tr>
                       <td colSpan="6" style={{ textAlign: 'center', padding: '48px' }}>
                         <Truck className="w-12 h-12" style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
-                        <p style={{ color: '#64748b' }}>No vehicles found</p>
+                        <p style={{ color: '#64748b' }}>لم يتم العثور على مركبات</p>
                       </td>
                     </tr>
                   ) : (
@@ -1273,7 +1273,7 @@ export default function Delivery() {
             <div className="modal-body">
               {/* Status Selection */}
               <div style={{ marginBottom: '24px' }}>
-                <label className="form-label">Delivery Status</label>
+                <label className="form-label">حالة التوصيل</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {['completed', 'partial', 'rejected'].map((status) => (
                     <button
@@ -1358,9 +1358,9 @@ export default function Delivery() {
                             onChange={(e) => updateDeliveredItem(index, 'condition', e.target.value)}
                             style={{ padding: '6px 10px', fontSize: '14px' }}
                           >
-                            <option value="good">Good</option>
-                            <option value="damaged">Damaged</option>
-                            <option value="expired">Expired</option>
+                            <option value="good">جيد</option>
+                            <option value="damaged">تالف</option>
+                            <option value="expired">منتهي</option>
                           </select>
                         </div>
                       </div>
@@ -1448,7 +1448,7 @@ export default function Delivery() {
                   {otpVerified && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#22c55e' }}>
                       <CheckCircle className="w-4 h-4" />
-                      <span style={{ fontSize: '14px' }}>OTP Verified</span>
+                      <span style={{ fontSize: '14px' }}>تم التحقق من OTP</span>
                     </div>
                   )}
                 </div>
@@ -1649,7 +1649,7 @@ export default function Delivery() {
 
                 {/* Delivery Notes */}
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Delivery Notes</label>
+                  <label className="form-label">{t('delivery.notes')}</label>
                   <textarea
                     className="form-textarea"
                     value={confirmationData.deliveryNotes}
@@ -2042,7 +2042,7 @@ export default function Delivery() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div>
-                <h3 className="modal-title">Delivery Journey</h3>
+                <h3 className="modal-title">{t('delivery.journey')}</h3>
                 <p style={{ margin: '4px 0 0 0', color: '#64748b', fontSize: '14px' }}>
                   {selectedDelivery.deliveryNumber} - {selectedDelivery.client?.name}
                 </p>

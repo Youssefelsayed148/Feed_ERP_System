@@ -431,7 +431,7 @@ export default function Assets() {
       {stats && activeTab === 'vehicles' && (
         <div className="stats-grid">
           <div className="stat-card">
-            <span className="stat-label">Total Vehicles</span>
+            <span className="stat-label">إجمالي المركبات</span>
             <span className="stat-value">{stats.total}</span>
           </div>
           <div className="stat-card">
@@ -452,7 +452,7 @@ export default function Assets() {
       {stats && activeTab === 'maintenance' && (
         <div className="stats-grid">
           <div className="stat-card">
-            <span className="stat-label">Total Records</span>
+            <span className="stat-label">إجمالي السجلات</span>
             <span className="stat-value">{stats.total}</span>
           </div>
           <div className="stat-card">
@@ -464,7 +464,7 @@ export default function Assets() {
             <span className="stat-value" style={{ color: '#f59e0b' }}>{stats.inProgress}</span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">This Month Cost</span>
+            <span className="stat-label">تكلفة هذا الشهر</span>
             <span className="stat-value" style={{ color: '#10b981' }}>{formatCurrency(stats.monthlyCost || 0)}</span>
           </div>
         </div>
@@ -482,18 +482,18 @@ export default function Assets() {
             <thead>
               <tr>
                 <th></th>
-                <th>Machine</th>
+                <th>آلة</th>
                 <th>{t('common.type')}</th>
                 <th>{t('assets.location')}</th>
                 <th>{t('common.hours')}</th>
-                <th>Next Service</th>
+                <th>الصيانة القادمة</th>
                 <th>{t('common.status')}</th>
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {machines.length === 0 ? (
-                <tr><td colSpan="8" style={{ textAlign: 'center' }}>No machines</td></tr>
+                <tr><td colSpan="8" style={{ textAlign: 'center' }}>لا توجد آلات</td></tr>
               ) : machines.map((mach) => (
                 <React.Fragment key={mach._id}>
                   <tr>
@@ -567,7 +567,7 @@ export default function Assets() {
                       <td colSpan="8" style={{ background: '#f8fafc', padding: '16px' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
                           <div className="card">
-                            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>Maintenance Schedule</h4>
+                            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>جدول الصيانة</h4>
                             {mach.maintenanceSchedule ? (
                               <div style={{ fontSize: '0.85em' }}>
                                 <div><strong>Type:</strong> {mach.maintenanceSchedule.type?.replace('_', ' ')}</div>
@@ -577,11 +577,11 @@ export default function Assets() {
                                 <div><strong>Reminders:</strong> {mach.maintenanceSchedule.reminderDaysBefore || 7} days before</div>
                               </div>
                             ) : (
-                              <div style={{ color: '#64748b', fontSize: '0.85em' }}>No schedule set</div>
+                              <div style={{ color: '#64748b', fontSize: '0.85em' }}>لم يتم تعيين جدول</div>
                             )}
                           </div>
                           <div className="card">
-                            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>Reminder Settings</h4>
+                            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>إعدادات التذكيرات</h4>
                             {mach.reminders ? (
                               <div style={{ fontSize: '0.85em' }}>
                                 <div><strong>Enabled:</strong> {mach.reminders.enabled ? 'Yes' : 'No'}</div>
@@ -594,7 +594,7 @@ export default function Assets() {
                             )}
                           </div>
                           <div className="card">
-                            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>Recent Maintenance</h4>
+                            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>آخر الصيانات</h4>
                             {mach.maintenanceHistory && mach.maintenanceHistory.length > 0 ? (
                               <div style={{ fontSize: '0.85em' }}>
                                 <div><strong>Last:</strong> {new Date(mach.maintenanceHistory[mach.maintenanceHistory.length - 1].date).toLocaleDateString()}</div>
@@ -602,7 +602,7 @@ export default function Assets() {
                                 <div><strong>Cost:</strong> {formatCurrency(mach.maintenanceHistory[mach.maintenanceHistory.length - 1].cost)}</div>
                               </div>
                             ) : (
-                              <div style={{ color: '#64748b', fontSize: '0.85em' }}>No maintenance history</div>
+                              <div style={{ color: '#64748b', fontSize: '0.85em' }}>لا يوجد سجل صيانة</div>
                             )}
                           </div>
                         </div>
@@ -617,18 +617,18 @@ export default function Assets() {
           <table className="table">
             <thead>
               <tr>
-                <th>Vehicle</th>
+                <th>مركبة</th>
                 <th>{t('common.type')}</th>
-                <th>Plate Number</th>
-                <th>Total KM</th>
-                <th>Next Service</th>
+                <th>رقم اللوحة</th>
+                <th>إجمالي الكيلومترات</th>
+                <th>الصيانة القادمة</th>
                 <th>{t('common.status')}</th>
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
             <tbody>
               {vehicles.length === 0 ? (
-                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '48px' }}>No vehicles</td></tr>
+                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '48px' }}>لا توجد مركبات</td></tr>
               ) : vehicles.map((veh) => (
                 <tr key={veh._id}>
                   <td>
@@ -682,20 +682,20 @@ export default function Assets() {
           <table className="table">
             <thead>
               <tr>
-                <th>Record #</th>
-                <th>Title</th>
+                <th>رقم السجل</th>
+                <th>العنوان</th>
                 <th>{t('assets.asset')}</th>
                 <th>{t('common.type')}</th>
                 <th>{t('common.cost')}</th>
                 <th>{t('production.scheduled')}</th>
                 <th>{t('maintenance.priority')}</th>
                 <th>{t('common.status')}</th>
-                <th>Technician</th>
+                <th>الفني</th>
               </tr>
             </thead>
             <tbody>
               {maintenance.length === 0 ? (
-                <tr><td colSpan="9" style={{ textAlign: 'center', padding: '48px' }}>No maintenance records</td></tr>
+                <tr><td colSpan="9" style={{ textAlign: 'center', padding: '48px' }}>لا توجد سجلات صيانة</td></tr>
               ) : maintenance.map((rec) => (
                 <tr key={rec._id}>
                   <td><strong>{rec.recordNumber}</strong></td>
@@ -749,8 +749,8 @@ export default function Assets() {
                     value={scheduleMaintenanceForm.assetType}
                     onChange={(e) => setScheduleMaintenanceForm({...scheduleMaintenanceForm, assetType: e.target.value, assetId: ''})}
                   >
-                    <option value="machine">Machine</option>
-                    <option value="vehicle">Vehicle</option>
+                    <option value="machine">آلة</option>
+                    <option value="vehicle">مركبة</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -951,7 +951,7 @@ export default function Assets() {
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label>Machine</label>
+                <label>آلة</label>
                 <input type="text" value={selectedMachine?.name || ''} disabled className="form-input" />
               </div>
               <div className="form-group">

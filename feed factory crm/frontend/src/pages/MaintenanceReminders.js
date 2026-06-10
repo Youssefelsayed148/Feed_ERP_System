@@ -454,14 +454,14 @@ export default function MaintenanceReminders() {
           <table className="table">
             <thead>
               <tr>
-                <th>Record #</th>
-                <th>Title</th>
+                <th>رقم السجل</th>
+                <th>العنوان</th>
                 <th>{t('assets.title')}</th>
                 <th>{t('common.type')}</th>
-                <th>Scheduled Date</th>
+                <th>التاريخ المجدول</th>
                 <th>{t('maintenance.priority')}</th>
                 <th>{t('common.status')}</th>
-                <th>Technician</th>
+                <th>الفني</th>
                 <th>Est. Cost</th>
                 <th>{t('common.actions')}</th>
               </tr>
@@ -607,7 +607,7 @@ export default function MaintenanceReminders() {
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group">
-                  <label>Record Number</label>
+                  <label>رقم التسجيل</label>
                   <input type="text" value={selectedReminder.recordNumber} disabled className="form-input" />
                 </div>
                 <div className="form-group">
@@ -621,7 +621,7 @@ export default function MaintenanceReminders() {
               </div>
               
               <div className="form-group">
-                <label>Title</label>
+                <label>العنوان</label>
                 <input type="text" value={selectedReminder.title} disabled className="form-input" />
               </div>
               
@@ -647,7 +647,7 @@ export default function MaintenanceReminders() {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>Scheduled Date</label>
+                  <label>التاريخ المجدول</label>
                   <input 
                     type="text" 
                     value={new Date(selectedReminder.scheduledDate).toLocaleString()} 
@@ -722,7 +722,7 @@ export default function MaintenanceReminders() {
                     </div>
                   </div>
                   <div className="form-group">
-                    <label>Parts Used</label>
+                    <label>الأجزاء المستخدمة</label>
                     <input type="text" value={selectedReminder.partsUsed?.join(', ') || '-'} disabled className="form-input" />
                   </div>
                   <div className="form-group">
@@ -759,7 +759,7 @@ export default function MaintenanceReminders() {
         <div className="modal-overlay" onClick={() => setShowStartModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Start Maintenance Work</h2>
+              <h2 className="modal-title">بدء أعمال الصيانة</h2>
               <button className="modal-close" onClick={() => setShowStartModal(false)}>
                 <X className="w-5 h-5" />
               </button>
@@ -781,7 +781,7 @@ export default function MaintenanceReminders() {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>Scheduled Date</label>
+                  <label>التاريخ المجدول</label>
                   <input 
                     type="text" 
                     value={new Date(selectedReminder.scheduledDate).toLocaleString()} 
@@ -814,7 +814,7 @@ export default function MaintenanceReminders() {
         <div className="modal-overlay" onClick={() => setShowRescheduleModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Reschedule Maintenance</h2>
+              <h2 className="modal-title">إعادة جدولة الصيانة</h2>
               <button className="modal-close" onClick={() => setShowRescheduleModal(false)}>
                 <X className="w-5 h-5" />
               </button>
@@ -846,7 +846,7 @@ export default function MaintenanceReminders() {
               </div>
               
               <div className="form-group">
-                <label>Reason for Rescheduling</label>
+                <label>سبب إعادة الجدولة</label>
                 <textarea 
                   className="form-textarea" 
                   rows="3"

@@ -662,7 +662,7 @@ export default function FeedRecipes() {
               <tr>
                 <th>{t('recipes.name')}</th>
                 <th>{t('production.feedType')}</th>
-                <th>Version</th>
+                <th>الإصدار</th>
                 <th>{t('recipes.ingredients')}</th>
                 <th>Cost/1000kg (EGP)</th>
                 <th>{t('common.status')}</th>
@@ -1021,7 +1021,7 @@ export default function FeedRecipes() {
                         className="input w-full"
                         required
                       >
-                        <option value="">Select feed type</option>
+                        <option value="">اختر نوع العلف</option>
                         {feedTypes.map(ft => (
                           <option key={ft._id} value={ft._id}>{ft.name}</option>
                         ))}
@@ -1031,7 +1031,7 @@ export default function FeedRecipes() {
 
                   <div className="form-row-responsive">
                     <div className="form-group">
-                      <label className="label">Version</label>
+                      <label className="label">الإصدار</label>
                       <input
                         type="text"
                         value={formData.version}
@@ -1078,7 +1078,7 @@ export default function FeedRecipes() {
                               onChange={(e) => handleIngredientChange(idx, 'materialId', e.target.value)}
                               className="input w-full text-sm"
                             >
-                              <option value="">Select material</option>
+                              <option value="">اختر الخامة</option>
                               {rawMaterials.map(rm => (
                                 <option key={rm._id} value={rm._id}>{rm.name}</option>
                               ))}
@@ -1097,7 +1097,7 @@ export default function FeedRecipes() {
                             />
                           </div>
                           <div>
-                            <label className="label text-xs">Qty (kg)</label>
+                            <label className="label text-xs">الكمية (كجم)</label>
                             <input
                               type="text"
                               value={ing.quantity}
@@ -1106,7 +1106,7 @@ export default function FeedRecipes() {
                             />
                           </div>
                           <div>
-                            <label className="label text-xs">Cost (EGP)</label>
+                            <label className="label text-xs">التكلفة</label>
                             <input
                               type="text"
                               value={ing.totalCost}
@@ -1176,7 +1176,7 @@ export default function FeedRecipes() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="label">Energy (kcal/kg)</label>
+                      <label className="label">الطاقة (كيلو كالوري/كجم)</label>
                       <input
                         type="number"
                         value={formData.energy}

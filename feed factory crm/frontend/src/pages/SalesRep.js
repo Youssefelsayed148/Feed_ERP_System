@@ -484,7 +484,7 @@ const SalesRep = () => {
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px' }}>{t('orders.order')} <span style={{ color: '#ef4444' }}>*</span></label>
               <select name="orderNumber" required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}>
-                <option value="">Select Order</option>
+                <option value="">اختر الطلب</option>
                 {clientOrders.map(o => (
                   <option key={o.id} value={o.order_number}>{o.order_number} - {formatCurrency(parseFloat(o.final_amount || 0) )}</option>
                 ))}
@@ -508,7 +508,7 @@ const SalesRep = () => {
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button type="button" onClick={() => setShowInvoiceRequestModal(false)} style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'white', cursor: 'pointer' }}>{t('common.cancel')}</button>
-              <button type="submit" style={{ flex: 2, padding: '12px', borderRadius: '8px', border: 'none', background: '#f59e0b', color: 'white', cursor: 'pointer', fontWeight: 500 }}>Send Request</button>
+              <button type="submit" style={{ flex: 2, padding: '12px', borderRadius: '8px', border: 'none', background: '#f59e0b', color: 'white', cursor: 'pointer', fontWeight: 500 }}>إرسال الطلب</button>
             </div>
           </form>
         </div>
@@ -553,7 +553,7 @@ const SalesRep = () => {
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px' }}>Client *</label>
               <select value={orderClientId} onChange={(e) => setOrderClientId(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}>
-                <option value="">Select Client</option>
+                <option value="">اختر العميل</option>
                 {clients.map(c => (
                   <option key={c.id} value={c.id}>{c.name_arabic} ({c.code})</option>
                 ))}
@@ -570,12 +570,12 @@ const SalesRep = () => {
               </div>
             </div>
 
-            <h4 style={{ margin: '0 0 12px 0' }}>Order Items</h4>
+            <h4 style={{ margin: '0 0 12px 0' }}>عناصر الطلب</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
               {orderItems.map((item, index) => (
                 <div key={index} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '8px', alignItems: 'center', background: '#f9fafb', padding: '10px', borderRadius: '8px' }}>
                   <select value={item.feedTypeId} onChange={(e) => updateItem(index, 'feedTypeId', e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db' }}>
-                    <option value="">Select Feed</option>
+                    <option value="">اختر العلف</option>
                     {feedTypes.map(ft => (
                       <option key={ft.id} value={ft.id}>{ft.name_arabic || ft.name}</option>
                     ))}

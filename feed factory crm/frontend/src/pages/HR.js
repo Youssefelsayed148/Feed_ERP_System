@@ -835,7 +835,7 @@ const HR = () => {
         <div className="page-header">
           <div>
             <h2>{t('hr.attendanceManagement')}</h2>
-            <p className="page-subtitle">Track employee attendance and working hours</p>
+            <p className="page-subtitle">تتبع حضور وانصراف الموظفين</p>
           </div>
           <div className="header-actions">
             <input 
@@ -853,14 +853,14 @@ const HR = () => {
               <CheckCircle size={24} />
             </div>
             <div className="stat-value">{todayAttendance.filter(a => a.status === 'present').length}</div>
-            <div className="stat-label">Present Today</div>
+            <div className="stat-label">الحضور اليوم</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-orange text-orange">
               <Clock size={24} />
             </div>
             <div className="stat-value">{todayAttendance.filter(a => a.status === 'late').length}</div>
-            <div className="stat-label">Late Arrivals</div>
+            <div className="stat-label">متأخري الحضور</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-red text-red">
@@ -922,7 +922,7 @@ const HR = () => {
                   <th>{t('hr.employee')}</th>
                   <th>{t('hr.checkIn')}</th>
                   <th>{t('hr.checkOut')}</th>
-                  <th>Working Hours</th>
+                  <th>ساعات العمل</th>
                   <th>{t('common.status')}</th>
                 </tr>
               </thead>
@@ -963,8 +963,8 @@ const HR = () => {
       <div className="tab-content">
         <div className="page-header">
           <div>
-            <h2>Leave Management</h2>
-            <p className="page-subtitle">Manage employee leave requests and balances</p>
+            <h2>إدارة الإجازات</h2>
+            <p className="page-subtitle">إدارة طلبات الإجازات والأرصدة</p>
           </div>
           <button className="btn btn-primary" onClick={() => setShowLeaveModal(true)}>
             <Calendar size={18} /> Request Leave
@@ -977,7 +977,7 @@ const HR = () => {
               <Clock size={24} />
             </div>
             <div className="stat-value">{displayLeaves.filter(l => l.status === 'pending').length}</div>
-            <div className="stat-label">Pending Requests</div>
+            <div className="stat-label">الطلبات المعلقة</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-green text-green">
@@ -998,14 +998,14 @@ const HR = () => {
               <Plane size={24} />
             </div>
             <div className="stat-value">{displayEmployees.reduce((sum, e) => sum + (e.leaveBalance?.annual || 0), 0)}</div>
-            <div className="stat-label">Total Annual Leave</div>
+            <div className="stat-label">إجمالي الإجازات السنوية</div>
           </div>
         </div>
 
         {canApproveLeave && displayLeaves.filter(l => l.status === 'pending').length > 0 && (
           <div className="card pending-leaves-card">
             <div className="card-header">
-              <h3 className="card-title">Pending Leave Requests</h3>
+              <h3 className="card-title">طلبات إجازة معلقة</h3>
             </div>
             <div className="pending-leaves-list">
               {displayLeaves.filter(l => l.status === 'pending').map(leave => (
@@ -1038,17 +1038,17 @@ const HR = () => {
 
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title">Leave History</h3>
+            <h3 className="card-title">سجل الإجازات</h3>
           </div>
           <div className="table-container">
             <table className="table">
               <thead>
                 <tr>
                   <th>{t('hr.employee')}</th>
-                  <th>Leave Type</th>
+                  <th>نوع الإجازة</th>
                   <th>{t('common.startDate')}</th>
                   <th>{t('common.endDate')}</th>
-                  <th>Reason</th>
+                  <th>السبب</th>
                   <th>{t('common.status')}</th>
                 </tr>
               </thead>
@@ -1099,8 +1099,8 @@ const HR = () => {
       <div className="tab-content">
         <div className="page-header">
           <div>
-            <h2>Payroll Management</h2>
-            <p className="page-subtitle">Process payroll periods and post to finance</p>
+            <h2>إدارة الرواتب</h2>
+            <p className="page-subtitle">معالجة فترات الرواتب وترحيلها للمالية</p>
           </div>
           <div className="header-actions">
             {canProcessPayroll && (
@@ -1122,13 +1122,13 @@ const HR = () => {
             <div className="workflow-arrow"><ArrowRight size={16} /></div>
             <div className="workflow-step">
               <div className="step-icon"><RefreshCw size={18} /></div>
-              <div className="step-label">Processed</div>
+              <div className="step-label">تمت المعالجة</div>
               <div className="step-count">{totalProcessed}</div>
             </div>
             <div className="workflow-arrow"><ArrowRight size={16} /></div>
             <div className="workflow-step">
               <div className="step-icon"><CheckCircle size={18} /></div>
-              <div className="step-label">Posted</div>
+              <div className="step-label">مرحل</div>
               <div className="step-count">{totalPosted}</div>
             </div>
             <div className="workflow-arrow"><ArrowRight size={16} /></div>
@@ -1148,14 +1148,14 @@ const HR = () => {
             <div className="stat-value">
               {formatCurrency(displayPayrollPeriods.reduce((sum, p) => sum + (p.totalNetSalary || 0), 0))}
             </div>
-            <div className="stat-label">Total Payroll Value</div>
+            <div className="stat-label">إجمالي قيمة الرواتب</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-blue text-blue">
               <FileText size={24} />
             </div>
             <div className="stat-value">{displayPayrollPeriods.length}</div>
-            <div className="stat-label">Payroll Periods</div>
+            <div className="stat-label">فترات الرواتب</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-purple text-purple">
@@ -1171,24 +1171,24 @@ const HR = () => {
               <CheckCircle size={24} />
             </div>
             <div className="stat-value">{totalProcessed}</div>
-            <div className="stat-label">Ready to Post</div>
+            <div className="stat-label">جاهز للترحيل</div>
           </div>
         </div>
 
         {/* Payroll Periods List */}
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title">Payroll Periods</h3>
+            <h3 className="card-title">فترات الرواتب</h3>
           </div>
           <div className="table-container">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Period</th>
+                  <th>الفترة</th>
                   <th>{t('dashboard.activeEmployees')}</th>
-                  <th>Total Net Salary</th>
+                  <th>صافي الراتب الإجمالي</th>
                   <th>{t('common.status')}</th>
-                  <th>Finance Status</th>
+                  <th>الحالة المالية</th>
                   <th>{t('common.actions')}</th>
                 </tr>
               </thead>
@@ -1408,7 +1408,7 @@ const HR = () => {
                       {formatCurrency(selectedPayroll.totalBasicSalary || 
                         selectedPayroll.employeePayrolls?.reduce((sum, ep) => sum + (ep.basicSalary || 0), 0) || 0)}
                     </div>
-                    <div className="stat-label">Total Basic Salaries</div>
+                    <div className="stat-label">إجمالي الرواتب الأساسية</div>
                   </div>
                   <div className="stat-card">
                     <div className="stat-icon bg-green text-green">
@@ -1418,7 +1418,7 @@ const HR = () => {
                       {formatCurrency(selectedPayroll.totalAllowances || 
                         selectedPayroll.employeePayrolls?.reduce((sum, ep) => sum + (ep.totalAllowances || 0), 0) || 0)}
                     </div>
-                    <div className="stat-label">Total Allowances</div>
+                    <div className="stat-label">إجمالي البدلات</div>
                   </div>
                   <div className="stat-card">
                     <div className="stat-icon bg-red text-red">
@@ -1428,7 +1428,7 @@ const HR = () => {
                       {formatCurrency(selectedPayroll.totalDeductions || 
                         selectedPayroll.employeePayrolls?.reduce((sum, ep) => sum + (ep.totalDeductions || 0), 0) || 0)}
                     </div>
-                    <div className="stat-label">Total Deductions</div>
+                    <div className="stat-label">إجمالي الخصومات</div>
                   </div>
                   <div className="stat-card">
                     <div className="stat-icon bg-purple text-purple">
@@ -1452,9 +1452,9 @@ const HR = () => {
                   <div className="card-body" style={{ padding: '12px 16px' }}>
                     <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
                       <select id="bulkField" className="form-select" style={{ width: '140px' }}>
-                        <option value="basic_salary">Basic Salary</option>
+                        <option value="basic_salary">{t('hr.basicSalary')}</option>
                         <option value="additions">{t('payroll.allowances')}</option>
-                        <option value="deductions">Deductions</option>
+                        <option value="deductions">{t('hr.deductions')}</option>
                       </select>
                       <select id="bulkType" className="form-select" style={{ width: '120px' }}>
                         <option value="fixed">+ Fixed Amount</option>
@@ -1492,7 +1492,7 @@ const HR = () => {
                 {/* Employee Table */}
                 <div className="card">
                   <div className="card-header">
-                    <h3 className="card-title">Employee Payrolls</h3>
+                    <h3 className="card-title">{t('hr.employeePayrolls')}</h3>
                   </div>
                   <div className="table-container">
                     <table className="table">
@@ -1502,7 +1502,7 @@ const HR = () => {
                           <th>{t('hr.department')}</th>
                           <th>Basic</th>
                           <th>{t('payroll.allowances')}</th>
-                          <th>Deductions</th>
+                          <th>{t('hr.deductions')}</th>
                           <th>Net Salary</th>
                           <th>{t('hr.bankAccount')}</th>
                         </tr>
@@ -1721,7 +1721,7 @@ const HR = () => {
                 <h4 className="section-title"><TrendingUp size={16} /> Sales Metrics</h4>
                 <div className="metrics-grid">
                   <div className="metric-item">
-                    <div className="metric-label-sm">Orders</div>
+                    <div className="metric-label-sm">{t('nav.orders')}</div>
                     <div className="metric-value-sm">{rating.salesMetrics.ordersApproved}/{rating.salesMetrics.ordersCreated}</div>
                   </div>
                   <div className="metric-item">
@@ -1845,7 +1845,7 @@ const HR = () => {
                 <th>{t('hr.employee')}</th>
                 <th>{t('hr.department')}</th>
                 <th>Score</th>
-                <th>Grade</th>
+                <th>{t('hr.grade')}</th>
               </tr>
             </thead>
             <tbody>
@@ -1983,7 +1983,7 @@ const HR = () => {
           <form onSubmit={handleSaveRating} className="modal-body">
             <div className="form-row">
               <div className="form-group">
-                <label>Period</label>
+                <label>الفترة</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -2387,7 +2387,7 @@ const HR = () => {
             <form onSubmit={handleAddEmployee} className="modal-body">
               {/* Personal Information */}
               <div className="form-section" style={{ marginBottom: '20px' }}>
-                <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>Personal Information</h4>
+                <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>المعلومات الشخصية</h4>
                 <div className="form-grid">
                   <div className="form-group">
                     <label className="form-label">First Name *</label>
@@ -2406,7 +2406,7 @@ const HR = () => {
                     <input type="tel" className="form-input" required value={newEmployee.phone} onChange={(e) => setNewEmployee({...newEmployee, phone: e.target.value})} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Date of Birth</label>
+                    <label className="form-label">{t('hr.dateOfBirth')}</label>
                     <input type="date" className="form-input" value={newEmployee.dateOfBirth} onChange={(e) => setNewEmployee({...newEmployee, dateOfBirth: e.target.value})} />
                   </div>
                   <div className="form-group">
@@ -2462,7 +2462,7 @@ const HR = () => {
                 <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>{t('hr.bankDetails')}</h4>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">Bank Name</label>
+                    <label className="form-label">{t('hr.bankName')}</label>
                     <input type="text" className="form-input" value={newEmployee.bankName} onChange={(e) => setNewEmployee({...newEmployee, bankName: e.target.value})} placeholder="e.g., CBE" />
                   </div>
                   <div className="form-group">
@@ -2471,14 +2471,14 @@ const HR = () => {
                   </div>
                   <div className="form-group">
                     <label className="form-label">IBAN</label>
-                    <input type="text" className="form-input" value={newEmployee.iban} onChange={(e) => setNewEmployee({...newEmployee, iban: e.target.value})} placeholder="IBAN" />
+                    <input type="text" className="form-input" value={newEmployee.iban} onChange={(e) => setNewEmployee({...newEmployee, iban: e.target.value})} placeholder="رقم IBAN" />
                   </div>
                 </div>
               </div>
 
               {/* Emergency Contact */}
               <div className="form-section" style={{ marginBottom: '20px' }}>
-                <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>Emergency Contact</h4>
+                <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>{t('hr.emergencyContact')}</h4>
                 <div className="form-grid">
                   <div className="form-group">
                     <label className="form-label">Contact Name</label>
@@ -2541,7 +2541,7 @@ const HR = () => {
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Reason</label>
+                <label className="form-label">السبب</label>
                 <textarea className="form-input" rows="3" value={newLeave.reason} onChange={(e) => setNewLeave({...newLeave, reason: e.target.value})} />
               </div>
               <div className="modal-footer">
@@ -2586,7 +2586,7 @@ const HR = () => {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Expiry Date</label>
+                <label className="form-label">تاريخ الانتهاء</label>
                 <input type="date" className="form-input" value={newDoc.expiryDate} onChange={(e) => setNewDoc({...newDoc, expiryDate: e.target.value})} />
               </div>
               <div className="form-group">
@@ -2609,7 +2609,7 @@ const HR = () => {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2 className="modal-title">Employee Details</h2>
+              <h2 className="modal-title">{t('hr.employeeDetails')}</h2>
               <button className="modal-close" onClick={() => setSelectedEmployee(null)}>✕</button>
             </div>
             <div className="modal-body">
@@ -2669,7 +2669,7 @@ const HR = () => {
               {/* Documents Section */}
               <div className="bank-details" style={{ marginTop: '20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <div className="section-title" style={{ marginBottom: 0 }}>Documents</div>
+                  <div className="section-title" style={{ marginBottom: 0 }}>{t('common.documents')}</div>
                   <button className="btn btn-sm btn-primary" onClick={() => setShowDocModal(true)}>
                     <Plus size={14} /> Upload Document
                   </button>
