@@ -564,7 +564,7 @@ export default function FeedRecipes() {
         </div>
         <button onClick={handleCreateRecipe} className="btn btn-primary">
           <Plus className="w-5 h-5" />
-          Create Recipe
+          {t('recipes.create')}
         </button>
       </div>
 
@@ -608,7 +608,7 @@ export default function FeedRecipes() {
           <p className="stat-value text-green-600">{stats.active}</p>
         </div>
         <div className="stat-card">
-          <p className="stat-label">Avg Cost/1000kg</p>
+          <p className="stat-label">{t('recipes.avgCost')}</p>
           <p className="stat-value">{stats.avgCost.toFixed(0)} EGP</p>
         </div>
         <div className="stat-card">
@@ -624,7 +624,7 @@ export default function FeedRecipes() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search recipes..."
+              placeholder={t('recipes.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input pl-10 w-full"
