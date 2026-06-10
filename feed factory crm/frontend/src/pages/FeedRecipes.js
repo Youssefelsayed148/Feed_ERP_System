@@ -664,7 +664,7 @@ export default function FeedRecipes() {
                 <th>{t('production.feedType')}</th>
                 <th>الإصدار</th>
                 <th>{t('recipes.ingredients')}</th>
-                <th>Cost/1000kg (EGP)</th>
+                <th>التكلفة/1000 كجم</th>
                 <th>{t('common.status')}</th>
                 <th>{t('common.actions')}</th>
               </tr>
@@ -1145,7 +1145,7 @@ export default function FeedRecipes() {
 
                   {/* Selling Price */}
                   <div className="form-group mt-4">
-                    <label className="label">Selling Price per ton / سعر البيع للطن (EGP)</label>
+                    <label className="label">سعر البيع للطن (ج.م)</label>
                     <div className="flex gap-2 items-center">
                       <input
                         type="number"
