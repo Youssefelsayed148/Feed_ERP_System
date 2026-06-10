@@ -111,7 +111,7 @@ router.get('/stats', authenticate, async (req, res) => {
 router.get('/pending/delivery', authenticate, async (req, res) => {
   try {
     const result = await query(
-      `SELECT o.*, c.name_english as client_name
+      `SELECT o.*, COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name
        FROM sales_orders o
        LEFT JOIN clients c ON o.client_id = c.id
        WHERE o.status IN ('confirmed', 'processing', 'in_transit')
@@ -139,7 +139,7 @@ router.get('/pending/delivery', authenticate, async (req, res) => {
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const orderResult = await query(
-      `SELECT o.*, c.name_english as client_name
+      `SELECT o.*, COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name
        FROM sales_orders o
        LEFT JOIN clients c ON o.client_id = c.id
        WHERE o.id = $1`,

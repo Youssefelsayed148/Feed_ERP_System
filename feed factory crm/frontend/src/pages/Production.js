@@ -369,7 +369,7 @@ const Production = () => {
           <div className="stat-icon" style={{ background: '#ef444420', color: '#ef4444' }}>
             <DollarSign size={24} />
           </div>
-          <div className="stat-value">EGP {Math.round(stats.totalCost).toLocaleString()}</div>
+          <div className="stat-value">ج.م {Math.round(stats.totalCost).toLocaleString()}</div>
           <div className="stat-label">{t('production.totalCost')}</div>
         </div>
       </div>
@@ -430,7 +430,7 @@ const Production = () => {
                       Current Inventory: <strong>{(parseFloat(s.current_inventory_kg) / 1000).toLocaleString()} طن</strong> ({parseFloat(s.current_inventory_kg).toLocaleString()} kg)
                     </div>
                     <div style={{ fontSize: '13px', opacity: 0.9 }}>
-                      Recipe Cost: EGP {Math.round(parseFloat(s.recipe_cost_per_1000kg) / 100).toLocaleString()} / ton
+                      Recipe Cost: ج.م {Math.round(parseFloat(s.recipe_cost_per_1000kg) / 100).toLocaleString()} / ton
                     </div>
                     <button
                       className="btn btn-sm"
@@ -505,10 +505,10 @@ const Production = () => {
                   <td>
                     <div><strong>{order.quantityTons} طن</strong></div>
                     <div style={{ fontSize: '12px', color: '#64748b' }}>
-                      {order.numberOfBags} x {order.packageSize}kg أكياس
+                      {order.numberOfBags} x {order.packageSize}كجم
                     </div>
                   </td>
-                  <td>EGP {Math.round(order.totalCost).toLocaleString()}</td>
+                  <td>ج.م {Math.round(order.totalCost).toLocaleString()}</td>
                   <td>
                     <span className={`badge ${getStatusColor(order.status)}`}>
                       {getStatusLabel(order.status)}
@@ -602,9 +602,9 @@ const Production = () => {
                     value={formData.packageSize}
                     onChange={(e) => setFormData({ ...formData, packageSize: e.target.value })}
                   >
-                    <option value="50">50 kg أكياس</option>
-                    <option value="25">25 kg أكياس</option>
-                    <option value="10">10 kg أكياس</option>
+                    <option value="50">50 كجم</option>
+                    <option value="25">25 كجم</option>
+                    <option value="10">10 كجم</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -668,14 +668,14 @@ const Production = () => {
                         <td style={{ padding: '8px 0' }}>
                           <strong>{selectedOrder.quantityTons} طن</strong>
                           <span style={{ color: '#64748b', marginLeft: '8px' }}>
-                            ({selectedOrder.numberOfBags} x {selectedOrder.packageSize}kg أكياس)
+                            ({selectedOrder.numberOfBags} x {selectedOrder.packageSize}كجم)
                           </span>
                         </td>
                       </tr>
                       <tr>
                         <td style={{ padding: '8px 0', color: '#64748b' }}>Total Cost:</td>
                         <td style={{ padding: '8px 0', fontWeight: 600, color: '#3b82f6' }}>
-                          EGP {Math.round(selectedOrder.totalCost).toLocaleString()}
+                          ج.م {Math.round(selectedOrder.totalCost).toLocaleString()}
                         </td>
                       </tr>
                     </tbody>
