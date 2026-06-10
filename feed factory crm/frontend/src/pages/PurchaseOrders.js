@@ -537,13 +537,13 @@ const PurchaseOrders = () => {
                             className="btn btn-success btn-sm" 
                             onClick={() => approvePO(po.id)}
                           >
-                            Approve
+                            موافقة
                           </button>
                           <button 
                             className="btn btn-danger btn-sm" 
                             onClick={() => cancelPO(po.id)}
                           >
-                            Reject
+                            رفض
                           </button>
                         </>
                       )}
@@ -922,10 +922,10 @@ const PurchaseOrders = () => {
               {selectedPO.status === 'pending_approval' && (
                 <>
                   <button type="button" className="btn btn-success" onClick={() => { approvePO(selectedPO.id); closeModal(); }}>
-                    Approve
+                    موافقة
                   </button>
                   <button type="button" className="btn btn-danger" onClick={() => { cancelPO(selectedPO.id); closeModal(); }}>
-                    Reject
+                    رفض
                   </button>
                 </>
               )}

@@ -429,7 +429,7 @@ const Payables = () => {
                         className="btn btn-secondary btn-sm"
                         onClick={() => handleViewClick(payable)}
                       >
-                        View
+                        عرض
                       </button>
                     </div>
                   </td>
@@ -509,10 +509,10 @@ const Payables = () => {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowPaymentModal(false)}>
-                  Cancel
+                  إلغاء
                 </button>
                 <button type="submit" className="btn btn-primary">
-                  Record Payment
+                  تسجيل دفعة
                 </button>
               </div>
             </form>
@@ -607,11 +607,11 @@ const Payables = () => {
                     handlePaymentClick(selectedPayable);
                   }}
                 >
-                  Record Payment
+                  تسجيل دفعة
                 </button>
               )}
               <button className="btn btn-secondary" onClick={() => setShowViewModal(false)}>
-                Close
+                إغلاق
               </button>
             </div>
           </div>
@@ -684,7 +684,7 @@ const Payables = () => {
               
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowReminderModal(false)}>
-                  Cancel
+                  إلغاء
                 </button>
                 <button type="submit" className="btn btn-warning">
                   Set Reminder

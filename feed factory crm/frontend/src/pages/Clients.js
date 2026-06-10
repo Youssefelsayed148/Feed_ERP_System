@@ -677,7 +677,7 @@ export default function Clients() {
                   {/* Section: Contact Details */}
                   <div className="card mb-4">
                     <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
-                      Contact Details
+                      تفاصيل الاتصال
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="form-group">
@@ -737,7 +737,7 @@ export default function Clients() {
                   {/* Section: Payment Terms */}
                   <div className="card mb-4">
                     <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
-                      Payment Terms
+                      شروط الدفع
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="form-group">
@@ -808,7 +808,7 @@ export default function Clients() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="form-group">
                         <label className="form-label">
-                          Average Monthly Consumption
+                          متوسط الاستهلاك الشهري
                           <small className="form-help ml-1">(tons/kg)</small>
                         </label>
                         <input
@@ -842,7 +842,7 @@ export default function Clients() {
                   {/* Section: Additional Notes */}
                   <div className="card mb-4">
                     <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
-                      Additional Notes
+                      ملاحظات إضافية
                     </h3>
                     <div className="form-group">
                       <textarea
@@ -861,13 +861,13 @@ export default function Clients() {
                     onClick={() => { setShowModal(false); resetForm(); }}
                     className="btn btn-outline"
                   >
-                    Cancel
+                    إلغاء
                   </button>
                   <button
                     type="submit"
                     className="btn btn-success"
                   >
-                    Add Client
+                    إضافة عميل
                   </button>
                 </div>
               </form>
@@ -899,7 +899,7 @@ export default function Clients() {
                   onClick={() => { setShowModal(false); resetForm(); }}
                   className="btn btn-success"
                 >
-                  Done
+                  تم
                 </button>
               </div>
             )}
@@ -928,14 +928,14 @@ export default function Clients() {
                 className={`px-4 py-3 font-medium text-sm flex items-center gap-2 ${clientDetailTab === 'overview' ? 'border-b-2 border-blue-600 text-blue-600 bg-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 <FileText className="w-4 h-4" />
-                Overview
+                نظرة عامة
               </button>
               <button
                 onClick={() => setClientDetailTab('liabilities')}
                 className={`px-4 py-3 font-medium text-sm flex items-center gap-2 ${clientDetailTab === 'liabilities' ? 'border-b-2 border-blue-600 text-blue-600 bg-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 <TrendingDown className="w-4 h-4" />
-                Liabilities
+                الخصوم
                 {selectedClient.client.liabilities?.filter(l => l.status === 'overdue').length > 0 && (
                   <span className="badge badge-danger text-xs">
                     {selectedClient.client.liabilities.filter(l => l.status === 'overdue').length}
@@ -947,7 +947,7 @@ export default function Clients() {
                 className={`px-4 py-3 font-medium text-sm flex items-center gap-2 ${clientDetailTab === 'documents' ? 'border-b-2 border-blue-600 text-blue-600 bg-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 <FileText className="w-4 h-4" />
-                Documents
+                المستندات
               </button>
             </div>
 
@@ -974,7 +974,7 @@ export default function Clients() {
                     <div className="bg-white rounded-lg p-3 shadow-sm">
                       <p className="text-sm text-gray-600 flex items-center gap-1">
                         <AlertTriangle className="w-4 h-4 text-red-500" />
-                        Overdue
+                        متأخرة
                       </p>
                       <p className="text-xl font-bold text-red-600">
                         EGP {selectedClient.pendingInvoices?.filter(i => i.status === 'overdue')?.reduce((sum, i) => sum + (i.remainingAmount || i.balance || 0), 0)?.toFixed(2) || '0.00'}
@@ -987,7 +987,7 @@ export default function Clients() {
                       className="btn btn-success w-full flex items-center justify-center gap-2"
                     >
                       <Wallet className="w-5 h-5" />
-                      Record Payment
+                      تسجيل دفعة
                     </button>
                   )}
                 </div>
@@ -1038,7 +1038,7 @@ export default function Clients() {
                 <div className="card">
                   <h3 className="card-title flex items-center gap-2">
                     <Receipt className="w-5 h-5" />
-                    Recent Payments
+                    آخر المدفوعات
                   </h3>
                   <div className="table-container">
                     <table className="table">
@@ -1249,7 +1249,7 @@ export default function Clients() {
                   <div className="form-group mb-4">
                     <label className="form-label flex items-center gap-2">
                       <Camera className="w-4 h-4" />
-                      Receipt Photo (Optional)
+                      صورة الإيصال (اختياري)
                     </label>
                     <input
                       type="file"
@@ -1308,7 +1308,7 @@ export default function Clients() {
                     className="btn btn-outline"
                     disabled={paymentLoading}
                   >
-                    Cancel
+                    إلغاء
                   </button>
                   <button
                     type="submit"

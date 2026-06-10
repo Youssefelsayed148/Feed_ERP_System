@@ -326,14 +326,14 @@ export default function Assets() {
             onClick={handleOpenScheduleMaintenance}
           >
             <Plus className="w-4 h-4" />
-            Schedule Maintenance
+            جدولة صيانة
           </button>
           <button 
             className="btn btn-secondary"
             onClick={handleViewReminders}
           >
             <Bell className="w-4 h-4" />
-            View Reminders
+            عرض التذكيرات
           </button>
         </div>
       </div>
@@ -350,7 +350,7 @@ export default function Assets() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
             <Wrench className="w-5 h-5" style={{ color: maintenanceAlerts.overdue > 0 ? '#ef4444' : maintenanceAlerts.dueThisWeek > 0 ? '#f59e0b' : '#10b981' }} />
             <strong style={{ color: maintenanceAlerts.overdue > 0 ? '#dc2626' : maintenanceAlerts.dueThisWeek > 0 ? '#d97706' : '#059669' }}>
-              MAINTENANCE ALERTS
+              تنبيهات الصيانة
             </strong>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '28px' }}>
@@ -375,7 +375,7 @@ export default function Assets() {
               className="btn btn-primary" 
               onClick={handleViewReminders}
             >
-              View All
+              عرض الكل
             </button>
           </div>
         </div>
@@ -388,21 +388,21 @@ export default function Assets() {
           className={`btn ${activeTab === 'machines' ? 'btn-primary' : ''}`}
         >
           <Wrench className="w-4 h-4" />
-          Machines
+          الآلات
         </button>
         <button
           onClick={() => setActiveTab('vehicles')}
           className={`btn ${activeTab === 'vehicles' ? 'btn-primary' : ''}`}
         >
           <Truck className="w-4 h-4" />
-          Vehicles
+          المركبات
         </button>
         <button
           onClick={() => setActiveTab('maintenance')}
           className={`btn ${activeTab === 'maintenance' ? 'btn-primary' : ''}`}
         >
           <Settings className="w-4 h-4" />
-          Maintenance Records
+          سجلات الصيانة
         </button>
       </div>
 
@@ -893,7 +893,7 @@ export default function Assets() {
                     checked={scheduleMaintenanceForm.isRecurring}
                     onChange={(e) => setScheduleMaintenanceForm({...scheduleMaintenanceForm, isRecurring: e.target.checked})}
                   />
-                  Recurring Schedule
+                  جدول متكرر
                 </label>
               </div>
 
@@ -932,7 +932,7 @@ export default function Assets() {
                 onClick={handleSubmitScheduleMaintenance}
                 disabled={!scheduleMaintenanceForm.assetId || !scheduleMaintenanceForm.title || !scheduleMaintenanceForm.scheduledDate || !scheduleMaintenanceForm.scheduledTime || !scheduleMaintenanceForm.estimatedCost || !scheduleMaintenanceForm.estimatedHours || !scheduleMaintenanceForm.assignedTechnician}
               >
-                Schedule Maintenance
+                جدولة صيانة
               </button>
             </div>
           </div>
@@ -1032,7 +1032,7 @@ export default function Assets() {
                       checked={scheduleForm.emailEnabled}
                       onChange={(e) => setScheduleForm({...scheduleForm, emailEnabled: e.target.checked})}
                     />
-                    Email
+                    البريد
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <input 
@@ -1040,7 +1040,7 @@ export default function Assets() {
                       checked={scheduleForm.whatsappEnabled}
                       onChange={(e) => setScheduleForm({...scheduleForm, whatsappEnabled: e.target.checked})}
                     />
-                    WhatsApp
+                    واتساب
                   </label>
                 </div>
               </div>

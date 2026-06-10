@@ -399,7 +399,7 @@ export default function Finance() {
                 <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Receipt size={18} color="#dc2626" /> 
-                    Expenses by Category
+                    المصروفات حسب الفئة
                   </h3>
                   <span style={{ fontWeight: 600, color: '#dc2626', fontSize: '18px' }}>
                     EGP {dashboard.expensesByCategory.reduce((s, e) => s + (e.total || 0), 0).toLocaleString()}
@@ -829,7 +829,7 @@ export default function Finance() {
               marginBottom: '20px'
             }}>
               <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>
-                Record Payment
+                تسجيل دفعة
               </h3>
               <button 
                 onClick={closePaymentModal}
@@ -984,7 +984,7 @@ export default function Finance() {
                   onClick={closePaymentModal}
                   className="btn btn-outline"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"

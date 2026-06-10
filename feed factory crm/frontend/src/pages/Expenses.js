@@ -583,7 +583,7 @@ const Expenses = () => {
                 menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
               }}
             >
-              Export
+              تصدير
             </button>
             <div id="exportMenu" style={{
               display: 'none',
@@ -599,13 +599,13 @@ const Expenses = () => {
               overflow: 'hidden'
             }}>
               <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: '1px solid #eee' }} onClick={() => { exportToCSV(); document.getElementById('exportMenu').style.display = 'none'; }}>
-                Export as CSV
+                تصدير CSV
               </button>
               <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none', borderBottom: '1px solid #eee' }} onClick={() => { exportToPDF(); document.getElementById('exportMenu').style.display = 'none'; }}>
-                Export as PDF
+                تصدير PDF
               </button>
               <button className="btn" style={{ width: '100%', justifyContent: 'flex-start', borderRadius: 0, border: 'none' }} onClick={() => { exportToExcel(); document.getElementById('exportMenu').style.display = 'none'; }}>
-                Export as Excel
+                تصدير Excel
               </button>
             </div>
           </div>
@@ -802,7 +802,7 @@ const Expenses = () => {
             </div>
             <div className="form-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button type="button" className="btn btn-secondary" onClick={() => { setShowForm(false); setEditingExpense(null); setFormErrors({}); }}>
-                Cancel
+                إلغاء
               </button>
               <button type="submit" className="btn btn-primary">
                 {editingExpense ? 'Update Expense' : 'Submit Expense'}
@@ -862,7 +862,7 @@ const Expenses = () => {
                 </>
               )}
               <button className="btn btn-secondary btn-sm" onClick={() => exportToCSV(expenses.filter(e => selectedExpenses.includes(e._id || e.id)))}>
-                Export Selected
+                تصدير المحدد
               </button>
               <button className="btn btn-secondary btn-sm" onClick={() => setSelectedExpenses([])}>{t('expenses.clearSelection')}</button>
             </div>
@@ -945,7 +945,7 @@ const Expenses = () => {
                           textDecoration: 'underline'
                         }}
                       >
-                        View
+                        عرض
                       </button>
                     ) : (
                       <span style={{ color: '#999' }}>-</span>
@@ -960,14 +960,14 @@ const Expenses = () => {
                             onClick={() => handleApprove(expenseId)}
                             style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                           >
-                            Approve
+                            موافقة
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
                             onClick={() => handleRejectClick(expenseId)}
                             style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                           >
-                            Reject
+                            رفض
                           </button>
                         </>
                       )}
@@ -976,7 +976,7 @@ const Expenses = () => {
                         onClick={() => handleView(expense)}
                         style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#95a5a6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                       >
-                        View
+                        عرض
                       </button>
                     </div>
                   </td>
@@ -1154,7 +1154,7 @@ const Expenses = () => {
                             borderRadius: '4px'
                           }}
                         >
-                          Open Receipt
+                          فتح الإيصال
                         </a>
                       </div>
                     )}
@@ -1181,7 +1181,7 @@ const Expenses = () => {
                   cursor: 'pointer'
                 }}
               >
-                Close
+                إغلاق
               </button>
               <button 
                 onClick={() => handleEdit(selectedExpense)}
@@ -1194,7 +1194,7 @@ const Expenses = () => {
                   cursor: 'pointer'
                 }}
               >
-                Edit
+                تعديل
               </button>
               {selectedExpense.status === 'pending' && (
                 <>
@@ -1209,7 +1209,7 @@ const Expenses = () => {
                       cursor: 'pointer'
                     }}
                   >
-                    Approve
+                    موافقة
                   </button>
                   <button 
                     onClick={() => { handleRejectClick(selectedExpense._id || selectedExpense.id); handleCloseModal(); }}
@@ -1222,7 +1222,7 @@ const Expenses = () => {
                       cursor: 'pointer'
                     }}
                   >
-                    Reject
+                    رفض
                   </button>
                 </>
               )}
@@ -1296,7 +1296,7 @@ const Expenses = () => {
                   cursor: 'pointer'
                 }}
               >
-                Cancel
+                إلغاء
               </button>
               <button 
                 onClick={handleRejectConfirm}
@@ -1310,7 +1310,7 @@ const Expenses = () => {
                   cursor: rejectReason.trim() ? 'pointer' : 'not-allowed'
                 }}
               >
-                Confirm Rejection
+                تأكيد الرفض
               </button>
             </div>
           </div>

@@ -1392,7 +1392,7 @@ export default function Orders() {
                   onClick={() => { setShowModal(false); resetForm(); }}
                   className="btn btn-outline"
                 >
-                  Cancel
+                  إلغاء
                 </button>
                 <button
                   type="submit"
@@ -1561,7 +1561,7 @@ export default function Orders() {
                 className="btn btn-outline"
                 disabled={generatingInvoice}
               >
-                Cancel
+                إلغاء
               </button>
               <button
                 type="button"
@@ -1757,7 +1757,7 @@ export default function Orders() {
                 onClick={() => setShowInvoiceDetails(false)}
                 className="btn btn-outline"
               >
-                Close
+                إغلاق
               </button>
               <button
                 type="button"

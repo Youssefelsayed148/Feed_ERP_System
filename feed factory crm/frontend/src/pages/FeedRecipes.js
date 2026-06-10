@@ -867,7 +867,7 @@ export default function FeedRecipes() {
                     <div>
                       <h3 className="font-semibold mb-3 flex items-center gap-2">
                         <BarChart3 className="w-5 h-5" />
-                        Nutritional Values
+                        القيم الغذائية
                       </h3>
                       <div className="grid grid-cols-3 gap-4">
                         {selectedRecipe.protein && (
@@ -930,12 +930,12 @@ export default function FeedRecipes() {
                                   {mat.isAvailable ? (
                                     <span className="badge badge-success flex items-center gap-1 w-fit">
                                       <Check className="w-3 h-3" />
-                                      Available
+                                      متاح
                                     </span>
                                   ) : (
                                     <span className="badge badge-danger flex items-center gap-1 w-fit">
                                       <AlertCircle className="w-3 h-3" />
-                                      Insufficient
+                                      غير كاف
                                     </span>
                                   )}
                                 </td>
@@ -977,7 +977,7 @@ export default function FeedRecipes() {
                       className="btn btn-primary flex-1"
                     >
                       <Edit2 className="w-4 h-4" />
-                      Edit Recipe
+                      تعديل التركيبة
                     </button>
                     <button 
                       onClick={() => handleDuplicateRecipe(selectedRecipe)}
@@ -1131,7 +1131,7 @@ export default function FeedRecipes() {
                       className="btn btn-outline mt-3 w-full"
                     >
                       <Plus className="w-4 h-4" />
-                      Add Ingredient
+                      إضافة مكون
                     </button>
 
                     {/* Total Cost Display */}
@@ -1217,7 +1217,7 @@ export default function FeedRecipes() {
               {modalType !== 'detail' && (
                 <>
                   <button onClick={() => setShowModal(false)} className="btn btn-outline">
-                    Cancel
+                    إلغاء
                   </button>
                   <button onClick={handleSaveRecipe} className="btn btn-primary">
                     {modalType === 'create' ? t('recipes.create') : t('common.save')}

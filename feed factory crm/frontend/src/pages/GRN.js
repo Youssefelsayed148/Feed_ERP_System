@@ -260,7 +260,7 @@ const GRN = () => {
                       <button className="btn" onClick={() => openViewModal(grn)} disabled={loading}>{t('common.view')}</button>
                       {grn.status === 'pending' && (
                         <button className="btn btn-success" onClick={() => handleApproveGRN(grn.id)} disabled={loading}>
-                          Approve
+                          موافقة
                         </button>
                       )}
                     </div>

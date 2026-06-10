@@ -359,7 +359,7 @@ const SupplierFormModal = ({
                 <div className="form-group">
                   <label className="form-label">
                     <MessageCircle size={16} style={{ display: 'inline', marginRight: '4px', color: '#25D366' }} />
-                    WhatsApp
+                    واتساب
                   </label>
                   <input
                     type="tel"
@@ -374,7 +374,7 @@ const SupplierFormModal = ({
               <div className="form-group">
                 <label className="form-label">
                   <Mail size={16} style={{ display: 'inline', marginRight: '4px' }} />
-                  Email
+                  البريد
                 </label>
                 <input
                   type="email"
@@ -574,7 +574,7 @@ const SupplierFormModal = ({
               onClick={onClose}
               disabled={isLoading}
             >
-              Cancel
+              إلغاء
             </button>
             <button 
               type="submit" 
@@ -877,7 +877,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
             onClick={() => onDelete(supplier)}
           >
             <Trash2 size={16} style={{ marginRight: '8px', display: 'inline' }} />
-            Delete
+            حذف
           </button>
           <div style={{ flex: 1 }}></div>
           <button 
@@ -885,7 +885,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
             className="btn btn-secondary" 
             onClick={onClose}
           >
-            Close
+            إغلاق
           </button>
           <button 
             type="button" 
@@ -893,7 +893,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
             onClick={() => onEdit(supplier)}
           >
             <Edit2 size={16} style={{ marginRight: '8px', display: 'inline' }} />
-            Edit
+            تعديل
           </button>
         </div>
       </div>
@@ -1594,7 +1594,7 @@ const Suppliers = () => {
                         onClick={() => openViewModal(supplier)}
                         title="View Details"
                       >
-                        View
+                        عرض
                       </button>
                       <button 
                         className="btn btn-sm btn-primary"

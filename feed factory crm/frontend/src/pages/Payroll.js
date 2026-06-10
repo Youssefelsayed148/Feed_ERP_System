@@ -689,7 +689,7 @@ const Payroll = () => {
                   </div>
                   <div className="form-actions">
                     <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>
-                      Cancel
+                      إلغاء
                     </button>
                     <button type="submit" className="btn btn-primary">
                       Create Payroll
@@ -769,7 +769,7 @@ const Payroll = () => {
                       onClick={() => setShowApproveModal(false)}
                       disabled={approvingPayroll}
                     >
-                      Cancel
+                      إلغاء
                     </button>
                     <button 
                       className="btn btn-warning" 
@@ -841,7 +841,7 @@ const Payroll = () => {
                       onClick={() => setShowPostModal(false)}
                       disabled={postingToFinance}
                     >
-                      Cancel
+                      إلغاء
                     </button>
                     <button 
                       className="btn btn-success" 
@@ -906,7 +906,7 @@ const Payroll = () => {
                       onClick={() => setShowPayModal(false)}
                       disabled={markingAsPaid}
                     >
-                      Cancel
+                      إلغاء
                     </button>
                     <button 
                       className="btn btn-primary" 
@@ -937,7 +937,7 @@ const Payroll = () => {
                 <p className="text-muted">This action cannot be undone.</p>
                 <div className="form-actions">
                   <button className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>
-                    Cancel
+                    إلغاء
                   </button>
                   <button className="btn btn-danger" onClick={handleDeletePayroll}>
                     Delete Payroll
@@ -1350,7 +1350,7 @@ const Payroll = () => {
                       onClick={() => setShowApproveModal(false)}
                       disabled={approvingPayroll}
                     >
-                      Cancel
+                      إلغاء
                     </button>
                     <button 
                       className="btn btn-warning" 
@@ -1398,7 +1398,7 @@ const Payroll = () => {
                       onClick={() => setShowPostModal(false)}
                       disabled={postingToFinance}
                     >
-                      Cancel
+                      إلغاء
                     </button>
                     <button 
                       className="btn btn-success" 
@@ -1446,7 +1446,7 @@ const Payroll = () => {
                       onClick={() => setShowPayModal(false)}
                       disabled={markingAsPaid}
                     >
-                      Cancel
+                      إلغاء
                     </button>
                     <button 
                       className="btn btn-primary" 

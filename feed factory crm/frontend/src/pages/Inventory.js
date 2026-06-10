@@ -679,7 +679,7 @@ export default function Inventory() {
             
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setShowAddStockModal(false)}>
-                Cancel
+                إلغاء
               </button>
               <button type="submit" className="btn btn-success" disabled={submitting}>
                 {submitting ? 'Adding Stock...' : 'Add Stock'}
@@ -962,7 +962,7 @@ export default function Inventory() {
             
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setShowTransferModal(false)}>
-                Cancel
+                إلغاء
               </button>
               <button 
                 type="submit" 
@@ -1068,7 +1068,7 @@ export default function Inventory() {
                 className="btn btn-primary"
               >
                 <ArrowLeftRight className="w-5 h-5" />
-                Transfer Stock
+                نقل مخزون
               </button>
             </>
           )}
@@ -1097,7 +1097,7 @@ export default function Inventory() {
           className={`btn ${activeTab === 'finished' ? 'btn-primary' : 'btn-secondary'}`}
         >
           <Package className="w-4 h-4" />
-          Finished Goods
+          منتجات نهائية
         </button>
         <button
           onClick={() => setActiveTab('production')}
@@ -1229,7 +1229,7 @@ export default function Inventory() {
                 <p className="stat-value" style={{ color: '#10b981' }}>{stats.active}</p>
               </div>
               <div className="stat-card">
-                <p className="stat-label">Avg Cost/1000kg</p>
+                <p className="stat-label">متوسط التكلفة/1000 كجم</p>
                 <p className="stat-value">{(stats.avgCost || 0).toFixed(0)} EGP</p>
               </div>
               {(stats.byFeedType || []).map((ft) => (
@@ -1273,7 +1273,7 @@ export default function Inventory() {
                     {mat.quantity <= mat.minimumStock && (
                       <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                         <AlertTriangle className="w-3 h-3" />
-                        Low Stock
+                        مخزون منخفض
                       </span>
                     )}
                   </td>
@@ -1602,7 +1602,7 @@ export default function Inventory() {
                   </div>
                   <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', padding: '16px 24px', borderTop: '1px solid #e5e7eb' }}>
                     <button className="btn btn-secondary" onClick={() => setShowPreviewModal(false)}>
-                      Cancel
+                      إلغاء
                     </button>
                     <button
                       className="btn btn-primary"
@@ -1698,7 +1698,7 @@ export default function Inventory() {
                                 }}
                               >
                                 <Check className="w-3 h-3" />
-                                Accept
+                                قبول
                               </button>
                               <button
                                 className="btn btn-sm btn-danger"
@@ -1721,7 +1721,7 @@ export default function Inventory() {
                                 }}
                               >
                                 <X className="w-3 h-3" />
-                                Reject
+                                رفض
                               </button>
                             </>
                           )}

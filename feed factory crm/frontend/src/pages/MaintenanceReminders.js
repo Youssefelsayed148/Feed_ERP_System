@@ -327,14 +327,14 @@ export default function MaintenanceReminders() {
             onClick={() => window.location.href = '/assets'}
           >
             <Wrench className="w-4 h-4" />
-            Schedule New
+            جدولة جديدة
           </button>
           <button 
             className="btn btn-secondary"
             onClick={() => window.location.href = '/assets'}
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Assets
+            العودة للأصول
           </button>
         </div>
       </div>

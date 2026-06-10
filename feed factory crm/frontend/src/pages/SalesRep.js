@@ -220,7 +220,7 @@ const SalesRep = () => {
                   }}
                   style={{ padding: '6px 12px', borderRadius: '6px', border: 'none', background: '#fee2e2', color: '#dc2626', cursor: 'pointer', fontSize: '12px' }}
                 >
-                  View
+                  عرض
                 </button>
               </div>
             ))}

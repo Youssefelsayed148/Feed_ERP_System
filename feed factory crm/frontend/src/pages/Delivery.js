@@ -712,7 +712,7 @@ export default function Delivery() {
       <div style={{ padding: '16px' }}>
         <div style={{ marginBottom: '24px' }}>
           <h2 style={{ fontSize: '20px', fontWeight: '600', margin: '0 0 8px 0' }}>
-            Active Deliveries
+            توصيلات نشطة
           </h2>
           <p style={{ color: '#64748b', margin: 0, fontSize: '14px' }}>
             {activeDeliveries.length} delivery{activeDeliveries.length > 1 ? 'ies' : 'y'} in progress
@@ -820,7 +820,7 @@ export default function Delivery() {
                     style={{ flex: 1, justifyContent: 'center' }}
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Accept
+                    قبول
                   </button>
                 )}
                 {delivery.status === 'accepted' && (
@@ -830,7 +830,7 @@ export default function Delivery() {
                     style={{ flex: 1, justifyContent: 'center' }}
                   >
                     <Package className="w-4 h-4" />
-                    Picked Up
+                    تم الاستلام
                   </button>
                 )}
                 {delivery.status === 'picked_up' && (
@@ -840,7 +840,7 @@ export default function Delivery() {
                     style={{ flex: 1, justifyContent: 'center' }}
                   >
                     <Truck className="w-4 h-4" />
-                    Start Transit
+                    بدء النقل
                   </button>
                 )}
                 {delivery.status === 'in_transit' && (
@@ -850,7 +850,7 @@ export default function Delivery() {
                     style={{ flex: 1, justifyContent: 'center' }}
                   >
                     <MapPinIcon className="w-4 h-4" />
-                    Mark Arrived
+                    تم الوصول
                   </button>
                 )}
                 {delivery.status === 'arrived' && (
@@ -952,7 +952,7 @@ export default function Delivery() {
                           className="btn btn-sm btn-primary"
                         >
                           <User className="w-4 h-4" />
-                          Assign
+                          تعيين
                         </button>
                       </td>
                     </tr>
@@ -965,7 +965,7 @@ export default function Delivery() {
         {/* Active Deliveries */}
         <div style={{ marginTop: '32px' }}>
           <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>
-            Active Deliveries
+            توصيلات نشطة
           </h3>
           <div className="table-container">
             <table className="table">
@@ -1029,7 +1029,7 @@ export default function Delivery() {
                             className="btn btn-sm btn-outline"
                           >
                             <Clock className="w-4 h-4" />
-                            View Journey
+                            عرض الرحلة
                           </button>
                         </td>
                       </tr>
@@ -1067,14 +1067,14 @@ export default function Delivery() {
             className={`btn ${userRole === 'driver' ? 'btn-primary' : 'btn-secondary'}`}
           >
             <User className="w-4 h-4" />
-            Driver
+            سائق
           </button>
           <button
             onClick={() => setUserRole('foreman')}
             className={`btn ${userRole === 'foreman' ? 'btn-primary' : 'btn-secondary'}`}
           >
             <Truck className="w-4 h-4" />
-            Foreman
+            مشرف
           </button>
         </div>
       </div>
@@ -1093,14 +1093,14 @@ export default function Delivery() {
                 className={`btn ${activeTab === 'deliveries' ? 'btn-primary' : 'btn-secondary'}`}
               >
                 <Route className="w-4 h-4" />
-                Deliveries
+                التوصيلات
               </button>
               <button
                 onClick={() => setActiveTab('vehicles')}
                 className={`btn ${activeTab === 'vehicles' ? 'btn-primary' : 'btn-secondary'}`}
               >
                 <Truck className="w-4 h-4" />
-                Vehicles
+                المركبات
               </button>
             </div>
           </div>
@@ -1300,7 +1300,7 @@ export default function Delivery() {
               {/* Items Section */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px' }}>
-                  Items Delivered
+                  العناصر المسلمة
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {confirmationData.deliveredItems.map((item, index) => (
@@ -1322,7 +1322,7 @@ export default function Delivery() {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
                         <div>
                           <label style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '4px' }}>
-                            Delivered Qty
+                            الكمية المسلمة
                           </label>
                           <input
                             type="number"
@@ -1336,7 +1336,7 @@ export default function Delivery() {
                         </div>
                         <div>
                           <label style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '4px' }}>
-                            Rejected Qty
+                            الكمية المرفوضة
                           </label>
                           <input
                             type="number"
@@ -1350,7 +1350,7 @@ export default function Delivery() {
                         </div>
                         <div>
                           <label style={{ fontSize: '12px', color: '#64748b', display: 'block', marginBottom: '4px' }}>
-                            Condition
+                            الحالة
                           </label>
                           <select
                             className="form-input"
@@ -1382,7 +1382,7 @@ export default function Delivery() {
               {/* Receiver Section */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px' }}>
-                  Receiver Details
+                  تفاصيل المستلم
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
@@ -1441,7 +1441,7 @@ export default function Delivery() {
                         className="btn btn-sm btn-primary"
                       >
                         <Check className="w-4 h-4" />
-                        Verify
+                        تحقق
                       </button>
                     </div>
                   </div>
@@ -1457,7 +1457,7 @@ export default function Delivery() {
               {/* Proof Section */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px' }}>
-                  Delivery Proof
+                  إثبات التوصيل
                 </h4>
                 
                 {/* Photo Upload */}
@@ -1663,7 +1663,7 @@ export default function Delivery() {
             
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={closeConfirmModal}>
-                Cancel
+                إلغاء
               </button>
               <button 
                 className="btn btn-success" 
@@ -1671,7 +1671,7 @@ export default function Delivery() {
                 disabled={!confirmationData.receivedBy.name || confirmationData.deliveredItems.some(item => item.deliveredQty < 0)}
               >
                 <CheckCircle2 className="w-4 h-4" />
-                Confirm Delivery
+                تأكيد التوصيل
               </button>
             </div>
           </div>
@@ -1712,7 +1712,7 @@ export default function Delivery() {
                 border: '1px solid #e2e8f0'
               }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '600', margin: '0 0 12px 0', color: '#374151' }}>
-                  Delivery Details
+                  تفاصيل التوصيل
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
                   <div>
@@ -1996,7 +1996,7 @@ export default function Delivery() {
                 onClick={closeAssignModal}
                 disabled={assignLoading}
               >
-                Cancel
+                إلغاء
               </button>
               <button 
                 className="btn btn-primary" 
@@ -2009,7 +2009,7 @@ export default function Delivery() {
                 ) : (
                   <>
                     <User className="w-4 h-4" />
-                    Assign Delivery
+                    تعيين توصيل
                   </>
                 )}
               </button>
@@ -2108,7 +2108,7 @@ export default function Delivery() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={closeJourneyModal}>
-                Close
+                إغلاق
               </button>
             </div>
           </div>

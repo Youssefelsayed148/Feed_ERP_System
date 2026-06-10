@@ -537,7 +537,7 @@ const Production = () => {
                         className="btn btn-sm btn-outline"
                         onClick={() => handleViewOrder(order)}
                       >
-                        View
+                        عرض
                       </button>
                     </div>
                   </td>
@@ -628,7 +628,7 @@ const Production = () => {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
-                  Cancel
+                  إلغاء
                 </button>
                 <button type="submit" className="btn btn-primary">
                   Create Order
@@ -750,7 +750,7 @@ const Production = () => {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowDetailModal(false)}>
-                Close
+                إغلاق
               </button>
             </div>
           </div>

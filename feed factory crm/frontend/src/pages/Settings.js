@@ -603,7 +603,7 @@ const UserManagement = () => {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowUserModal(false)}>
-                Cancel
+                إلغاء
               </button>
               <button className="btn btn-primary" onClick={handleSaveUser}>
                 <Check size={16} /> {selectedUser ? 'Update User' : 'Create User'}
@@ -639,7 +639,7 @@ const UserManagement = () => {
             </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setShowDeleteModal(false)}>
-                Cancel
+                إلغاء
               </button>
               <button className="btn btn-danger" onClick={handleDeleteUser}>
                 <UserX size={16} /> Deactivate User

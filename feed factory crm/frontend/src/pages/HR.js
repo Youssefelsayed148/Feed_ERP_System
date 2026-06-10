@@ -1303,7 +1303,7 @@ const HR = () => {
                   </div>
                   <div className="form-actions">
                     <button type="button" className="btn btn-secondary" onClick={() => setShowPayrollModal(false)}>
-                      Cancel
+                      إلغاء
                     </button>
                     <button type="submit" className="btn btn-primary" disabled={payrollLoading}>
                       {payrollLoading ? 'Creating...' : 'Create Payroll'}
@@ -1371,7 +1371,7 @@ const HR = () => {
                       onClick={() => setShowPostToFinanceModal(false)}
                       disabled={payrollLoading}
                     >
-                      Cancel
+                      إلغاء
                     </button>
                     <button 
                       className="btn btn-success" 
@@ -2230,7 +2230,7 @@ const HR = () => {
             
             <div className="modal-footer">
               <button type="button" className="btn btn-outline" onClick={() => setShowRatingModal(false)}>
-                Cancel
+                إلغاء
               </button>
               <button type="submit" className="btn btn-primary">
                 <Save size={18} /> Save Rating
@@ -3847,7 +3847,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency, getDepartmentLabel,
               {saving ? '...' : 'Save'}
             </button>
             <button className="btn btn-sm btn-outline" onClick={() => setEditing(false)} style={{ padding: '2px 8px', fontSize: '11px' }}>
-              Cancel
+              إلغاء
             </button>
           </div>
         ) : (
