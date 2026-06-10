@@ -858,7 +858,7 @@ export default function Orders() {
             className="btn btn-primary"
           >
             <Plus className="w-5 h-5" />
-            {t('common.newOrder')}
+            {t('sales.newOrder')}
           </button>
         </div>
       </div>
