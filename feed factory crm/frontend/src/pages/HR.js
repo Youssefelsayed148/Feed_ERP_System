@@ -2419,7 +2419,7 @@ const HR = () => {
                   </div>
                   <div className="form-group">
                     <label className="form-label">{t('common.city')}</label>
-                    <input type="text" className="form-input" value={newEmployee.city} onChange={(e) => setNewEmployee({...newEmployee, city: e.target.value})} placeholder="City" />
+                    <input type="text" className="form-input" value={newEmployee.city} onChange={(e) => setNewEmployee({...newEmployee, city: e.target.value})} placeholder={t('common.city')} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">{t('common.country')}</label>
@@ -2689,16 +2689,16 @@ const HR = () => {
                         </div>
                         <div style={{ display: 'flex', gap: '6px' }}>
                           {doc.canDownload && (
-                            <a href={hrService.downloadDocument(selectedEmployee.id, doc._id)} target="_blank" rel="noopener noreferrer" className="btn-icon btn-view" title="Download" style={{ textDecoration: 'none' }}>
+                            <a href={hrService.downloadDocument(selectedEmployee.id, doc._id)} target="_blank" rel="noopener noreferrer" className="btn-icon btn-view" title="{t('common.download')}" style={{ textDecoration: 'none' }}>
                               <Eye size={16} />
                             </a>
                           )}
                           {doc.status !== 'verified' && (
-                            <button className="btn-icon btn-edit" onClick={() => handleVerifyDocument(doc._id, 'verified')} title="Verify">
+                            <button className="btn-icon btn-edit" onClick={() => handleVerifyDocument(doc._id, 'verified')} title="{t('common.verify')}">
                               <Check size={16} />
                             </button>
                           )}
-                          <button className="btn-icon btn-delete" onClick={() => handleDeleteDocument(doc._id)} title="Delete">
+                          <button className="btn-icon btn-delete" onClick={() => handleDeleteDocument(doc._id)} title="{t('common.delete')}">
                             <Trash2 size={16} />
                           </button>
                         </div>
@@ -3851,7 +3851,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency, getDepartmentLabel,
             </button>
           </div>
         ) : (
-          <button className="btn-icon btn-edit" onClick={() => { setBasic(ep.basicSalary || 0); setAllowances(ep.totalAllowances || ep.allowances || 0); setDeductions(ep.totalDeductions || ep.deductions || 0); setEditing(true); }} title="Edit">
+          <button className="btn-icon btn-edit" onClick={() => { setBasic(ep.basicSalary || 0); setAllowances(ep.totalAllowances || ep.allowances || 0); setDeductions(ep.totalDeductions || ep.deductions || 0); setEditing(true); }} title="{t('common.edit')}">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
         )}

@@ -668,7 +668,7 @@ export default function Clients() {
                           value={formData.licenseNumber}
                           onChange={(e) => setFormData({...formData, licenseNumber: e.target.value})}
                           className="form-input"
-                          placeholder="Commercial registration / license"
+                          placeholder={t('clients.commercialReg')}
                         />
                       </div>
                     </div>
@@ -718,7 +718,7 @@ export default function Clients() {
                           value={formData.city}
                           onChange={(e) => setFormData({...formData, city: e.target.value})}
                           className="form-input"
-                          placeholder="City"
+                          placeholder={t('common.city')}
                         />
                       </div>
                       <div className="form-group md:col-span-2">
@@ -850,7 +850,7 @@ export default function Clients() {
                         onChange={(e) => setFormData({...formData, notes: e.target.value})}
                         className="form-textarea"
                         rows={3}
-                        placeholder="Any additional information about this client..."
+                        placeholder={t('clients.additionalInfo')}
                       />
                     </div>
                   </div>
@@ -1276,7 +1276,7 @@ export default function Clients() {
                       onChange={(e) => setPaymentData({...paymentData, notes: e.target.value})}
                       className="form-textarea"
                       rows={3}
-                      placeholder="Any additional notes..."
+                      placeholder={t('common.additionalNotes')}
                     />
                   </div>
 

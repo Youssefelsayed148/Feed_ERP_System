@@ -1592,21 +1592,21 @@ const Suppliers = () => {
                       <button 
                         className="btn btn-sm"
                         onClick={() => openViewModal(supplier)}
-                        title="View Details"
+                        title="{t('common.viewDetails')}"
                       >
                         عرض
                       </button>
                       <button 
                         className="btn btn-sm btn-primary"
                         onClick={() => openEditModal(supplier)}
-                        title="Edit"
+                        title="{t('common.edit')}"
                       >
                         <Edit2 size={14} />
                       </button>
                       <button 
                         className="btn btn-sm btn-danger"
                         onClick={() => handleDeleteSupplierById(supplier._id)}
-                        title="Delete"
+                        title="{t('common.delete')}"
                       >
                         <Trash2 size={14} />
                       </button>

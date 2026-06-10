@@ -814,7 +814,7 @@ export default function Assets() {
                 <textarea 
                   className="form-textarea" 
                   rows="3"
-                  placeholder="Describe the maintenance work to be performed..."
+                  placeholder={t('assets.describeWork')}
                   value={scheduleMaintenanceForm.description}
                   onChange={(e) => setScheduleMaintenanceForm({...scheduleMaintenanceForm, description: e.target.value})}
                 />
@@ -1096,7 +1096,7 @@ export default function Assets() {
                 <textarea 
                   className="form-textarea" 
                   rows="3"
-                  placeholder="Describe the maintenance work performed..."
+                  placeholder={t('assets.describeWorkDone')}
                   value={recordForm.description}
                   onChange={(e) => setRecordForm({...recordForm, description: e.target.value})}
                 />

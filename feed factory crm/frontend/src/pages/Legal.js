@@ -265,19 +265,19 @@ export default function Legal() {
                       <td>{getStatusBadge(doc.status)}</td>
                       <td>
                         <div className="action-buttons">
-                          <button className="btn btn-outline btn-sm" title="View">
+                          <button className="btn btn-outline btn-sm" title="{t('common.view')}">
                             <Eye size={14} />
                           </button>
-                          <button className="btn btn-outline btn-sm" title="Download">
+                          <button className="btn btn-outline btn-sm" title="{t('common.download')}">
                             <Download size={14} />
                           </button>
                           {doc.status === 'pending' && (
                             <>
-                              <button className="btn btn-success btn-sm verify-btn" title="Verify Document" onClick={() => handleVerifyDocument(doc, true)}>
+                              <button className="btn btn-success btn-sm verify-btn" title="{t('legal.verifyDocument')}" onClick={() => handleVerifyDocument(doc, true)}>
                                 <Check size={14} />
                                 <span>تحقق</span>
                               </button>
-                              <button className="btn btn-danger btn-sm reject-btn" title="Reject Document" onClick={() => handleVerifyDocument(doc, false)}>
+                              <button className="btn btn-danger btn-sm reject-btn" title="{t('legal.rejectDocument')}" onClick={() => handleVerifyDocument(doc, false)}>
                                 <X size={14} />
                                 <span>{t('legal.reject')}</span>
                               </button>

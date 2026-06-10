@@ -529,7 +529,7 @@ export default function MaintenanceReminders() {
                       <button 
                         className="btn btn-sm"
                         onClick={() => handleView(reminder)}
-                        title="View Details"
+                        title="{t('common.viewDetails')}"
                       >
                         <FileText className="w-3 h-3" />
                       </button>
@@ -537,7 +537,7 @@ export default function MaintenanceReminders() {
                         <button 
                           className="btn btn-primary btn-sm"
                           onClick={() => handleStartWork(reminder)}
-                          title="Start Work"
+                          title="{t('maintenance.startWork')}"
                         >
                           <Play className="w-3 h-3" />
                         </button>
@@ -547,14 +547,14 @@ export default function MaintenanceReminders() {
                           <button 
                             className="btn btn-warning btn-sm"
                             onClick={() => handleReschedule(reminder)}
-                            title="Reschedule"
+                            title="{t('maintenance.reschedule')}"
                           >
                             <Clock className="w-3 h-3" />
                           </button>
                           <button 
                             className="btn btn-success btn-sm"
                             onClick={() => handleMarkComplete(reminder)}
-                            title="Mark Complete"
+                            title="{t('maintenance.markComplete')}"
                           >
                             <Check className="w-3 h-3" />
                           </button>
@@ -565,21 +565,21 @@ export default function MaintenanceReminders() {
                           <button 
                             className="btn btn-warning btn-sm"
                             onClick={() => handleReschedule(reminder)}
-                            title="Reschedule"
+                            title="{t('maintenance.reschedule')}"
                           >
                             <Clock className="w-3 h-3" />
                           </button>
                           <button 
                             className="btn btn-success btn-sm"
                             onClick={() => handleMarkComplete(reminder)}
-                            title="Mark Complete"
+                            title="{t('maintenance.markComplete')}"
                           >
                             <Check className="w-3 h-3" />
                           </button>
                           <button 
                             className="btn btn-danger btn-sm"
                             onClick={() => handleCancel(reminder)}
-                            title="Cancel"
+                            title="{t('common.cancel')}"
                           >
                             <X className="w-3 h-3" />
                           </button>

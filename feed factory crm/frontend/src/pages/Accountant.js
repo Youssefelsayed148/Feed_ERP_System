@@ -423,7 +423,7 @@ const Accountant = () => {
             <div style={{ display: 'flex', gap: '12px' }}>
               <input
                 type="text"
-                placeholder="Search entries by description, number, or module..."
+                placeholder={t('accounting.searchEntries')}
                 className="form-input"
                 style={{ flex: 1 }}
                 value={searchTerm}

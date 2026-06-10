@@ -703,21 +703,21 @@ export default function FeedRecipes() {
                         <button 
                           onClick={() => handleViewRecipe(recipe)}
                           className="btn btn-sm btn-outline"
-                          title="View"
+                          title={t('common.view')}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => handleEditRecipe(recipe)}
                           className="btn btn-sm btn-primary"
-                          title="Edit"
+                          title={t('common.edit')}
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button 
                           onClick={() => handleDuplicateRecipe(recipe)}
                           className="btn btn-sm btn-outline"
-                          title="Duplicate"
+                          title={t('recipes.duplicate')}
                         >
                           <Copy className="w-4 h-4" />
                         </button>

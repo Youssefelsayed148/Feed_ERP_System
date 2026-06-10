@@ -1368,7 +1368,7 @@ export default function Delivery() {
                         <input
                           type="text"
                           className="form-input"
-                          placeholder="Rejection reason"
+                          placeholder={t('expenses.rejectionReason')}
                           value={item.rejectionReason}
                           onChange={(e) => updateDeliveredItem(index, 'rejectionReason', e.target.value)}
                           style={{ marginTop: '8px', fontSize: '14px' }}
@@ -1395,7 +1395,7 @@ export default function Delivery() {
                         ...prev,
                         receivedBy: { ...prev.receivedBy, name: e.target.value }
                       }))}
-                      placeholder="Receiver's name"
+                      placeholder={t('delivery.receiverName')}
                     />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
@@ -1408,7 +1408,7 @@ export default function Delivery() {
                         ...prev,
                         receivedBy: { ...prev.receivedBy, phone: e.target.value }
                       }))}
-                      placeholder="Phone number"
+                      placeholder={t('common.phone')}
                     />
                   </div>
                 </div>

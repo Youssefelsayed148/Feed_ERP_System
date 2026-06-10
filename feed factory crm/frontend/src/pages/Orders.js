@@ -980,7 +980,7 @@ export default function Orders() {
                         <button
                           onClick={() => updateOrderStatus(order._id, 'pending')}
                           className="btn btn-sm btn-warning"
-                          title="Submit"
+                          title="{t('common.submit')}"
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -989,7 +989,7 @@ export default function Orders() {
                         <button
                           onClick={() => updateOrderStatus(order._id, 'processing')}
                           className="btn btn-sm btn-primary"
-                          title="Confirm"
+                          title="{t('common.confirm')}"
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -1257,7 +1257,7 @@ export default function Orders() {
                                 type="button"
                                 onClick={() => removeItem(index)}
                                 className="btn btn-danger btn-sm"
-                                title="Remove Item"
+                                title={t('common.removeItem')}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>

@@ -1371,7 +1371,7 @@ export default function Inventory() {
                       {prod.status === 'draft' && (
                         <button 
                           className="btn btn-sm btn-primary" 
-                          title="Approve"
+                          title="{t('common.approve')}"
                           onClick={() => approveProduction(prod)}
                         >
                           <Check className="w-4 h-4" />
@@ -1380,7 +1380,7 @@ export default function Inventory() {
                       {prod.status === 'approved' && (
                         <button 
                           className="btn btn-sm btn-primary" 
-                          title="Start"
+                          title="{t('common.start')}"
                           onClick={() => startProduction(prod)}
                         >
                           <Play className="w-4 h-4" />
@@ -1389,7 +1389,7 @@ export default function Inventory() {
                       {prod.status === 'in_progress' && (
                         <button 
                           className="btn btn-sm btn-success" 
-                          title="Complete"
+                          title="{t('common.complete')}"
                           onClick={() => completeProduction(prod)}
                         >
                           <Check className="w-4 h-4" />
