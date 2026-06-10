@@ -213,7 +213,7 @@ export default function Finance() {
     const days = item.days;
     const phone = item.phone || '';
 
-    const message = `Dear ${client},\n\nThis is a friendly reminder regarding your account with us.\n\nOUTSTANDING BALANCE: EGP ${Number(amount || 0).toLocaleString()}\nDAYS OVERDUE: ${days} days\n\nPlease arrange payment at your earliest convenience to avoid any disruption in service.\n\nFor any questions, please contact our accounts department.\n\nThank you for your business.`;
+    const message = `Dear ${client},\n\nThis is a friendly reminder regarding your account with us.\n\nOUTSTANDING BALANCE: EGP ${Number(amount || 0).toLocaleString()}\nDAYS OVERDUE: ${days} {t('common.days')}\n\nPlease arrange payment at your earliest convenience to avoid any disruption in service.\n\nFor any questions, please contact our accounts department.\n\nThank you for your business.`;
 
     if (phone) {
       const cleanPhone = phone.replace(/\D/g, '');
@@ -255,7 +255,7 @@ export default function Finance() {
           <DollarSign size={28} color="#059669" />
           <div>
             <h1>{t('finance.title')}</h1>
-            <p>Track invoices, payments, and receivables</p>
+            <p>{t('finance.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -287,8 +287,8 @@ export default function Finance() {
                   <TrendingUp size={24} />
                 </div>
                 <div>
-                  <div className="stat-label">Today's Income</div>
-                  <div className="stat-value">EGP {Number(dashboard.todayIncome || 0).toLocaleString()}</div>
+                  <div className="stat-label">{t('finance.todayIncome')}</div>
+                  <div className="stat-value">{formatCurrency(dashboard.todayIncome || 0)}</div>
                 </div>
               </div>
               <div className="stat-card">
@@ -296,8 +296,8 @@ export default function Finance() {
                   <DollarSign size={24} />
                 </div>
                 <div>
-                  <div className="stat-label">Today's Expenses</div>
-                  <div className="stat-value" style={{ color: '#dc2626' }}>EGP {Number(dashboard.todayExpenses || 0).toLocaleString()}</div>
+                  <div className="stat-label">{t('finance.todayExpenses')}</div>
+                  <div className="stat-value" style={{ color: '#dc2626' }}>{formatCurrency(dashboard.todayExpenses || 0)}</div>
                 </div>
               </div>
               <div className="stat-card">
@@ -306,7 +306,7 @@ export default function Finance() {
                 </div>
                 <div>
                   <div className="stat-label">{t('finance.totalReceivables')}</div>
-                  <div className="stat-value">EGP {Number(dashboard.receivables || 0).toLocaleString()}</div>
+                  <div className="stat-value">{formatCurrency(dashboard.receivables || 0)}</div>
                 </div>
               </div>
               <div className="stat-card">
@@ -315,7 +315,7 @@ export default function Finance() {
                 </div>
                 <div>
                   <div className="stat-label">{t('finance.overdueAmount')}</div>
-                  <div className="stat-value">EGP {Number(dashboard.overdue || 0).toLocaleString()}</div>
+                  <div className="stat-value">{formatCurrency(dashboard.overdue || 0)}</div>
                 </div>
               </div>
               <div className="stat-card">
@@ -324,7 +324,7 @@ export default function Finance() {
                 </div>
                 <div>
                   <div className="stat-label">{t('finance.totalPayables')}</div>
-                  <div className="stat-value">EGP {Number(dashboard.totalPayables || 0).toLocaleString()}</div>
+                  <div className="stat-value">{formatCurrency(dashboard.totalPayables || 0)}</div>
                 </div>
               </div>
               <div className="stat-card">
@@ -333,7 +333,7 @@ export default function Finance() {
                 </div>
                 <div>
                   <div className="stat-label">{t('dashboard.netPosition')}</div>
-                  <div className="stat-value">EGP {Number((dashboard.totalReceivables || 0) - (dashboard.totalPayables || 0)).toLocaleString()}</div>
+                  <div className="stat-value">{formatCurrency((dashboard.totalReceivables || 0) - (dashboard.totalPayables || 0))}</div>
                 </div>
               </div>
               <div className="stat-card">
@@ -351,7 +351,7 @@ export default function Finance() {
             <div className="card" style={{ marginBottom: '24px', background: '#f8fafc', border: '2px solid #3b82f6' }}>
               <div className="card-header" style={{ background: '#3b82f6', color: 'white' }}>
                 <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <DollarSign size={20} /> Complete Financial Overview
+                  <DollarSign size={20} /> {t('finance.completeOverview')}
                 </h3>
               </div>
               <div style={{ padding: '20px' }}>
@@ -359,35 +359,35 @@ export default function Finance() {
                   <div style={{ padding: '12px', background: '#dbeafe', borderRadius: '6px', textAlign: 'center' }}>
                     <div style={{ fontSize: '0.85em', color: '#64748b' }}>{t('finance.totalReceivables')}</div>
                     <div style={{ fontSize: '1.5em', fontWeight: 600, color: '#3b82f6' }}>
-                      EGP {Number(dashboard.totalReceivables || 0).toLocaleString()}
+                      {formatCurrency(dashboard.totalReceivables || 0)}
                     </div>
                   </div>
                   <div style={{ padding: '12px', background: '#fee2e2', borderRadius: '6px', textAlign: 'center' }}>
                     <div style={{ fontSize: '0.85em', color: '#64748b' }}>{t('finance.totalPayables')}</div>
                     <div style={{ fontSize: '1.5em', fontWeight: 600, color: '#ef4444' }}>
-                      EGP {Number(dashboard.totalPayables || 0).toLocaleString()}
+                      {formatCurrency(dashboard.totalPayables || 0)}
                     </div>
                   </div>
                   <div style={{ padding: '12px', background: '#fef3c7', borderRadius: '6px', textAlign: 'center' }}>
                     <div style={{ fontSize: '0.85em', color: '#64748b' }}>{t('finance.overduePayables')}</div>
                     <div style={{ fontSize: '1.5em', fontWeight: 600, color: '#d97706' }}>
-                      EGP {Number(dashboard.overduePayables || 0).toLocaleString()}
+                      {formatCurrency(dashboard.overduePayables || 0)}
                     </div>
                   </div>
                   <div style={{ padding: '12px', background: '#d1fae5', borderRadius: '6px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.85em', color: '#64748b' }}>Today's Income</div>
+                    <div style={{ fontSize: '0.85em', color: '#64748b' }}>{t('finance.todayIncome')}</div>
                     <div style={{ fontSize: '1.5em', fontWeight: 600, color: '#16a34a' }}>
-                      EGP {Number(dashboard.todayIncome || 0).toLocaleString()}
+                      {formatCurrency(dashboard.todayIncome || 0)}
                     </div>
                   </div>
                 </div>
                 <div style={{ marginTop: '16px', padding: '12px', background: '#eff6ff', borderRadius: '6px', textAlign: 'center', border: '2px solid #3b82f6' }}>
                   <div style={{ fontSize: '0.9em', color: '#64748b', fontWeight: 600 }}>{t('finance.netCashPosition')}</div>
                   <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#3b82f6' }}>
-                    EGP {Number((dashboard.totalReceivables || 0) - (dashboard.totalPayables || 0)).toLocaleString()}
+                    {formatCurrency((dashboard.totalReceivables || 0) - (dashboard.totalPayables || 0))}
                   </div>
                   <div style={{ fontSize: '0.8em', color: '#6b7280' }}>
-                    Receivables ({Number(dashboard.totalReceivables || 0).toLocaleString()}) - Payables ({Number(dashboard.totalPayables || 0).toLocaleString()})
+                    {t('finance.receivables')} ({Number(dashboard.totalReceivables || 0).toLocaleString()}) - {t('finance.payables')} ({Number(dashboard.totalPayables || 0).toLocaleString()})
                   </div>
                 </div>
               </div>
@@ -402,7 +402,7 @@ export default function Finance() {
                     المصروفات حسب الفئة
                   </h3>
                   <span style={{ fontWeight: 600, color: '#dc2626', fontSize: '18px' }}>
-                    EGP {dashboard.expensesByCategory.reduce((s, e) => s + (e.total || 0), 0).toLocaleString()}
+                    {formatCurrency(dashboard.expensesByCategory.reduce((s, e) => s + (e.total || 0), 0))}
                   </span>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px', padding: '16px' }}>
@@ -410,22 +410,22 @@ export default function Finance() {
                     <div key={i} style={{ padding: '12px', background: '#fef2f2', borderRadius: '8px', textAlign: 'center', border: '1px solid #fecaca' }}>
                       <div style={{ fontSize: '0.8em', color: '#64748b', marginBottom: '4px', textTransform: 'capitalize' }}>{cat.category || 'Uncategorized'}</div>
                       <div style={{ fontSize: '1.2em', fontWeight: 700, color: '#dc2626' }}>
-                        EGP {Number(cat.total).toLocaleString()}
+                        {formatCurrency(cat.total)}
                       </div>
-                      <div style={{ fontSize: '0.75em', color: '#9ca3af' }}>{cat.count} entries</div>
+                      <div style={{ fontSize: '0.75em', color: '#9ca3af' }}>{cat.count} {t('finance.entries')}</div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Recent Expenses */}
+            {/* {t('expenses.title')} */}
             {dashboard.recentExpenses && dashboard.recentExpenses.length > 0 && (
               <div className="card" style={{ marginBottom: '24px', borderLeft: '4px solid #ef4444' }}>
                 <div className="card-header">
                   <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Receipt size={18} color="#ef4444" /> 
-                    Recent Expenses
+                    {t('expenses.title')}
                   </h3>
                 </div>
                 <div className="table-container">
@@ -513,7 +513,7 @@ export default function Finance() {
             <div className="data-grid">
               <div className="card">
                 <div className="card-header">
-                  <h3 className="card-title"><FileText size={18} style={{ marginRight: '8px' }} /> Recent Invoices</h3>
+                  <h3 className="card-title"><FileText size={18} style={{ marginRight: '8px' }} />{t('finance.invoices')}</h3>
                 </div>
                 <table className="table">
                   <thead>
@@ -539,7 +539,7 @@ export default function Finance() {
 
               <div className="card">
                 <div className="card-header">
-                  <h3 className="card-title"><Clock size={18} style={{ marginRight: '8px' }} /> Upcoming Due Dates</h3>
+                  <h3 className="card-title"><Clock size={18} style={{ marginRight: '8px' }} /> {t('finance.upcomingDue')}</h3>
                 </div>
                 <table className="table">
                   <thead>
@@ -697,7 +697,7 @@ export default function Finance() {
                   <CheckCircle size={24} />
                 </div>
                 <div>
-                  <div className="stat-label">Current (0-30 days)</div>
+                  <div className="stat-label">{t('finance.current')}</div>
                   <div className="stat-value" style={{ fontSize: '24px' }}>
                     EGP {Number(receivables.totals?.current || 0).toLocaleString()}
                   </div>
@@ -727,7 +727,7 @@ export default function Finance() {
                   <XCircle size={24} />
                 </div>
                 <div>
-                  <div className="stat-label">Over 90 days</div>
+                  <div className="stat-label">{t('finance.over90')}</div>
                   <div className="stat-value" style={{ fontSize: '24px', color: '#dc2626' }}>
                     EGP {Number(receivables.totals?.['over-90'] || 0).toLocaleString()}
                   </div>
@@ -739,7 +739,7 @@ export default function Finance() {
               <div className="card-header">
                 <h3 className="card-title">{t('finance.receivablesAging')}</h3>
                 <span style={{ fontWeight: 600, color: '#dc2626', fontSize: '16px' }}>
-                  Total: EGP {Number(receivables.totals?.total || 0).toLocaleString()}
+                  {t('common.total')}: {t('common.currency')} {Number(receivables.totals?.total || 0).toLocaleString()}
                 </span>
               </div>
               <div className="table-container">
