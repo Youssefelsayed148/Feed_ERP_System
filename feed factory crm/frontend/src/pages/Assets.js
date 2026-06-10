@@ -318,7 +318,7 @@ export default function Assets() {
       <div className="page-header">
         <div>
           <h1>{t('assets.title')}</h1>
-          <p>Manage machines, vehicles, and maintenance schedules</p>
+          <p>إدارة الآلات والمركبات وجداول الصيانة</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button 
@@ -543,21 +543,21 @@ export default function Assets() {
                           style={{ padding: '6px 12px', fontSize: '0.85em' }}
                           onClick={() => { setSelectedMachine(mach); setShowScheduleModal(true); }}
                         >
-                          <Calendar className="w-3 h-3" /> Schedule
+                          <Calendar className="w-3 h-3" /> جدولة
                         </button>
                         <button 
                           className="btn btn-success" 
                           style={{ padding: '6px 12px', fontSize: '0.85em' }}
                           onClick={() => { setSelectedMachine(mach); setShowRecordModal(true); }}
                         >
-                          <Check className="w-3 h-3" /> Record
+                          <Check className="w-3 h-3" /> تسجيل
                         </button>
                         <button 
                           className="btn btn-secondary" 
                           style={{ padding: '6px 12px', fontSize: '0.85em' }}
                           onClick={() => { setSelectedMachine(mach); setShowHistoryModal(true); }}
                         >
-                          <History className="w-3 h-3" /> History
+                          <History className="w-3 h-3" /> السجل
                         </button>
                       </div>
                     </td>
@@ -663,14 +663,14 @@ export default function Assets() {
                         style={{ padding: '6px 12px', fontSize: '0.85em' }}
                         onClick={() => { setSelectedMachine(veh); setShowScheduleModal(true); }}
                       >
-                        <Calendar className="w-3 h-3" /> Schedule
+                        <Calendar className="w-3 h-3" /> جدولة
                       </button>
                       <button 
                         className="btn btn-success" 
                         style={{ padding: '6px 12px', fontSize: '0.85em' }}
                         onClick={() => { setSelectedMachine(veh); setShowRecordModal(true); }}
                       >
-                        <Check className="w-3 h-3" /> Record
+                        <Check className="w-3 h-3" /> تسجيل
                       </button>
                     </div>
                   </td>

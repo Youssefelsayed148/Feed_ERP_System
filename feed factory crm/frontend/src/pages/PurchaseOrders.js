@@ -810,7 +810,7 @@ const PurchaseOrders = () => {
                 onClick={handleCreatePO}
                 disabled={!formData.supplierId || cartItems.length === 0}
               >
-                Submit for Approval
+                إرسال للموافقة
               </button>
             </div>
           </div>

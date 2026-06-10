@@ -984,7 +984,7 @@ export default function FeedRecipes() {
                       className="btn btn-outline flex-1"
                     >
                       <Copy className="w-4 h-4" />
-                      Duplicate
+                      نسخ
                     </button>
                     <button 
                       onClick={() => handleToggleStatus(selectedRecipe)}

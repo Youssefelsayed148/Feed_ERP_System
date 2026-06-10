@@ -224,7 +224,7 @@ const MaterialsMultiSelect = ({
         ))}
         {selectedMaterials.length === 0 && (
           <span style={{ color: '#9ca3af', fontSize: '14px', fontStyle: 'italic' }}>
-            No materials selected
+            لم يتم اختيار مواد
           </span>
         )}
       </div>

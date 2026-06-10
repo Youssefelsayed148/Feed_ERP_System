@@ -623,7 +623,7 @@ export default function Clients() {
                   {/* Section: Basic Information */}
                   <div className="card mb-4">
                     <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
-                      Basic Information
+                      المعلومات الأساسية
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="form-group">
