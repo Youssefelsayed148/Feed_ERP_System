@@ -172,6 +172,16 @@ const PurchaseOrders = () => {
   const updateCartItem = (index, field, value) => {
     const updated = [...cartItems];
     updated[index][field] = value;
+    if (field === 'material') {
+      const material = materials.find(m => (m.id || m.code).toString() === value.toString());
+      if (material) {
+        const price = parseFloat(material.unit_price) || 0;
+        updated[index].unitPrice = price.toString();
+        updated[index].materialName = material.name_arabic || material.name;
+        const qty = parseFloat(updated[index].quantity) || 0;
+        updated[index].total = qty * price;
+      }
+    }
     if (field === 'quantity' || field === 'unitPrice') {
       updated[index].total = Number(updated[index].quantity) * Number(updated[index].unitPrice) || 0;
     }
@@ -315,8 +325,8 @@ const PurchaseOrders = () => {
       <tr>
         <td>${item.raw_material_name || item.material || '-'}</td>
         <td>${item.quantity || 0} ${item.unit || 'kg'}</td>
-        <td>EGP ${parseFloat(item.unit_cost || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-        <td>EGP ${parseFloat(item.total_cost || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+        <td>${formatCurrency(parseFloat(item.unit_cost || 0))}</td>
+        <td>${formatCurrency(parseFloat(item.total_cost || 0))}</td>
       </tr>
     `).join('');
 
@@ -336,49 +346,56 @@ const PurchaseOrders = () => {
             th { background-color: #f5f5f5; font-weight: 600; }
             .total { text-align: right; font-size: 18px; font-weight: bold; margin-top: 20px; padding: 16px; background: #f5f5f5; border-radius: 4px; }
             .status { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 500; text-transform: capitalize; }
+            .company { margin-bottom: 24px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+            .company .name { font-size: 20px; font-weight: bold; color: #1565c0; }
+            .company .info { font-size: 12px; color: #888; }
           </style>
         </head>
         <body>
-          <h1>{t('po.title')}</h1>
+          <div class="company">
+            <div class="name">Feed Factory CRM</div>
+            <div class="info">Purchase Order</div>
+          </div>
+          <h1>Purchase Order</h1>
           <div class="header">
             <div>
-              <div class="label">{t('po.number')}</div>
+              <div class="label">PO Number</div>
               <div class="value">${po.po_number || po.id}</div>
             </div>
             <div>
-              <div class="label">{t('common.date')}</div>
+              <div class="label">Date</div>
               <div class="value">${po.created_at ? new Date(po.created_at).toLocaleDateString('en-GB') : '-'}</div>
             </div>
             <div>
-              <div class="label">{t('common.status')}</div>
+              <div class="label">Status</div>
               <div class="value" style="text-transform: capitalize;">${(po.status || 'draft').replace(/_/g, ' ')}</div>
             </div>
           </div>
           <div class="header">
             <div>
-              <div class="label">{t('common.supplier')}</div>
-              <div class="value">${po.supplier_name || po.supplier?.name || '-'}</div>
+              <div class="label">Supplier</div>
+              <div class="value">${po.supplier_name || (po.supplier?.name_arabic || po.supplier?.name) || '-'}</div>
             </div>
             <div>
-              <div class="label">{t('po.expectedDelivery')}</div>
+              <div class="label">Expected Delivery</div>
               <div class="value">${po.expected_date ? new Date(po.expected_date).toLocaleDateString('en-GB') : '-'}</div>
             </div>
           </div>
           <table>
             <thead>
               <tr>
-                <th>{t('common.material')}</th>
-                <th>{t('common.quantity')}</th>
-                <th>{t('po.unitCost')}</th>
-                <th>{t('common.total')}</th>
+                <th>Material</th>
+                <th>Quantity</th>
+                <th>Unit Cost</th>
+                <th>Total</th>
               </tr>
             </thead>
             <tbody>
-              ${items || `<tr><td colspan="4" style="text-align:center;">{t('po.noItems')}</td></tr>`}
+              ${items || '<tr><td colspan="4" style="text-align:center;">No items</td></tr>'}
             </tbody>
           </table>
           <div class="total">
-            Grand Total (inc. VAT): EGP ${(parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0)).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            Grand Total (inc. VAT): EGP ${formatCurrency((parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0)))}
           </div>
           ${po.notes ? `<div style="margin-top: 24px; padding: 12px; background: #f9f9f9; border-radius: 4px;"><div class="label">{t('common.notes')}</div><div>${po.notes}</div></div>` : ''}
         </body>
@@ -439,7 +456,7 @@ const PurchaseOrders = () => {
         </div>
         <div style={{ background: '#e8f5e9', padding: '20px', borderRadius: '8px' }}>
           <h3 style={{ margin: '0 0 8px 0', color: '#2e7d32', fontSize: '14px' }}>{t('finance.thisMonth')}</h3>
-          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#2e7d32' }}>{stats.monthSpend.toLocaleString()}</div>
+          <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#2e7d32' }}>{formatNumber(stats.monthSpend)}</div>
         </div>
       </div>
 
@@ -501,7 +518,7 @@ const PurchaseOrders = () => {
                   <td style={{ fontWeight: 600 }}>{po.po_number}</td>
                   <td>{po.supplier_name || getSupplierName(po)}</td>
                   <td>{po.item_count || 0} {t('common.items')}</td>
-                  {{egp: t('common.currency'), usd: 'USD'}[po.currency] || 'ج.م'} {(parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0)).toLocaleString()}
+                  <td>{t('common.currency')} {formatNumber((parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0)))}</td>
                   <td>{po.expected_date ? new Date(po.expected_date).toLocaleDateString('en-GB') : '-'}</td>
                   <td>
                     <span style={{
@@ -520,7 +537,7 @@ const PurchaseOrders = () => {
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button className="btn btn-sm" onClick={() => openViewModal(po)}>{t('common.view')}</button>
                       <button className="btn btn-sm" onClick={() => downloadPOAsPDF(po)} title={t('po.printPDF')}>{t('common.pdf')}</button>
-                      <button className="btn btn-sm" onClick={() => sendWhatsApp(po)} title={t('po.shareWhatsApp')}>{t('common.whatsapp')}</button>
+                      <button className="btn btn-sm" onClick={() => sendWhatsApp(po)} title={t('po.shareWhatsApp')}>WhatsApp</button>
                       
                       {po.status === 'draft' && (
                         <button 
@@ -741,7 +758,7 @@ const PurchaseOrders = () => {
                     onChange={(e) => updateCartItem(index, 'unitPrice', e.target.value)}
                   />
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontWeight: 600, fontSize: '0.95em', color: '#1565c0', padding: '0 8px' }}>
-                    {item.total ? `ج.م ${(item.total).toLocaleString()}` : '-'}
+                    {item.total ? `${t('common.currency')} ${formatNumber(item.total)}` : '-'}
                   </div>
                   <button 
                     type="button" 
@@ -767,15 +784,15 @@ const PurchaseOrders = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span>Subtotal:</span>
-                  <span>EGP {calculateTotals().subtotal.toLocaleString()}</span>
+                  <span>{t('common.currency')} {formatNumber(calculateTotals().subtotal)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span>VAT (14%):</span>
-                  <span>EGP {calculateTotals().vat.toLocaleString()}</span>
+                  <span>{t('common.currency')} {formatNumber(calculateTotals().vat)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
                   <span>Total:</span>
-                  <span>EGP {calculateTotals().total.toLocaleString()}</span>
+                  <span>{t('common.currency')} {formatNumber(calculateTotals().total)}</span>
                 </div>
               </div>
             )}
@@ -918,7 +935,7 @@ const PurchaseOrders = () => {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
               <button type="button" className="btn" onClick={() => downloadPOAsPDF(selectedPO)}>{t('common.pdf')}</button>
-              <button type="button" className="btn" onClick={() => sendWhatsApp(selectedPO)}>{t('common.whatsapp')}</button>
+              <button type="button" className="btn" onClick={() => sendWhatsApp(selectedPO)}>WhatsApp</button>
               {selectedPO.status === 'pending_approval' && (
                 <>
                   <button type="button" className="btn btn-success" onClick={() => { approvePO(selectedPO.id); closeModal(); }}>

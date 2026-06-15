@@ -27,7 +27,12 @@ router.get('/', authenticate, async (req, res) => {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     
     const result = await query(
-      `SELECT s.* FROM suppliers s ${whereClause} ORDER BY s.name ASC`,
+      `SELECT s.*, COALESCE(SUM(po.total_amount), 0) as total_spend
+       FROM suppliers s
+       LEFT JOIN purchase_orders po ON po.supplier_id = s.id AND po.status IN ('approved', 'received')
+       ${whereClause}
+       GROUP BY s.id
+       ORDER BY s.name ASC`,
       params
     );
     
@@ -42,6 +47,7 @@ router.get('/', authenticate, async (req, res) => {
       materialsSupplied: s.materials_supplied || [],
       paymentTerms: s.payment_terms,
       performanceRating: parseFloat(s.performance_rating),
+      totalSpend: parseFloat(s.total_spend) || 0,
       is_active: s.is_active,
       status: s.is_active ? 'active' : 'inactive',
       createdAt: s.created_at,

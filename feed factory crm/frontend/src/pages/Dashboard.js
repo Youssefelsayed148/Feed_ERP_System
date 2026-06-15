@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
   Users, Package, DollarSign, Truck, Factory,
   TrendingUp, AlertTriangle, CheckCircle,
-  ShoppingCart, CreditCard, Calendar, RefreshCw,
-  Box, Wrench, FileText,   ArrowRight, ClipboardList,
+  ShoppingCart, CreditCard, Calendar, RefreshCw, Eye, Box,
+  Wrench, FileText,   ArrowRight, ClipboardList,
   Wallet, Receipt, FlaskConical,
   Activity, Clock
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters';
 import { t } from '../utils/i18n';
+import { authService } from '../services/api';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const getAuthToken = () => localStorage.getItem('token');
@@ -24,10 +25,74 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [approvalsLoading, setApprovalsLoading] = useState(false);
 
   useEffect(() => {
     fetchDashboard();
+    fetchActivitySummary();
+    fetchPendingApprovals();
   }, []);
+
+  const fetchActivitySummary = async () => {
+    try {
+      const response = await fetch(`${API_URL}/approvals/activity/summary`, { headers: headers() });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.users?.length > 0) {
+          const tbody = document.getElementById('owner-activity-body');
+          if (tbody) {
+            tbody.innerHTML = data.users.map(u => {
+              const time = u.last_action_time ? new Date(u.last_action_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-';
+              const date = u.last_action_time ? new Date(u.last_action_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+              return `<tr>
+                <td><strong>${u.user_name}</strong></td>
+                <td><span class="badge">${u.user_role}</span></td>
+                <td>${u.action || '-'}</td>
+                <td>${u.module_name || '-'}</td>
+                <td>${u.details || '-'}</td>
+                <td style="text-align:right;font-size:0.85em;color:#6b7280;white-space:nowrap">${time}<br/>${date}</td>
+              </tr>`;
+            }).join('');
+          }
+        }
+      }
+    } catch (e) {}
+  };
+
+  const fetchPendingApprovals = async () => {
+    setApprovalsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/approvals/pending`, { headers: headers() });
+      if (res.ok) {
+        const data = await res.json();
+        setPendingApprovals(data.requests || []);
+      }
+    } catch (e) {}
+    setApprovalsLoading(false);
+  };
+
+  const handleApproveRequest = async (id) => {
+    try {
+      await fetch(`${API_URL}/approvals/approve`, {
+        method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: id })
+      });
+      fetchPendingApprovals();
+    } catch (e) {}
+  };
+
+  const handleRejectRequest = async (id) => {
+    const reason = prompt('Rejection reason:');
+    if (!reason) return;
+    try {
+      await fetch(`${API_URL}/approvals/reject`, {
+        method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: id, reason })
+      });
+      fetchPendingApprovals();
+    } catch (e) {}
+  };
 
   const fetchDashboard = async () => {
     try {
@@ -322,6 +387,104 @@ const Dashboard = () => {
             <Receipt size={18} /> {t('dashboard.viewExpenses')}
           </button>
         </div>
+
+        {/* Daily Orders */}
+        <div className="section-card" style={{ gridColumn: 'span 2' }}>
+          <div className="data-table-header">
+            <ShoppingCart size={20} color="#f59e0b" />
+            <h3>{t('dashboard.dailyOrders')}</h3>
+          </div>
+          {stats?.dailyOrders?.length > 0 ? (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>{t('common.orderNumber')}</th>
+                  <th>{t('common.client')}</th>
+                  <th>{t('common.createdBy')}</th>
+                  <th>{t('common.items')}</th>
+                  <th>{t('common.amount')}</th>
+                  <th>{t('common.status')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.dailyOrders.map(order => (
+                  <tr key={order.id}>
+                    <td>{order.order_number}</td>
+                    <td>{order.client_name}</td>
+                    <td>{order.created_by_name || '-'}</td>
+                    <td>{order.item_count || 0}</td>
+                    <td>{formatCurrency(order.final_amount)}</td>
+                    <td><span className={`badge ${order.status === 'delivered' ? 'badge-success' : order.status === 'pending' ? 'badge-warning' : 'badge-info'}`}>{order.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p style={{ color: '#6b7280', padding: '20px', textAlign: 'center' }}>{t('common.noOrdersToday')}</p>
+          )}
+          <button onClick={() => navigate('/orders')} className="btn btn-primary" style={{ marginTop: '15px', width: '100%' }}>
+            <Eye size={18} /> {t('dashboard.viewAll')}
+          </button>
+        </div>
+
+        {/* Pending Approvals Widget */}
+        <div className="section-card">
+          <div className="data-table-header">
+            <ClipboardList size={20} color="#f59e0b" />
+            <h3>{t('dashboard.pendingApprovals')}</h3>
+          </div>
+          {approvalsLoading ? (
+            <p style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>{t('common.loading')}</p>
+          ) : pendingApprovals.length > 0 ? (
+            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              {pendingApprovals.slice(0, 10).map(req => (
+                <div key={req.id} style={{ padding: '10px', borderBottom: '1px solid #e5e7eb' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong style={{ fontSize: '14px' }}>{req.module}</strong>
+                      <p style={{ margin: '2px 0', fontSize: '12px', color: '#6b7280' }}>{req.notes || `${req.reference_type} #${req.reference_id}`}</p>
+                      <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af' }}>by {req.requested_by_name || req.requested_by}</p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button className="btn btn-sm btn-success" onClick={() => handleApproveRequest(req.id)} title={t('common.approve')}>✓</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => handleRejectRequest(req.id)} title={t('common.reject')}>✕</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>{t('dashboard.noPendingApprovals')}</p>
+          )}
+        </div>
+
+        {/* Credit Limit Clients */}
+        {stats?.clientsWithCredit?.length > 0 && (
+        <div className="section-card">
+          <div className="data-table-header">
+            <CreditCard size={20} color="#8b5cf6" />
+            <h3>{t('dashboard.creditLimitClients')}</h3>
+          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>{t('common.client')}</th>
+                <th>{t('common.limit')}</th>
+                <th>{t('common.balance')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.clientsWithCredit.map(client => (
+                <tr key={client.id}>
+                  <td>{client.name}</td>
+                  <td>{formatCurrency(client.credit_limit)}</td>
+                  <td>{formatCurrency(client.current_balance)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        )}
 
         {/* Cash Flow Overview */}
         <div className="section-card" style={{ gridColumn: 'span 2' }}>
@@ -653,6 +816,39 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Owner Activity Tracker */}
+      {['owner', 'admin'].includes(authService.getCurrentUser()?.role) && (
+        <div className="data-grid" style={{ marginTop: '20px' }}>
+          <div className="data-table-card" style={{ gridColumn: 'span 2', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(245,158,11,0.12)', border: 'none' }}>
+            <div className="data-table-header" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', padding: '18px 24px' }}>
+              <Activity size={22} />
+              <h3 style={{ margin: 0, fontSize: '1.1em', fontWeight: 600 }}>Team Activity Tracker</h3>
+              <span style={{ marginLeft: 'auto', fontSize: '0.85em', background: 'rgba(255,255,255,0.15)', padding: '4px 12px', borderRadius: '20px' }}>
+                <RefreshCw size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
+                Last Actions
+              </span>
+            </div>
+            <div style={{ maxHeight: '300px', overflowY: 'auto' }} id="owner-activity-panel">
+              <table className="data-table">
+                <thead>
+                  <tr style={{ background: '#fffbeb' }}>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Last Action</th>
+                    <th>Module</th>
+                    <th>Details</th>
+                    <th style={{ textAlign: 'right' }}>Time</th>
+                  </tr>
+                </thead>
+                <tbody id="owner-activity-body">
+                  <tr><td colSpan="6" style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>Loading activity data...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '24px', padding: '20px', background: 'white', borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>

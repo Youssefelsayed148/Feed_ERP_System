@@ -1,4 +1,5 @@
 import { t } from '../utils/i18n';
+import { formatCurrency } from '../utils/formatters';
 import React, { useState, useEffect } from 'react';
 import { 
   Scale, Plus, Search, FolderOpen, FileText, Upload,
@@ -112,7 +113,7 @@ export default function Legal() {
       pending: { color: 'warning', label: t('legal.pendingReview') },
       rejected: { color: 'danger', label: t('legal.rejected') },
       active: { color: 'success', label: 'Active' },
-      pending_review: { color: 'warning', label: 'Under Review' },
+      pending_review: { color: 'warning', label: t('legal.underReview') },
       expired: { color: 'danger', label: 'Expired' }
     };
     const statusInfo = statusMap[status] || { color: 'secondary', label: status };
@@ -128,9 +129,9 @@ export default function Legal() {
   };
 
   const tabs = [
-    { id: 'documents', label: 'Documents', icon: <FileText size={18} /> },
-    { id: 'folders', label: 'Folders', icon: <FolderOpen size={18} /> },
-    { id: 'onboarding', label: 'Client Onboarding', icon: <Building size={18} /> }
+    { id: 'documents', label: t('legal.title'), icon: <FileText size={18} /> },
+    { id: 'folders', label: t('legal.createClientFolder'), icon: <FolderOpen size={18} /> },
+    { id: 'onboarding', label: t('legal.onboardingProcess'), icon: <Building size={18} /> }
   ];
 
   // Filter documents
@@ -157,7 +158,7 @@ export default function Legal() {
           <Scale size={28} />
           <div>
             <h1>{t('legal.title')}</h1>
-            <p>Manage client documents, contracts and compliance</p>
+            <p>{t('legal.subtitleLegal')}</p>
           </div>
         </div>
       </div>
@@ -189,7 +190,7 @@ export default function Legal() {
                 <Search size={18} />
                 <input
                   type="text"
-                  placeholder="Search documents..."
+                  placeholder={t('common.search')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -265,19 +266,19 @@ export default function Legal() {
                       <td>{getStatusBadge(doc.status)}</td>
                       <td>
                         <div className="action-buttons">
-                          <button className="btn btn-outline btn-sm" title="{t('common.view')}">
+                          <button className="btn btn-outline btn-sm" title={t('common.view')}>
                             <Eye size={14} />
                           </button>
-                          <button className="btn btn-outline btn-sm" title="{t('common.download')}">
+                          <button className="btn btn-outline btn-sm" title={t('common.download')}>
                             <Download size={14} />
                           </button>
                           {doc.status === 'pending' && (
                             <>
-                              <button className="btn btn-success btn-sm verify-btn" title="{t('legal.verifyDocument')}" onClick={() => handleVerifyDocument(doc, true)}>
+                              <button className="btn btn-success btn-sm verify-btn" title={t('legal.verifyDocument')} onClick={() => handleVerifyDocument(doc, true)}>
                                 <Check size={14} />
                                 <span>تحقق</span>
                               </button>
-                              <button className="btn btn-danger btn-sm reject-btn" title="{t('legal.rejectDocument')}" onClick={() => handleVerifyDocument(doc, false)}>
+                              <button className="btn btn-danger btn-sm reject-btn" title={t('legal.rejectDocument')} onClick={() => handleVerifyDocument(doc, false)}>
                                 <X size={14} />
                                 <span>{t('legal.reject')}</span>
                               </button>

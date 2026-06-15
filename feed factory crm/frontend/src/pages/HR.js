@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { hrService, authService, employeeRatingService, payrollService } from '../services/api';
 import { formatCurrency } from './Settings';
-
+import { captureLocation, getEmployeeLocations } from '../utils/location';
 const HR = () => {
   const [activeTab, setActiveTab] = useState('employees');
   const [employees, setEmployees] = useState([]);
@@ -166,6 +166,16 @@ const HR = () => {
     } catch (error) {
       console.error('Error fetching documents:', error);
       setSelectedEmployeeDocs(selectedEmployee?.documents || []);
+    }
+  };
+
+  const handleTrackLocation = async (emp) => {
+    const locations = await getEmployeeLocations();
+    const empLoc = locations.find(l => l.user_id === emp.id || l.user_id === emp.user_id);
+    if (empLoc && empLoc.latitude && empLoc.longitude) {
+      window.open(`https://www.google.com/maps?q=${empLoc.latitude},${empLoc.longitude}`, '_blank');
+    } else {
+      alert('No location data available for this employee');
     }
   };
 
@@ -2665,6 +2675,12 @@ const HR = () => {
                   </div>
                 </div>
               )}
+
+              {/* Track Location */}
+              <div className="section-title" style={{ marginTop: '16px' }}>{t('hr.location')}</div>
+              <button className="btn btn-sm btn-outline" onClick={() => handleTrackLocation(selectedEmployee)} style={{ marginBottom: '16px' }}>
+                <MapPin size={16} /> {t('hr.viewOnMap')}
+              </button>
 
               {/* Documents Section */}
               <div className="bank-details" style={{ marginTop: '20px' }}>

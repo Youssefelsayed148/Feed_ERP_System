@@ -36,7 +36,11 @@ export default function Inventory() {
   // Modal states
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showMovementsModal, setShowMovementsModal] = useState(false);
+  const [selectedMaterial, setSelectedMaterial] = useState(null);
+  const [materialMovements, setMaterialMovements] = useState([]);
   const [requisitions, setRequisitions] = useState([]);
+  const [expandedRows, setExpandedRows] = useState({});
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [selectedRequisition, setSelectedRequisition] = useState(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -279,6 +283,15 @@ export default function Inventory() {
     }));
   };
 
+  const handleMaterialClick = async (material) => {
+    setSelectedMaterial(material);
+    try {
+      const res = await fetch(`${API_URL}/raw-materials/${material.id || material._id}`, { headers: headers() });
+      setMaterialMovements(res.ok ? (await res.json()).recent_transactions || [] : []);
+    } catch(e) { setMaterialMovements([]); }
+    setShowMovementsModal(true);
+  };
+
   const getStatusColor = (status) => {
     const colors = {
       active: 'bg-green-100 text-green-800',
@@ -311,6 +324,15 @@ export default function Inventory() {
       cancelled: 'badge-danger'
     };
     return badges[status] || 'badge-info';
+  };
+
+  const getStockStatusLabel = (status) => {
+    const labels = {
+      normal: t('common.normal'),
+      low: t('common.low'),
+      critical: t('common.critical')
+    };
+    return labels[status] || status;
   };
 
   const getMovementTypeBadge = (type) => {
@@ -1262,7 +1284,7 @@ export default function Inventory() {
               {rawMaterials.length === 0 ? (
                 <tr><td colSpan="6" className="text-center">لا توجد خامات</td></tr>
               ) : rawMaterials.map((mat) => (
-                <tr key={mat._id}>
+                <tr key={mat._id} onClick={() => handleMaterialClick(mat)} style={{ cursor: 'pointer' }}>
                   <td>
                     <p className="font-medium">{mat.name}</p>
                     <p style={{ fontSize: '0.875rem', color: '#64748b' }}>{mat.code}</p>
@@ -1281,7 +1303,7 @@ export default function Inventory() {
                   <td>{formatCurrency((mat.quantity || 0) * (mat.costPerUnit || 0))}</td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(mat.status)}`}>
-                      {mat.status}
+                      {getStockStatusLabel(mat.status)}
                     </span>
                   </td>
                 </tr>
@@ -1371,7 +1393,7 @@ export default function Inventory() {
                       {prod.status === 'draft' && (
                         <button 
                           className="btn btn-sm btn-primary" 
-                          title="{t('common.approve')}"
+                          title={t('common.approve')}
                           onClick={() => approveProduction(prod)}
                         >
                           <Check className="w-4 h-4" />
@@ -1380,7 +1402,7 @@ export default function Inventory() {
                       {prod.status === 'approved' && (
                         <button 
                           className="btn btn-sm btn-primary" 
-                          title="{t('common.start')}"
+                          title={t('common.start')}
                           onClick={() => startProduction(prod)}
                         >
                           <Play className="w-4 h-4" />
@@ -1389,7 +1411,7 @@ export default function Inventory() {
                       {prod.status === 'in_progress' && (
                         <button 
                           className="btn btn-sm btn-success" 
-                          title="{t('common.complete')}"
+                          title={t('common.complete')}
                           onClick={() => completeProduction(prod)}
                         >
                           <Check className="w-4 h-4" />
@@ -1864,6 +1886,51 @@ export default function Inventory() {
       {/* Render Modals */}
       {showAddStockModal && <AddStockModal />}
       {showTransferModal && <TransferStockModal />}
+      
+      {/* Material Movements Modal */}
+      {showMovementsModal && (
+        <div className="modal-overlay" onClick={() => setShowMovementsModal(false)}>
+          <div className="modal modal-large" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{t('inventory.movements')} - {selectedMaterial?.name || selectedMaterial?.name_arabic || ''}</h2>
+              <button className="modal-close" onClick={() => setShowMovementsModal(false)}><X className="w-5 h-5" /></button>
+            </div>
+            <div className="modal-body">
+              {materialMovements.length > 0 ? (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>{t('common.date')}</th>
+                      <th>{t('inventory.type')}</th>
+                      <th>{t('common.quantity')}</th>
+                      <th>{t('common.reference')}</th>
+                      <th>{t('common.notes')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {materialMovements.map((m, i) => (
+                      <tr key={m.id || i}>
+                        <td>{new Date(m.created_at).toLocaleDateString()}</td>
+                        <td><span className={`badge ${m.transaction_type === 'production' ? 'badge-info' : m.transaction_type === 'purchase' ? 'badge-success' : 'badge-warning'}`}>{m.transaction_type}</span></td>
+                        <td style={{ color: m.quantity < 0 ? '#ef4444' : '#10b981', fontWeight: 600 }}>{m.quantity}</td>
+                        <td>{m.reference_id ? `#${m.reference_id}` : '-'}</td>
+                        <td>{m.notes || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '48px', color: '#6b7280' }}>
+                  <p>{t('common.noData')}</p>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowMovementsModal(false)}>{t('common.close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

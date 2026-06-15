@@ -133,7 +133,7 @@ const MaterialsMultiSelect = ({
               setShowSuggestions(true);
             }}
             onFocus={() => setShowSuggestions(true)}
-            placeholder="Type to search materials..."
+            placeholder={t('suppliers.searchMaterials')}
             style={{ flex: 1 }}
           />
           <button 
@@ -314,7 +314,7 @@ const SupplierFormModal = ({
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
-                    placeholder="Enter supplier name"
+                    placeholder={t('suppliers.enterName')}
                   />
                 </div>
                 
@@ -325,7 +325,7 @@ const SupplierFormModal = ({
                     className="form-input"
                     value={formData.code}
                     onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    placeholder="e.g., SUP-001"
+                    placeholder={t('suppliers.codeExample')}
                   />
                 </div>
               </div>
@@ -337,7 +337,7 @@ const SupplierFormModal = ({
                   className="form-input"
                   value={formData.contactPerson}
                   onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                  placeholder="Primary contact name"
+                  placeholder={t('suppliers.contactName')}
                 />
               </div>
               
@@ -689,7 +689,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#8b5cf6' }}>
-                EGP {(supplier.totalSpend / 1000000).toFixed(1)}M
+                {formatCurrency(supplier.totalSpend || 0)}
               </div>
               <div style={{ fontSize: '12px', color: '#6b7280' }}>إجمالي المشتريات</div>
             </div>
@@ -796,10 +796,10 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
                     )}
                   </div>
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    Stock: {parseFloat(material.current_stock || 0).toLocaleString()} {material.unit || 'kg'}
+                    {t('suppliers.stock')}: {parseFloat(material.current_stock || 0).toLocaleString()} {material.unit || 'kg'}
                   </div>
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    Min: {parseFloat(material.min_stock_level || 0).toLocaleString()} {material.unit || 'kg'}
+                    {t('suppliers.min')}: {parseFloat(material.min_stock_level || 0).toLocaleString()} {material.unit || 'kg'}
                   </div>
                   <button
                     className="btn btn-sm btn-primary"
@@ -807,13 +807,13 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
                     onClick={() => onOrder(supplier)}
                   >
                     <Truck size={14} style={{ marginRight: '4px', display: 'inline' }} />
-                    Order Now
+                    {t('suppliers.orderNow')}
                   </button>
                 </div>
               ))}
               {suppliedMaterials.length === 0 && (
                 <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>
-                  No materials linked to this supplier
+                  {t('suppliers.noMaterialsLinked')}
                 </span>
               )}
             </div>
@@ -961,8 +961,8 @@ const Suppliers = () => {
           performanceRating: s.performanceRating || s.performance_rating || 3,
           onTimeDelivery: 85,
           qualityRating: 4,
-          totalOrders: 0,
-          totalSpend: 0,
+          totalOrders: s.totalOrders || 0,
+          totalSpend: s.totalSpend || 0,
           status: s.is_active !== false ? 'active' : 'inactive',
           taxId: '',
           bankName: '',
@@ -1410,7 +1410,7 @@ const Suppliers = () => {
           </div>
           <div style={{ padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px', textAlign: 'center' }}>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#8b5cf6' }}>
-              EGP {(suppliers.reduce((sum, s) => sum + (s.totalSpend || 0), 0) / 1000000).toFixed(1)}M
+              {formatCurrency(suppliers.reduce((sum, s) => sum + (s.totalSpend || 0), 0))}
             </div>
             <div style={{ fontSize: '12px', color: '#6b7280' }}>إجمالي المشتريات</div>
           </div>
@@ -1422,7 +1422,7 @@ const Suppliers = () => {
             <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
             <input
               type="text"
-              placeholder="Search suppliers, materials..."
+              placeholder={t('common.searchSuppliers')}
               className="form-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -1570,7 +1570,7 @@ const Suppliers = () => {
                         {supplier.totalOrders || 0} orders
                       </span>
                       <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                        EGP {((supplier.totalSpend || 0) / 1000000).toFixed(1)}M
+                        {formatCurrency((supplier.totalSpend || 0))}
                       </span>
                     </div>
                   </td>
@@ -1592,21 +1592,21 @@ const Suppliers = () => {
                       <button 
                         className="btn btn-sm"
                         onClick={() => openViewModal(supplier)}
-                        title="{t('common.viewDetails')}"
+                        title={t('common.viewDetails')}
                       >
                         عرض
                       </button>
                       <button 
                         className="btn btn-sm btn-primary"
                         onClick={() => openEditModal(supplier)}
-                        title="{t('common.edit')}"
+                        title={t('common.edit')}
                       >
                         <Edit2 size={14} />
                       </button>
                       <button 
                         className="btn btn-sm btn-danger"
                         onClick={() => handleDeleteSupplierById(supplier._id)}
-                        title="{t('common.delete')}"
+                        title={t('common.delete')}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -1643,7 +1643,7 @@ const Suppliers = () => {
                         className="form-input"
                         value={supplierForm.name}
                         onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
-                        placeholder="Enter supplier name"
+                        placeholder={t('suppliers.enterName')}
                         required
                       />
                     </div>
@@ -1655,7 +1655,7 @@ const Suppliers = () => {
                         className="form-input"
                         value={supplierForm.code}
                         onChange={(e) => setSupplierForm({ ...supplierForm, code: e.target.value })}
-                        placeholder="e.g., SUP-001"
+                        placeholder={t('suppliers.codeExample')}
                         required
                       />
                     </div>
@@ -1668,7 +1668,7 @@ const Suppliers = () => {
                       className="form-input"
                       value={supplierForm.contactPerson}
                       onChange={(e) => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })}
-                      placeholder="Primary contact name"
+                      placeholder={t('suppliers.contactName')}
                     />
                   </div>
                   

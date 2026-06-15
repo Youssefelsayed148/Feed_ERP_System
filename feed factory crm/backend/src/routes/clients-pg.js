@@ -272,19 +272,20 @@ router.post('/', async (req, res) => {
          payment_terms, credit_limit, current_balance,
          phone, email, address, city,
          contact_person, discount, avg_consumption,
-         favorite_feed_type_id, license_number, notes,
+         favorite_feed_type_id, license_number, notes, storage_location,
          is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 0,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 0,
          $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-         true, NOW(), NOW())
-       RETURNING *`,
+         $18, true, NOW(), NOW())
+         RETURNING *`,
       [
         clientCode,
         name_arabic, name_english || name_arabic, type || 'farm', status || 'active',
         payment_terms || 'cash', credit_limit || 0,
         phone || null, email || null, address || null, city || null,
         contact_person || null, discount || 0, avg_consumption || 0,
-        favorite_feed_type_id || null, license_number || null, notes || null
+        favorite_feed_type_id || null, license_number || null, notes || null,
+        req.body.storage_location || ''
       ]
     );
 
@@ -296,7 +297,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update client
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -306,6 +307,22 @@ router.put('/:id', async (req, res) => {
       avg_consumption, favorite_feed_type_id,
       license_number, notes
     } = req.body;
+
+    // Credit limit change requires owner approval
+    if (credit_limit !== undefined && req.user?.role !== 'owner' && req.user?.role !== 'admin') {
+      const current = await query('SELECT credit_limit, name_arabic, name_english, code FROM clients WHERE id = $1', [id]);
+      if (current.rows.length > 0 && parseFloat(current.rows[0].credit_limit) !== parseFloat(credit_limit)) {
+        const client = current.rows[0];
+        await query(
+          `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, status, notes, metadata)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          ['clients', 'credit_limit_change', id, req.user.id, 'pending',
+           `Credit limit change for ${client.name_arabic || client.name_english}: ${client.credit_limit} → ${credit_limit}`,
+           JSON.stringify({ client_id: id, old_limit: client.credit_limit, new_limit: credit_limit, client_code: client.code })]
+        );
+        return res.status(200).json({ success: true, message: 'Credit limit change sent for owner approval', pendingApproval: true });
+      }
+    }
 
     const result = await query(
       `UPDATE clients SET
@@ -325,8 +342,9 @@ router.put('/:id', async (req, res) => {
         favorite_feed_type_id = COALESCE($14, favorite_feed_type_id),
         license_number = COALESCE($15, license_number),
         notes = COALESCE($16, notes),
+        storage_location = COALESCE($17, storage_location),
         updated_at = NOW()
-       WHERE id = $17
+       WHERE id = $18
        RETURNING *`,
       [
         name_arabic, name_english, type, status,
@@ -334,6 +352,7 @@ router.put('/:id', async (req, res) => {
         address, city,
         contact_person, discount, avg_consumption,
         favorite_feed_type_id, license_number, notes,
+        req.body.storage_location || null,
         id
       ]
     );

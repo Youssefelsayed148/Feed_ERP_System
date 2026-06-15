@@ -105,6 +105,23 @@ router.get('/vehicles', authenticate, async (req, res) => {
   }
 });
 
+// GET /api/assets/vehicles/stats
+router.get('/vehicles/stats', authenticate, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status='available') as available,
+        COUNT(*) FILTER (WHERE status='on_delivery') as on_delivery,
+        COUNT(*) FILTER (WHERE status='maintenance') as in_maintenance
+      FROM vehicles WHERE is_active = true
+    `);
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/vehicles/:id', authenticate, async (req, res) => {
   try {
     const result = await query(`SELECT * FROM vehicles WHERE id = $1`, [req.params.id]);
@@ -165,6 +182,23 @@ router.get('/maintenance', authenticate, async (req, res) => {
        ORDER BY ms.scheduled_date`
     );
     res.json({ records: result.rows, total: result.rows.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/assets/maintenance/stats
+router.get('/maintenance/stats', authenticate, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE status='scheduled') as scheduled,
+        COUNT(*) FILTER (WHERE status='in_progress') as in_progress,
+        COUNT(*) FILTER (WHERE status='completed') as completed
+      FROM maintenance_schedules
+    `);
+    res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

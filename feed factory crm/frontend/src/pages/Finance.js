@@ -387,7 +387,7 @@ export default function Finance() {
                     {formatCurrency((dashboard.totalReceivables || 0) - (dashboard.totalPayables || 0))}
                   </div>
                   <div style={{ fontSize: '0.8em', color: '#6b7280' }}>
-                    {t('finance.receivables')} ({Number(dashboard.totalReceivables || 0).toLocaleString()}) - {t('finance.payables')} ({Number(dashboard.totalPayables || 0).toLocaleString()})
+                    {t('finance.receivables')} ({formatNumber(Number(dashboard.totalReceivables || 0))}) - {t('finance.payables')} ({formatNumber(Number(dashboard.totalPayables || 0))})
                   </div>
                 </div>
               </div>
@@ -446,7 +446,7 @@ export default function Finance() {
                             <span className="badge badge-info" style={{ textTransform: 'capitalize' }}>{exp.category || 'Other'}</span>
                           </td>
                           <td>{exp.description || 'N/A'}</td>
-                          <td style={{ fontWeight: 600, color: '#dc2626' }}>EGP {Number(exp.amount).toLocaleString()}</td>
+                          <td style={{ fontWeight: 600, color: '#dc2626' }}>{formatCurrency(Number(exp.amount))}</td>
                           <td>{new Date(exp.date).toLocaleDateString()}</td>
                           <td>
                             <span className={`badge badge-${exp.status === 'approved' ? 'success' : 'warning'}`}>
@@ -470,7 +470,7 @@ export default function Finance() {
                     Salary Expenses (from Payroll)
                   </h3>
                   <span style={{ fontWeight: 600, color: '#8b5cf6', fontSize: '18px' }}>
-                    EGP {salaryExpenses.reduce((sum, e) => sum + (e.amount || 0), 0).toLocaleString()}
+                    {formatCurrency(salaryExpenses.reduce((sum, e) => sum + (e.amount || 0), 0))}
                   </span>
                 </div>
                 <div className="table-container">
@@ -495,7 +495,7 @@ export default function Finance() {
                             </span>
                           </td>
                           <td style={{ fontWeight: 600, color: '#dc2626' }}>
-                            EGP {expense.amount?.toLocaleString()}
+                            {formatCurrency(expense.amount)}
                           </td>
                           <td>
                             <span className={`badge badge-${expense.status === 'approved' ? 'success' : expense.status === 'paid' ? 'success' : 'warning'}`}>
@@ -529,7 +529,7 @@ export default function Finance() {
                       <tr key={inv._id}>
                         <td style={{ fontWeight: 600 }}>{inv.invoiceNumber}</td>
                         <td>{inv.client?.name}</td>
-                        <td style={{ fontWeight: 600 }}>EGP {Number(inv.amount || 0)?.toLocaleString()}</td>
+                        <td style={{ fontWeight: 600 }}>{formatCurrency(Number(inv.amount || 0))}</td>
                         <td>{getStatusBadge(inv.status)}</td>
                       </tr>
                     ))}
@@ -561,7 +561,7 @@ export default function Finance() {
                             {item.days} days
                           </span>
                         </td>
-                        <td style={{ fontWeight: 600, color: '#dc2626' }}>EGP {Number(item.amount || 0)?.toLocaleString()}</td>
+                        <td style={{ fontWeight: 600, color: '#dc2626' }}>{formatCurrency(Number(item.amount || 0))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -611,10 +611,10 @@ export default function Finance() {
                       <td style={{ fontWeight: 600 }}>{inv.invoiceNumber}</td>
                       <td>{inv.client?.name}</td>
                       <td>{inv.orderNumber}</td>
-                      <td style={{ fontWeight: 600 }}>EGP {Number(inv.amount || 0)?.toLocaleString()}</td>
-                      <td style={{ color: '#059669', fontWeight: 500 }}>EGP {Number(inv.paidAmount || 0)?.toLocaleString()}</td>
+                      <td style={{ fontWeight: 600 }}>{formatCurrency(Number(inv.amount || 0))}</td>
+                      <td style={{ color: '#059669', fontWeight: 500 }}>{formatCurrency(Number(inv.paidAmount || 0))}</td>
                       <td style={{ fontWeight: 600, color: inv.remainingAmount > 0 ? '#dc2626' : '#059669' }}>
-                        EGP {Number(inv.remainingAmount || 0)?.toLocaleString()}
+                        {formatCurrency(Number(inv.remainingAmount || 0))}
                       </td>
                       <td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</td>
                       <td>{getStatusBadge(inv.status)}</td>
@@ -675,7 +675,7 @@ export default function Finance() {
                     <tr key={pay._id}>
                       <td style={{ fontWeight: 600 }}>{pay.paymentNumber}</td>
                       <td>{pay.client?.name}</td>
-                      <td style={{ fontWeight: 600 }}>EGP {Number(pay.amount || 0)?.toLocaleString()}</td>
+                      <td style={{ fontWeight: 600 }}>{formatCurrency(Number(pay.amount || 0))}</td>
                       <td style={{ textTransform: 'capitalize' }}>{pay.paymentMethod}</td>
                       <td style={{ fontFamily: 'monospace', color: '#64748b' }}>{pay.reference}</td>
                       <td>{new Date(pay.paymentDate).toLocaleDateString()}</td>
@@ -699,7 +699,7 @@ export default function Finance() {
                 <div>
                   <div className="stat-label">{t('finance.current')}</div>
                   <div className="stat-value" style={{ fontSize: '24px' }}>
-                    EGP {Number(receivables.totals?.current || 0).toLocaleString()}
+                    {formatCurrency(Number(receivables.totals?.current || 0))}
                   </div>
                 </div>
               </div>
@@ -710,7 +710,7 @@ export default function Finance() {
                 <div>
                   <div className="stat-label">{t('finance.days3160')}</div>
                   <div className="stat-value" style={{ fontSize: '24px' }}>
-                    EGP {Number(receivables.totals?.['31-60'] || 0).toLocaleString()}
+                    {formatCurrency(Number(receivables.totals?.['31-60'] || 0))}
                   </div>
                 </div>
               </div>
@@ -718,7 +718,7 @@ export default function Finance() {
                 <div>
                   <div className="stat-label">{t('finance.days6190')}</div>
                   <div className="stat-value" style={{ color: '#d97706' }}>
-                    EGP {Number(receivables.totals?.['61-90'] || 0).toLocaleString()}
+                    {formatCurrency(Number(receivables.totals?.['61-90'] || 0))}
                   </div>
                 </div>
               </div>
@@ -729,7 +729,7 @@ export default function Finance() {
                 <div>
                   <div className="stat-label">{t('finance.over90')}</div>
                   <div className="stat-value" style={{ fontSize: '24px', color: '#dc2626' }}>
-                    EGP {Number(receivables.totals?.['over-90'] || 0).toLocaleString()}
+                    {formatCurrency(Number(receivables.totals?.['over-90'] || 0))}
                   </div>
                 </div>
               </div>
@@ -757,7 +757,7 @@ export default function Finance() {
                     {receivables.aging.map((item, idx) => (
                       <tr key={idx}>
                         <td style={{ fontWeight: 500 }}>{item.client}</td>
-                        <td style={{ fontWeight: 600 }}>EGP {Number(item.amount || 0)?.toLocaleString()}</td>
+                        <td style={{ fontWeight: 600 }}>{formatCurrency(Number(item.amount || 0))}</td>
                         <td>
                           <span 
                             className={`badge ${item.days > 60 ? 'badge-danger' : item.days > 30 ? 'badge-warning' : 'badge-success'}`}
@@ -861,7 +861,7 @@ export default function Finance() {
                 <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>
                   Remaining Balance: 
                   <strong style={{ color: '#dc2626' }}>
-                    EGP {Number(selectedInvoiceForPayment.remainingAmount || 0)?.toLocaleString()}
+                    {formatCurrency(Number(selectedInvoiceForPayment.remainingAmount || 0))}
                   </strong>
                 </p>
               </div>
@@ -876,7 +876,7 @@ export default function Finance() {
                   fontWeight: 500,
                   color: '#374151'
                 }}>
-                  Payment Amount (EGP) *
+                  Payment Amount ({t('common.currency')}) *
                 </label>
                 <input
                   type="number"

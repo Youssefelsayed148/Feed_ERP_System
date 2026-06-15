@@ -39,16 +39,16 @@ const Expenses = () => {
   });
 
   const categories = [
-    { value: 'salary', label: 'Salary & Wages', color: '#3498db' },
-    { value: 'rent', label: 'Rent', color: '#9b59b6' },
-    { value: 'utilities', label: 'مرافق', color: '#e74c3c' },
+    { value: 'salary', label: t('expenses.catSalary'), color: '#3498db' },
+    { value: 'rent', label: t('expenses.catRent'), color: '#9b59b6' },
+    { value: 'utilities', label: t('expenses.catUtilities'), color: '#e74c3c' },
     { value: 'maintenance', label: t('nav.maintenance'), color: '#f39c12' },
-    { value: 'fuel', label: 'Fuel', color: '#27ae60' },
-    { value: 'raw_materials', label: 'مواد خام', color: '#1abc9c' },
-    { value: 'packaging', label: 'تغليف', color: '#34495e' },
-    { value: 'marketing', label: 'تسويق', color: '#e67e22' },
-    { value: 'transportation', label: 'نقل', color: '#16a085' },
-    { value: 'other', label: 'أخرى', color: '#95a5a6' }
+    { value: 'fuel', label: t('expenses.catFuel'), color: '#27ae60' },
+    { value: 'raw_materials', label: t('expenses.catRawMaterials'), color: '#1abc9c' },
+    { value: 'packaging', label: t('expenses.catPackaging'), color: '#34495e' },
+    { value: 'marketing', label: t('expenses.catMarketing'), color: '#e67e22' },
+    { value: 'transportation', label: t('expenses.catTransportation'), color: '#16a085' },
+    { value: 'other', label: t('expenses.catOther'), color: '#95a5a6' }
   ];
 
   const paymentMethods = ['cash', 'bank', 'cheque', 'credit_card'];
@@ -519,7 +519,9 @@ const Expenses = () => {
   };
 
   const getCategoryLabel = (value) => {
-    const cat = categories.find(c => c.value === value);
+    const aliases = { salaries: 'salary' };
+    const lookupValue = aliases[value] || value;
+    const cat = categories.find(c => c.value === lookupValue);
     return cat ? cat.label : value;
   };
 
@@ -610,7 +612,7 @@ const Expenses = () => {
             </div>
           </div>
           <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); setEditingExpense(null); }}>
-            {showForm ? 'Cancel' : '+ Add Expense'}
+            {showForm ? t('common.cancel') : t('expenses.addExpense')}
           </button>
         </div>
       </div>
@@ -650,7 +652,7 @@ const Expenses = () => {
 
       {monthlyTrends.length > 0 && (
         <div className="section-card" style={{ marginBottom: '20px' }}>
-          <h3>Monthly Trends (Last 6 Months)</h3>
+          <h3>{t('expenses.monthlyTrends')}</h3>
           <div style={{ display: 'flex', gap: '15px', overflowX: 'auto', padding: '10px 0' }}>
             {monthlyTrends.map(([month, data]) => (
               <div key={month} style={{
@@ -665,7 +667,7 @@ const Expenses = () => {
                   {formatCurrency(data.approved)}
                 </div>
                 <div style={{ fontSize: '11px', color: '#999', marginTop: '5px' }}>
-                  Pending: {formatCurrency(data.pending)}
+                  {t('common.statuses.pending')}: {formatCurrency(data.pending)}
                 </div>
               </div>
             ))}
@@ -681,7 +683,7 @@ const Expenses = () => {
             <div key={cat.value} className="stat-card" style={{ borderLeft: `4px solid ${cat.color}`, padding: '15px', backgroundColor: 'white', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <div className="stat-label" style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase' }}>{stat.label}</div>
               <div className="stat-value" style={{ fontSize: '20px', fontWeight: 'bold', marginTop: '5px' }}>{formatCurrency(stat.amount)}</div>
-              <div style={{ fontSize: '12px', color: '#999', marginTop: '5px' }}>{stat.count} expenses</div>
+              <div style={{ fontSize: '12px', color: '#999', marginTop: '5px' }}>{stat.count} {t('expenses.entries', {n: stat.count})}</div>
             </div>
           );
         })}
@@ -701,7 +703,7 @@ const Expenses = () => {
                 </select>
               </div>
               <div className="form-group">
-                <label>Amount (EGP) *</label>
+                <label>{t("common.currency")} *</label>
                 <input
                   type="number"
                   name="amount"

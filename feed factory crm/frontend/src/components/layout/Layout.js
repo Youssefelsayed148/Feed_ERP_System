@@ -1,12 +1,16 @@
 import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
+import { init, getLang } from '../../utils/i18n';
+import { captureLocation, startGeofenceTracking } from '../../utils/location';
 
 const Layout = () => {
   useEffect(() => {
-    const lang = localStorage.getItem('lang') || 'en';
-    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-    document.documentElement.lang = lang;
+    const lang = getLang() || localStorage.getItem('lang') || 'en';
+    init(lang);
+    captureLocation('page_load');
+    const cleanup = startGeofenceTracking();
+    return cleanup;
   }, []);
 
   return (

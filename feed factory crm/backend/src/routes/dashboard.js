@@ -26,7 +26,7 @@ router.get('/', authenticate, async (req, res) => {
          (SELECT COUNT(*) FROM goods_receipt_notes WHERE status IN ('pending','inspected')) as pending_grn,
          (SELECT COALESCE(SUM(quantity_kg),0) FROM finished_goods WHERE status='available') as finished_goods_kg,
          (SELECT COUNT(*) FROM finished_goods WHERE status='available') as finished_goods_batches,
-        0 as expenses_this_month,
+         (SELECT COALESCE(SUM(amount),0) FROM expenses WHERE status='approved' AND date_trunc('month', date) = date_trunc('month', CURRENT_DATE)) as expenses_this_month,
         0 as maintenance_overdue,
         0 as maintenance_due_this_week,
         0 as maintenance_upcoming
@@ -37,7 +37,21 @@ router.get('/', authenticate, async (req, res) => {
     // Get recent data
     const clientsRes = await query(`SELECT id, name_arabic as name, code, payment_terms, current_balance, credit_limit, status FROM clients WHERE is_active=true ORDER BY created_at DESC LIMIT 5`);
     const materialsRes = await query(`SELECT id, code, name_arabic as name, name_english, category, current_stock, unit_price, min_stock_level FROM raw_materials WHERE is_active=true ORDER BY current_stock ASC LIMIT 8`);
-    const ordersRes = await query(`SELECT id, order_number, client_id, final_amount, status, created_at FROM sales_orders ORDER BY created_at DESC LIMIT 5`);
+    const dailyOrdersRes = await query(`SELECT so.id, so.order_number, so.final_amount, so.status, so.created_at,
+      c.name_arabic as client_name, u.name as created_by_name,
+      (SELECT COUNT(*) FROM sales_order_items WHERE order_id = so.id) as item_count
+      FROM sales_orders so
+      LEFT JOIN clients c ON so.client_id = c.id
+      LEFT JOIN users u ON so.created_by = u.id
+      WHERE so.created_at >= CURRENT_DATE
+      ORDER BY so.created_at DESC LIMIT 10`);
+
+    const ordersRes = await query(`SELECT so.id, so.order_number, so.final_amount, so.status, so.created_at,
+      c.name_arabic as client_name, u.name as created_by_name
+      FROM sales_orders so
+      LEFT JOIN clients c ON so.client_id = c.id
+      LEFT JOIN users u ON so.created_by = u.id
+      ORDER BY so.created_at DESC LIMIT 5`);
     const productionRes = await query(`SELECT id, order_number, feed_type_id, status, quantity_kg, created_at FROM production_orders ORDER BY created_at DESC LIMIT 5`);
     const invoicesRes = await query(`SELECT id, invoice_number, client_id, amount, paid_amount, balance_due, status, due_date FROM invoices ORDER BY created_at DESC LIMIT 5`);
     const payablesRes = await query(`SELECT p.id, p.amount, p.balance, p.status, p.due_date, s.name as supplier_name FROM supplier_payables p LEFT JOIN suppliers s ON p.supplier_id = s.id WHERE p.status IN ('pending','partial','overdue') ORDER BY p.due_date ASC LIMIT 5`);
@@ -98,6 +112,8 @@ router.get('/', authenticate, async (req, res) => {
       invoices: invoicesRes.rows,
       payables: payablesRes.rows,
       recipes: recipesRes.rows,
+      dailyOrders: dailyOrdersRes.rows,
+      clientsWithCredit: clientsRes.rows.filter(c => parseFloat(c.credit_limit) > 0).slice(0, 5),
       activity: activityRes.rows.map(a => ({
         id: a.id,
         userId: a.user_id,

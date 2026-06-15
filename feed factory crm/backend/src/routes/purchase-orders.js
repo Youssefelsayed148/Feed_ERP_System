@@ -260,6 +260,17 @@ router.put('/:id/approve', auth, async (req, res) => {
     res.json(result.rows[0]);
 
     const po = result.rows[0];
+    
+    // Update approval request
+    try {
+      const { query: dbQuery } = require('../config/database');
+      await dbQuery(
+        `UPDATE approval_requests SET status = 'approved', approver_id = $1, updated_at = NOW()
+         WHERE module_name = 'purchase_orders' AND request_id = $2 AND status = 'pending'`,
+        [req.user.id, id]
+      );
+    } catch (e) {}
+
     notifyRole('purchase_officer', {
       module: 'procurement', type: 'po_approved',
       title: `PO ${po.po_number} Approved`,
@@ -334,6 +345,19 @@ router.put('/:id/submit', auth, async (req, res) => {
     res.json(result.rows[0]);
 
     const po = result.rows[0];
+    
+    // Create approval request
+    try {
+      const { query: dbQuery } = require('../config/database');
+      await dbQuery(
+        `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes)
+         VALUES ($1, $2, $3, $4, $5)`,
+        ['purchase_orders', 'purchase_order', po.id, req.user.id, `PO ${po.po_number} - Total: ${po.total_amount}`]
+      );
+    } catch (e) {
+      console.error('Error creating approval request:', e.message);
+    }
+
     notifyRole('owner', {
       module: 'procurement', type: 'po_pending_approval',
       title: `PO ${po.po_number} Pending Approval`,

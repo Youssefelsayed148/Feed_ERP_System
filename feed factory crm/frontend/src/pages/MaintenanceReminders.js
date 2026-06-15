@@ -529,7 +529,7 @@ export default function MaintenanceReminders() {
                       <button 
                         className="btn btn-sm"
                         onClick={() => handleView(reminder)}
-                        title="{t('common.viewDetails')}"
+                        title={t('common.viewDetails')}
                       >
                         <FileText className="w-3 h-3" />
                       </button>
@@ -537,7 +537,7 @@ export default function MaintenanceReminders() {
                         <button 
                           className="btn btn-primary btn-sm"
                           onClick={() => handleStartWork(reminder)}
-                          title="{t('maintenance.startWork')}"
+                          title={t('maintenance.startWork')}
                         >
                           <Play className="w-3 h-3" />
                         </button>
@@ -547,14 +547,14 @@ export default function MaintenanceReminders() {
                           <button 
                             className="btn btn-warning btn-sm"
                             onClick={() => handleReschedule(reminder)}
-                            title="{t('maintenance.reschedule')}"
+                            title={t('maintenance.reschedule')}
                           >
                             <Clock className="w-3 h-3" />
                           </button>
                           <button 
                             className="btn btn-success btn-sm"
                             onClick={() => handleMarkComplete(reminder)}
-                            title="{t('maintenance.markComplete')}"
+                            title={t('maintenance.markComplete')}
                           >
                             <Check className="w-3 h-3" />
                           </button>
@@ -565,21 +565,21 @@ export default function MaintenanceReminders() {
                           <button 
                             className="btn btn-warning btn-sm"
                             onClick={() => handleReschedule(reminder)}
-                            title="{t('maintenance.reschedule')}"
+                            title={t('maintenance.reschedule')}
                           >
                             <Clock className="w-3 h-3" />
                           </button>
                           <button 
                             className="btn btn-success btn-sm"
                             onClick={() => handleMarkComplete(reminder)}
-                            title="{t('maintenance.markComplete')}"
+                            title={t('maintenance.markComplete')}
                           >
                             <Check className="w-3 h-3" />
                           </button>
                           <button 
                             className="btn btn-danger btn-sm"
                             onClick={() => handleCancel(reminder)}
-                            title="{t('common.cancel')}"
+                            title={t('common.cancel')}
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -887,7 +887,7 @@ export default function MaintenanceReminders() {
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>Actual Cost (EGP) *</label>
+                  <label>{t("common.currency")} *</label>
                   <input 
                     type="number" 
                     className="form-input"

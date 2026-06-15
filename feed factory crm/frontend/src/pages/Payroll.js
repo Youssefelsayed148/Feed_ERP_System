@@ -382,12 +382,12 @@ const Payroll = () => {
         <div className="page-header">
           <div>
             <h1>{t('payroll.title')}</h1>
-            <p>Manage payroll periods, approvals, and integrate with Finance</p>
+            <p>{t('payroll.subtitlePayroll')}</p>
           </div>
           <div className="header-actions">
             {canManagePayroll && (
               <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
-                <Plus size={18} /> Create Payroll
+                <Plus size={18} /> {t('payroll.createPayroll')}
               </button>
             )}
           </div>
@@ -446,7 +446,7 @@ const Payroll = () => {
               <Search size={18} color="#64748b" />
               <input
                 type="text"
-                placeholder="Search payrolls..."
+                placeholder={t('payroll.searchPayroll')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="form-input"
@@ -473,7 +473,7 @@ const Payroll = () => {
         <div className="card">
           <div className="card-header">
             <h3 className="card-title">فترات الرواتب</h3>
-            <span className="text-muted">{filteredPayrolls.length} payrolls found</span>
+            <span className="text-muted">{filteredPayrolls.length} {t('payroll.payrollFound')}</span>
           </div>
           <div className="table-container">
             <table className="table">
@@ -502,7 +502,7 @@ const Payroll = () => {
                         </div>
                       </div>
                     </td>
-                    <td>{payroll.employeeCount || 0} employees</td>
+                    <td>{payroll.employeeCount || 0} {t('payroll.employees')}</td>
                     <td>
                       {payroll.dueDate ? (
                         <div className="due-date-cell">
@@ -526,7 +526,7 @@ const Payroll = () => {
                         </span>
                       ) : (
                         <span className="badge badge-warning">
-                          <Clock size={12} /> Not Posted
+                          <Clock size={12} /> {t('payroll.notPosted')}
                         </span>
                       )}
                     </td>
@@ -544,7 +544,7 @@ const Payroll = () => {
                             setViewMode('detail');
                           }}
                         >
-                          <Eye size={14} /> View
+                          <Eye size={14} /> {t('payroll.view')}
                         </button>
                         {payroll.status === 'draft' && canManagePayroll && (
                           <button 
@@ -584,7 +584,7 @@ const Payroll = () => {
                               }
                             }}
                           >
-                            <CheckCircle size={14} /> Approve All
+                            <CheckCircle size={14} /> {t('payroll.approveAll')}
                           </button>
                         )}
                         {payroll.status === 'approved' && canManagePayroll && !payroll.postedToFinance && (
@@ -595,7 +595,7 @@ const Payroll = () => {
                               setShowPostModal(true);
                             }}
                           >
-                            <ArrowLeftRight size={14} /> Post to Finance
+                            <ArrowLeftRight size={14} /> {t('payroll.postToFinance')}
                           </button>
                         )}
                         {payroll.status === 'approved' && payroll.postedToFinance && canManagePayroll && (
@@ -790,7 +790,7 @@ const Payroll = () => {
           <div className="modal-overlay" onClick={() => setShowPostModal(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><DollarSign size={20} /> Post to Finance</h3>
+                <h3><DollarSign size={20} /> {t('payroll.postToFinance')}</h3>
                 <button className="modal-close" onClick={() => setShowPostModal(false)}>
                   <X size={20} />
                 </button>
@@ -1371,7 +1371,7 @@ const Payroll = () => {
           <div className="modal-overlay" onClick={() => setShowPostModal(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><DollarSign size={20} /> Post to Finance</h3>
+                <h3><DollarSign size={20} /> {t('payroll.postToFinance')}</h3>
                 <button className="modal-close" onClick={() => setShowPostModal(false)}>
                   <X size={20} />
                 </button>
@@ -1548,7 +1548,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency }) => {
             <button className="btn btn-sm btn-outline" onClick={() => setEditing(false)} style={{ padding: '2px 8px', fontSize: '11px' }}>{t('common.cancel')}</button>
           </div>
         ) : (
-          <button className="btn-icon btn-edit" onClick={() => { setBasic(ep.basicSalary || 0); setAllowances(ep.totalAllowances || ep.allowances || 0); setDeductions(ep.totalDeductions || ep.deductions || 0); setEditing(true); }} title="{t('common.edit')}">
+          <button className="btn-icon btn-edit" onClick={() => { setBasic(ep.basicSalary || 0); setAllowances(ep.totalAllowances || ep.allowances || 0); setDeductions(ep.totalDeductions || ep.deductions || 0); setEditing(true); }} title={t('common.edit')}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
         )}

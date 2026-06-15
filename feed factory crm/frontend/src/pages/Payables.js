@@ -330,7 +330,7 @@ const Payables = () => {
           <div className="filter-controls">
             <input 
               type="text" 
-              placeholder="Search suppliers..." 
+              placeholder={t('common.searchSuppliers')} 
               className="search-input" 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -495,7 +495,7 @@ const Payables = () => {
                   type="text"
                   value={paymentForm.reference}
                   onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
-                  placeholder="Transaction ID / Cheque Number"
+                  placeholder={t('payables.transactionId')}
                 />
               </div>
               <div className="form-group">
@@ -504,7 +504,7 @@ const Payables = () => {
                   value={paymentForm.notes}
                   onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
                   rows="3"
-                  placeholder="Optional notes about this payment..."
+                  placeholder={t('payables.paymentNotes')}
                 />
               </div>
               <div className="modal-footer">
@@ -677,7 +677,7 @@ const Payables = () => {
                   value={reminderForm.message}
                   onChange={(e) => setReminderForm({ ...reminderForm, message: e.target.value })}
                   rows="2"
-                  placeholder="Custom reminder message..."
+                  placeholder={t('payables.reminderMessage')}
                   className="form-input"
                 />
               </div>

@@ -523,6 +523,20 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
     
     res.status(201).json({ success: true, order, message: 'Order created successfully' });
 
+    // Create approval request if pending approval
+    if (order.status === 'pending_approval') {
+      try {
+        const { query } = require('../config/database');
+        await query(
+          `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes)
+           VALUES ($1, $2, $3, $4, $5)`,
+          ['sales_orders', 'sales_order', order.id, createdBy, `Order ${order.order_number} - ${order.final_amount} EGP`]
+        );
+      } catch (e) {
+        console.error('Error creating approval request:', e.message);
+      }
+    }
+
     logActivity({
       userId: createdBy, action: 'create', module: 'sales',
       description: `Created sales order ${order.order_number}`,
@@ -649,6 +663,19 @@ router.put('/orders/:id/approve', authenticate, authorize(...managerRoles), asyn
 
     const { order, invoice, items: orderItems } = result;
 
+    // Auto-create production order
+    try {
+      const recipeRes = await query('SELECT id FROM feed_recipes WHERE feed_type_id = $1 LIMIT 1', [orderItems[0]?.feed_type_id]);
+      const recipeId = recipeRes.rows[0]?.id || null;
+      const poNumber = `PO-${order.order_number}`;
+      const totalQty = orderItems.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
+      await query(
+        `INSERT INTO production_orders (order_number, feed_type_id, recipe_id, quantity_kg, status, notes, created_by)
+         VALUES ($1, $2, $3, $4, 'draft', $5, $6)`,
+        [poNumber, orderItems[0]?.feed_type_id || null, recipeId, totalQty || 0, `Auto-created from sales order ${order.order_number}`, approvedBy]
+      );
+    } catch (e) { console.error('Failed to auto-create production order:', e.message); }
+
     // Create journal entry outside transaction (non-critical)
     if (invoice) {
       try {
@@ -724,6 +751,16 @@ router.put('/orders/:id/approve', authenticate, authorize(...managerRoles), asyn
       invoice,
       message: invoice ? 'Order approved and invoice created' : 'Order approved (invoice already exists)'
     });
+
+    // Update approval request if exists
+    try {
+      const { query } = require('../config/database');
+      await query(
+        `UPDATE approval_requests SET status = 'approved', approver_id = $1, updated_at = NOW()
+         WHERE module_name = 'sales_orders' AND request_id = $2 AND status = 'pending'`,
+        [approvedBy, orderId]
+      );
+    } catch (e) {}
 
     notifyRole('sales_rep', {
       module: 'sales', type: 'order_approved',

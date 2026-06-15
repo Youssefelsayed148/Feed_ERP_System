@@ -192,12 +192,13 @@ router.post('/', auth, async (req, res) => {
       for (const item of items) {
         await client.query(`
           INSERT INTO grn_items (grn_id, raw_material_id, ordered_quantity, received_quantity, accepted_quantity, unit_price, total_price)
-          VALUES ($1, $2, $3, $4, $4, $5, $6)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
         `, [
           grn.id,
           item.raw_material_id,
           item.ordered_quantity || item.quantity_ordered || 0,
           item.received_quantity || item.quantity_received || 0,
+          item.accepted_quantity || item.quantity_accepted || 0,
           item.unit_price || item.unit_cost || 0,
           item.total_price || item.total_cost || 0
         ]);

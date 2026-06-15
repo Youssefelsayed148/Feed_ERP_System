@@ -28,6 +28,18 @@ export default function Assets() {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showRecordModal, setShowRecordModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showMachineModal, setShowMachineModal] = useState(false);
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
+  const [editingMachine, setEditingMachine] = useState(null);
+  const [editingVehicle, setEditingVehicle] = useState(null);
+  const [machineForm, setMachineForm] = useState({
+    code: '', name: '', type: '', model: '', manufacturer: '', serialNumber: '',
+    purchaseDate: '', purchaseCost: '', location: '', status: 'operational', notes: ''
+  });
+  const [vehicleForm, setVehicleForm] = useState({
+    code: '', name: '', type: '', plateNumber: '', model: '', make: '',
+    capacityKg: '', driverId: '', status: 'available', notes: ''
+  });
   const [expandedRows, setExpandedRows] = useState({});
 
   // New Schedule Maintenance Form State
@@ -308,8 +320,70 @@ export default function Assets() {
     return Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24));
   };
 
+  const getTypeLabel = (type) => {
+    const labels = { 'Mixer': t('assets.mixer'), 'Grinder': t('assets.grinder'), 'Pelletizer': t('assets.pelletizer'), 'Cooler': t('assets.cooler'), 'Packaging': t('assets.packaging'), 'Utility': t('assets.utility'), 'Material Handling': t('assets.materialHandling'), 'Feeder': t('assets.feeder') };
+    return labels[type] || type;
+  };
+
+  const getMachineStatusLabel = (status) => {
+    const labels = { 'operational': t('assets.operational'), 'maintenance': t('assets.underMaintenance'), 'idle': t('assets.idle'), 'broken': t('assets.broken') };
+    return labels[status] || status;
+  };
+
   const handleViewReminders = () => {
     window.location.href = '/maintenance-reminders';
+  };
+
+  const handleSaveMachine = async () => {
+    if (!machineForm.code || !machineForm.name) { alert('Code and Name are required'); return; }
+    try {
+      const body = editingMachine ? { ...machineForm, id: editingMachine.id } : machineForm;
+      const url = editingMachine ? `${API_URL}/assets/machines/${editingMachine.id}` : `${API_URL}/assets/machines`;
+      const method = editingMachine ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error(await res.text());
+      setShowMachineModal(false);
+      setEditingMachine(null);
+      fetchData();
+    } catch (err) { alert('Error saving machine: ' + err.message); }
+  };
+
+  const handleSaveVehicle = async () => {
+    if (!vehicleForm.code || !vehicleForm.name) { alert('Code and Name are required'); return; }
+    try {
+      const body = editingVehicle ? { ...vehicleForm, id: editingVehicle.id } : vehicleForm;
+      const url = editingVehicle ? `${API_URL}/assets/vehicles/${editingVehicle.id}` : `${API_URL}/assets/vehicles`;
+      const method = editingVehicle ? 'PUT' : 'POST';
+      const res = await fetch(url, { method, headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error(await res.text());
+      setShowVehicleModal(false);
+      setEditingVehicle(null);
+      fetchData();
+    } catch (err) { alert('Error saving vehicle: ' + err.message); }
+  };
+
+  const handleEditMachine = (machine) => {
+    setMachineForm({
+      code: machine.code || '', name: machine.name || '', type: machine.type || '',
+      model: machine.model || '', manufacturer: machine.manufacturer || '',
+      serialNumber: machine.serialNumber || '', purchaseDate: machine.purchaseDate || '',
+      purchaseCost: machine.purchaseCost || '', location: machine.location || '',
+      status: machine.status || 'operational', notes: machine.notes || ''
+    });
+    setEditingMachine(machine);
+    setShowMachineModal(true);
+  };
+
+  const handleEditVehicle = (vehicle) => {
+    setVehicleForm({
+      code: vehicle.code || '', name: vehicle.name || '', type: vehicle.type || '',
+      plateNumber: vehicle.plateNumber || '', model: vehicle.model || '',
+      make: vehicle.make || '', capacityKg: vehicle.capacityKg || '',
+      driverId: vehicle.driverId || '', status: vehicle.status || 'available',
+      notes: vehicle.notes || ''
+    });
+    setEditingVehicle(vehicle);
+    setShowVehicleModal(true);
   };
 
   return (
@@ -321,8 +395,14 @@ export default function Assets() {
           <p>إدارة الآلات والمركبات وجداول الصيانة</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="btn btn-primary" onClick={() => { setShowMachineModal(true); setEditingMachine(null); }}>
+            <Plus className="w-4 h-4" /> {t('assets.addMachine')}
+          </button>
+          <button className="btn btn-primary" onClick={() => { setShowVehicleModal(true); setEditingVehicle(null); }}>
+            <Plus className="w-4 h-4" /> {t('assets.addVehicle')}
+          </button>
           <button 
-            className="btn btn-primary"
+            className="btn btn-secondary"
             onClick={handleOpenScheduleMaintenance}
           >
             <Plus className="w-4 h-4" />
@@ -511,7 +591,7 @@ export default function Assets() {
                       <br />
                       <small style={{ color: '#64748b' }}>{mach.code}</small>
                     </td>
-                    <td style={{ textTransform: 'capitalize' }}>{mach.type}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{getTypeLabel(mach.type)}</td>
                     <td>{mach.location || '-'}</td>
                     <td>{mach.totalHours}</td>
                     <td>
@@ -533,7 +613,7 @@ export default function Assets() {
                     </td>
                     <td>
                       <span className={`badge ${getMachineStatusColor(mach.status)}`}>
-                        {mach.status.replace('_', ' ')}
+                        {getMachineStatusLabel(mach.status)}
                       </span>
                     </td>
                     <td>
@@ -743,7 +823,7 @@ export default function Assets() {
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group">
-                  <label>Asset Type *</label>
+                  <label>{t('assets.assetType')} *</label>
                   <select 
                     className="form-select"
                     value={scheduleMaintenanceForm.assetType}
@@ -754,7 +834,7 @@ export default function Assets() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Select Asset *</label>
+                  <label>{t('assets.selectAsset')} *</label>
                   <select 
                     className="form-select"
                     value={scheduleMaintenanceForm.assetId}
@@ -772,7 +852,7 @@ export default function Assets() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Maintenance Type *</label>
+                  <label>{t('assets.maintenanceType')} *</label>
                   <select 
                     className="form-select"
                     value={scheduleMaintenanceForm.maintenanceType}
@@ -784,7 +864,7 @@ export default function Assets() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Priority *</label>
+                  <label>{t('assets.priority')} *</label>
                   <select 
                     className="form-select"
                     value={scheduleMaintenanceForm.priority}
@@ -799,7 +879,7 @@ export default function Assets() {
               </div>
 
               <div className="form-group">
-                <label>Title *</label>
+                <label>{t('assets.title')} *</label>
                 <input 
                   type="text" 
                   className="form-input"
@@ -822,7 +902,7 @@ export default function Assets() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Scheduled Date *</label>
+                  <label>{t('assets.scheduledDate')} *</label>
                   <input 
                     type="date" 
                     className="form-input"
@@ -831,7 +911,7 @@ export default function Assets() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Scheduled Time *</label>
+                  <label>{t('assets.scheduledTime')} *</label>
                   <input 
                     type="time" 
                     className="form-input"
@@ -843,7 +923,7 @@ export default function Assets() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Estimated Cost (EGP) *</label>
+                  <label>Estimated {t("common.currency")} *</label>
                   <input 
                     type="number" 
                     className="form-input"
@@ -853,7 +933,7 @@ export default function Assets() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Estimated Hours *</label>
+                  <label>{t('assets.estimatedHours')} *</label>
                   <input 
                     type="number" 
                     className="form-input"
@@ -865,7 +945,7 @@ export default function Assets() {
               </div>
 
               <div className="form-group">
-                <label>Assigned Technician *</label>
+                <label>{t('assets.assignedTech')} *</label>
                 <input 
                   type="text" 
                   className="form-input"
@@ -876,7 +956,7 @@ export default function Assets() {
               </div>
 
               <div className="form-group">
-                <label>Parts Required (comma-separated)</label>
+                <label>{t('assets.partsRequired')}</label>
                 <input 
                   type="text" 
                   className="form-input"
@@ -900,7 +980,7 @@ export default function Assets() {
               {scheduleMaintenanceForm.isRecurring && (
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Repeat Every</label>
+                    <label>{t('assets.repeatEvery')}</label>
                     <input 
                       type="number" 
                       className="form-input"
@@ -910,16 +990,16 @@ export default function Assets() {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Unit</label>
+                    <label>{t('assets.unit')}</label>
                     <select 
                       className="form-select"
                       value={scheduleMaintenanceForm.recurringUnit}
                       onChange={(e) => setScheduleMaintenanceForm({...scheduleMaintenanceForm, recurringUnit: e.target.value})}
                     >
                       <option value="days">{t('common.days')}</option>
-                      <option value="weeks">Weeks</option>
-                      <option value="months">Months</option>
-                      <option value="years">Years</option>
+                      <option value="weeks">{t('assets.weeks')}</option>
+                      <option value="months">أشهر</option>
+                      <option value="years">{t('assets.years')}</option>
                     </select>
                   </div>
                 </div>
@@ -955,20 +1035,20 @@ export default function Assets() {
                 <input type="text" value={selectedMachine?.name || ''} disabled className="form-input" />
               </div>
               <div className="form-group">
-                <label>Schedule Type *</label>
+                <label>{t('assets.scheduleType')} *</label>
                 <select 
                   className="form-select" 
                   value={scheduleForm.type}
                   onChange={(e) => setScheduleForm({...scheduleForm, type: e.target.value})}
                 >
-                  <option value="hours_based">Hours-based (Operating Hours)</option>
-                  <option value="time_based">Time-based (Calendar)</option>
-                  <option value="usage_based">Usage-based (Production Count)</option>
+                  <option value="hours_based">{t('assets.hoursBased')}</option>
+                  <option value="time_based">{t('assets.timeBased')}</option>
+                  <option value="usage_based">{t('assets.usageBased')}</option>
                 </select>
               </div>
               <div className="form-row">
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label>Interval Value *</label>
+                  <label>{t('assets.intervalValue')} *</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -978,7 +1058,7 @@ export default function Assets() {
                   />
                 </div>
                 <div className="form-group" style={{ flex: 1 }}>
-                  <label>Interval Unit *</label>
+                  <label>{t('assets.intervalUnit')} *</label>
                   <select 
                     className="form-select"
                     value={scheduleForm.intervalUnit}
@@ -986,8 +1066,8 @@ export default function Assets() {
                   >
                     <option value="hours">{t('common.hours')}</option>
                     <option value="days">{t('common.days')}</option>
-                    <option value="weeks">Weeks</option>
-                    <option value="months">Months</option>
+                    <option value="weeks">{t('assets.weeks')}</option>
+                    <option value="months">أشهر</option>
                   </select>
                 </div>
               </div>
@@ -1024,7 +1104,7 @@ export default function Assets() {
                 />
               </div>
               <div className="form-group">
-                <label>Notification Settings</label>
+                <label>{t('assets.notificationSettings')}</label>
                 <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <input 
@@ -1079,7 +1159,7 @@ export default function Assets() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Maintenance Type *</label>
+                  <label>{t('assets.maintenanceType')} *</label>
                   <select 
                     className="form-select"
                     value={recordForm.type}
@@ -1103,7 +1183,7 @@ export default function Assets() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Cost (EGP) *</label>
+                  <label>{t("common.currency")} *</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -1203,6 +1283,94 @@ export default function Assets() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowHistoryModal(false)}>{t('common.close')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Machine Modal */}
+      {showMachineModal && (
+        <div className="modal-overlay" onClick={() => { setShowMachineModal(false); }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{editingMachine ? t('assets.editMachine') : t('assets.addMachine')}</h2>
+              <button className="modal-close" onClick={() => setShowMachineModal(false)}><X className="w-5 h-5" /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <div className="form-group"><label>{t('common.code')} *</label><input className="form-input" value={machineForm.code} onChange={e => setMachineForm({...machineForm, code: e.target.value})} placeholder="MCH-010" /></div>
+                <div className="form-group"><label>{t('common.name')} *</label><input className="form-input" value={machineForm.name} onChange={e => setMachineForm({...machineForm, name: e.target.value})} /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label>{t('common.type')}</label><input className="form-input" value={machineForm.type} onChange={e => setMachineForm({...machineForm, type: e.target.value})} /></div>
+                <div className="form-group"><label>{t('assets.model')}</label><input className="form-input" value={machineForm.model} onChange={e => setMachineForm({...machineForm, model: e.target.value})} /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label>{t('assets.manufacturer')}</label><input className="form-input" value={machineForm.manufacturer} onChange={e => setMachineForm({...machineForm, manufacturer: e.target.value})} /></div>
+                <div className="form-group"><label>{t('assets.serialNumber')}</label><input className="form-input" value={machineForm.serialNumber} onChange={e => setMachineForm({...machineForm, serialNumber: e.target.value})} /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label>{t('assets.purchaseDate')}</label><input type="date" className="form-input" value={machineForm.purchaseDate} onChange={e => setMachineForm({...machineForm, purchaseDate: e.target.value})} /></div>
+                <div className="form-group"><label>{t('assets.purchaseCost')}</label><input type="number" className="form-input" value={machineForm.purchaseCost} onChange={e => setMachineForm({...machineForm, purchaseCost: e.target.value})} /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label>{t('assets.location')}</label><input className="form-input" value={machineForm.location} onChange={e => setMachineForm({...machineForm, location: e.target.value})} /></div>
+                <div className="form-group"><label>{t('common.status')}</label>
+                  <select className="form-select" value={machineForm.status} onChange={e => setMachineForm({...machineForm, status: e.target.value})}>
+                    <option value="operational">{t('assets.operational')}</option>
+                    <option value="maintenance">{t('assets.underMaintenance')}</option>
+                    <option value="idle">{t('assets.idle')}</option>
+                    <option value="broken">{t('assets.broken')}</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-group"><label>{t('common.notes')}</label><textarea className="form-textarea" rows="2" value={machineForm.notes} onChange={e => setMachineForm({...machineForm, notes: e.target.value})} /></div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowMachineModal(false)}>{t('common.cancel')}</button>
+              <button className="btn btn-primary" onClick={handleSaveMachine}>{editingMachine ? t('common.save') : t('assets.addMachine')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Vehicle Modal */}
+      {showVehicleModal && (
+        <div className="modal-overlay" onClick={() => { setShowVehicleModal(false); }}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">{editingVehicle ? t('assets.editVehicle') : t('assets.addVehicle')}</h2>
+              <button className="modal-close" onClick={() => setShowVehicleModal(false)}><X className="w-5 h-5" /></button>
+            </div>
+            <div className="modal-body">
+              <div className="form-row">
+                <div className="form-group"><label>{t('common.code')} *</label><input className="form-input" value={vehicleForm.code} onChange={e => setVehicleForm({...vehicleForm, code: e.target.value})} placeholder="VEH-001" /></div>
+                <div className="form-group"><label>{t('common.name')} *</label><input className="form-input" value={vehicleForm.name} onChange={e => setVehicleForm({...vehicleForm, name: e.target.value})} /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label>{t('common.type')}</label><input className="form-input" value={vehicleForm.type} onChange={e => setVehicleForm({...vehicleForm, type: e.target.value})} /></div>
+                <div className="form-group"><label>{t('assets.plateNumber')}</label><input className="form-input" value={vehicleForm.plateNumber} onChange={e => setVehicleForm({...vehicleForm, plateNumber: e.target.value})} /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label>{t('assets.manufacturer')}</label><input className="form-input" value={vehicleForm.make} onChange={e => setVehicleForm({...vehicleForm, make: e.target.value})} /></div>
+                <div className="form-group"><label>{t('assets.model')}</label><input className="form-input" value={vehicleForm.model} onChange={e => setVehicleForm({...vehicleForm, model: e.target.value})} /></div>
+              </div>
+              <div className="form-row">
+                <div className="form-group"><label>{t('assets.capacityKg')}</label><input type="number" className="form-input" value={vehicleForm.capacityKg} onChange={e => setVehicleForm({...vehicleForm, capacityKg: e.target.value})} /></div>
+                <div className="form-group"><label>{t('common.status')}</label>
+                  <select className="form-select" value={vehicleForm.status} onChange={e => setVehicleForm({...vehicleForm, status: e.target.value})}>
+                    <option value="available">{t('common.available')}</option>
+                    <option value="in_use">In Use</option>
+                    <option value="maintenance">{t('assets.underMaintenance')}</option>
+                    <option value="retired">Retired</option>
+                  </select>
+                </div>
+              </div>
+              <div className="form-group"><label>{t('common.notes')}</label><textarea className="form-textarea" rows="2" value={vehicleForm.notes} onChange={e => setVehicleForm({...vehicleForm, notes: e.target.value})} /></div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowVehicleModal(false)}>{t('common.cancel')}</button>
+              <button className="btn btn-primary" onClick={handleSaveVehicle}>{editingVehicle ? t('common.save') : t('assets.addVehicle')}</button>
             </div>
           </div>
         </div>

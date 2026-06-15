@@ -26,15 +26,22 @@ const Sidebar = () => {
   const dispatch = useDispatch();
   const user = authService.getCurrentUser();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [showApprovalDropdown, setShowApprovalDropdown] = useState(false);
+  const [approvalRequests, setApprovalRequests] = useState([]);
   const dropdownRef = useRef(null);
 
   const companyLogo = localStorage.getItem('companyLogo') || 'https://sandybrown-ant-159541.hostingersite.com/wp-content/uploads/2025/12/شركة-الخير-للأعلاف-1-02.png';
 
   useEffect(() => {
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
+    fetchPendingApprovals();
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+      fetchPendingApprovals();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -54,6 +61,17 @@ const Sidebar = () => {
       if (response.ok) {
         const data = await response.json();
         setUnreadCount(data.count || 0);
+      }
+    } catch (e) {}
+  };
+
+  const fetchPendingApprovals = async () => {
+    try {
+      const response = await fetch(`${API_URL}/approvals/pending`, { headers: headers() });
+      if (response.ok) {
+        const data = await response.json();
+        setPendingApprovals(data.count || 0);
+        setApprovalRequests(data.requests || []);
       }
     } catch (e) {}
   };
@@ -255,11 +273,11 @@ const Sidebar = () => {
   const timeAgo = (dateStr) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
+    if (mins < 1) return t('common.seconds');
+    if (mins < 60) return t('common.minutes', { n: mins });
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
+    if (hours < 24) return t('common.hours', { n: hours });
+    return t('common.days', { n: Math.floor(hours / 24) });
   };
 
   return (
@@ -288,6 +306,18 @@ const Sidebar = () => {
             }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
           )}
         </div>
+        {pendingApprovals > 0 && ['owner', 'admin', 'sales_manager', 'hr_manager', 'finance_manager'].includes(user?.role) && (
+          <div onClick={() => window.location.href = '/settings'} style={{ position: 'relative', cursor: 'pointer', padding: '4px', marginLeft: '4px' }}>
+            <AlertCircle size={20} color="#f59e0b" />
+            <span style={{
+              position: 'absolute', top: '-4px', right: '-4px',
+              background: '#f59e0b', color: 'white', fontSize: '10px',
+              borderRadius: '50%', width: '18px', height: '18px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700
+            }}>{pendingApprovals > 99 ? '99+' : pendingApprovals}</span>
+          </div>
+        )}
         {showDropdown && (
           <div ref={dropdownRef} style={{
             position: 'fixed', top: '60px', left: '220px', width: '380px',
@@ -296,11 +326,11 @@ const Sidebar = () => {
             display: 'flex', flexDirection: 'column', overflow: 'hidden'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #e5e7eb' }}>
-              <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>Notifications</h4>
+              <h4 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>{t('common.notifications')}</h4>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 {unreadCount > 0 && (
                   <button onClick={markAllRead} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '12px', cursor: 'pointer', padding: '2px 6px' }}>
-                    Mark all read
+                    {t('common.markAllRead')}
                   </button>
                 )}
                 <button onClick={() => setShowDropdown(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px' }}>
@@ -312,7 +342,7 @@ const Sidebar = () => {
               {notifications.length === 0 ? (
                 <div style={{ padding: '40px 20px', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>
                   <Bell size={32} style={{ marginBottom: '8px', opacity: 0.4 }} />
-                  <div>No notifications yet</div>
+                  <div>{t('common.noNotifications')}</div>
                 </div>
               ) : (
                 notifications.map(n => {

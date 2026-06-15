@@ -69,6 +69,7 @@ const Sales = () => {
   const [orders, setOrders] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [reminders, setReminders] = useState([]);
+  const [invoiceReminders, setInvoiceReminders] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,6 +125,15 @@ const Sales = () => {
       // Fetch reminders
       const remindersRes = await salesService.getReminders();
       if (remindersRes.success) setReminders(remindersRes.reminders);
+
+      // Fetch invoice payment reminders
+      try {
+        const invRemRes = await fetch(`${API_URL}/reminders/invoices`, { headers: headers() });
+        if (invRemRes.ok) {
+          const data = await invRemRes.json();
+          setInvoiceReminders(data.reminders?.flatMap(r => r.invoices) || []);
+        }
+      } catch (e) {}
 
       // Fetch red flags and patterns (manager only)
       if (isManager) {
@@ -615,6 +625,32 @@ const Sales = () => {
             {activeTab === 'reminders' && (
               <div style={styles.tabContent}>
                 <h2 style={styles.tabTitle}>{t('sales.tabs.reminders')}</h2>
+                <div style={styles.sectionTitle}>{t('sales.paymentReminders')}</div>
+                {invoiceReminders.length > 0 ? (
+                  <div style={styles.remindersList}>
+                    {invoiceReminders.map((inv, i) => (
+                      <div key={i} style={{ padding: '12px', margin: '8px 0', background: inv.reminder_type === 'overdue' ? '#fef2f2' : inv.reminder_type === 'due_today' ? '#fffbeb' : '#f0fdf4', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <strong>{inv.client_name}</strong> - {inv.invoice_number}
+                            <p style={{ margin: '2px 0', fontSize: '12px', color: '#6b7280' }}>
+                              {formatCurrency(parseFloat(inv.amount || 0))} | Due: {new Date(inv.due_date).toLocaleDateString()} | {inv.days_until_due !== null ? (inv.days_until_due > 0 ? `${inv.days_until_due} days` : inv.days_until_due === 0 ? 'Today' : `${Math.abs(inv.days_until_due)} days overdue`) : ''}
+                            </p>
+                          </div>
+                          <button className="btn btn-sm" onClick={() => {
+                            const msg = `Dear ${inv.client_name}, invoice ${inv.invoice_number} for ${formatCurrency(parseFloat(inv.amount || 0))} is due on ${new Date(inv.due_date).toLocaleDateString()}. Please arrange payment.`;
+                            window.open(`https://wa.me/${inv.client_phone || ''}?text=${encodeURIComponent(msg)}`, '_blank');
+                          }} style={{ background: '#25D366', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer' }}>
+                            <MessageCircle size={14} /> WhatsApp
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: '#6b7280', padding: '12px' }}>{t('sales.noUpcomingReminders')}</p>
+                )}
+                <div style={{ ...styles.sectionTitle, marginTop: '16px' }}>{t('common.reminders')}</div>
                 <div style={styles.remindersList}>
                   {reminders.map(reminder => (
                     <ReminderCard key={reminder.id} reminder={reminder} detailed />
@@ -903,6 +939,14 @@ const InvoiceCard = ({ invoice }) => (
     </div>
     <div style={styles.invoiceBalance}>
       Balance Due: <strong>{formatCurrency(parseFloat(invoice.balance_due || 0) )}</strong>
+    </div>
+    <div style={{ marginTop: '8px' }}>
+      <button className="btn btn-sm" onClick={() => {
+        const msg = `Invoice ${invoice.invoice_number}: ${formatCurrency(parseFloat(invoice.amount || 0))} - Due: ${new Date(invoice.due_date).toLocaleDateString()}`;
+        window.open(`https://wa.me/${invoice.client_phone || ''}?text=${encodeURIComponent(msg)}`, '_blank');
+      }} style={{ background: '#25D366', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}>
+        <MessageCircle size={14} style={{ marginRight: '4px' }} /> WhatsApp
+      </button>
     </div>
   </div>
 );

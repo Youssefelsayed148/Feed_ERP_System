@@ -980,7 +980,7 @@ export default function Orders() {
                         <button
                           onClick={() => updateOrderStatus(order._id, 'pending')}
                           className="btn btn-sm btn-warning"
-                          title="{t('common.submit')}"
+                          title={t('common.submit')}
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -989,7 +989,7 @@ export default function Orders() {
                         <button
                           onClick={() => updateOrderStatus(order._id, 'processing')}
                           className="btn btn-sm btn-primary"
-                          title="{t('common.confirm')}"
+                          title={t('common.confirm')}
                         >
                           <Check className="w-4 h-4" />
                         </button>

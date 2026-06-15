@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { Eye, EyeOff, Building2 } from 'lucide-react';
+import { Eye, EyeOff, Building2, Globe } from 'lucide-react';
 import { authService } from '../services/api';
 import { setUser } from '../store/slices/authSlice';
-import { t, getLang } from '../utils/i18n';
+import { t, getLang, setLang } from '../utils/i18n';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -54,6 +54,28 @@ const Login = () => {
         
         <h1 className="auth-title">{t('welcomeBack')}</h1>
         <p className="auth-subtitle">{t('signIn')}</p>
+
+        {/* Language Toggle */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '20px' }}>
+          <button
+            type="button"
+            onClick={() => setLang('en')}
+            className={`btn ${getLang() === 'en' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '6px 16px', fontSize: '0.85rem' }}
+          >
+            <Globe size={14} style={{ marginRight: '6px' }} />
+            English
+          </button>
+          <button
+            type="button"
+            onClick={() => setLang('ar')}
+            className={`btn ${getLang() === 'ar' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ padding: '6px 16px', fontSize: '0.85rem' }}
+          >
+            <Globe size={14} style={{ marginLeft: '6px' }} />
+            العربية
+          </button>
+        </div>
 
         {error && (
           <div className="error-message" style={{

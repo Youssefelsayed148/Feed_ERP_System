@@ -48,13 +48,13 @@ router.get('/reminders/due', auth, async (req, res) => {
     const result = await query(`
       SELECT 
         ms.*,
-        m.name as machine_name,
+        m.name_english as machine_name,
         m.code as machine_code
-      FROM maintenance_reminders ms
+      FROM maintenance_schedules ms
       LEFT JOIN machines m ON m.id = ms.machine_id
-      WHERE ms.due_date <= NOW() + INTERVAL '7 days'
-        AND ms.status = 'pending'
-      ORDER BY ms.due_date ASC
+      WHERE ms.scheduled_date <= NOW() + INTERVAL '7 days'
+        AND ms.status = 'scheduled'
+      ORDER BY ms.scheduled_date ASC
     `);
 
     res.json({ reminders: result.rows });

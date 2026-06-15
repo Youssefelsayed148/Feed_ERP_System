@@ -1,4 +1,3 @@
-import { t } from '../utils/i18n';
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, Users, Building, Bell, Shield, Palette, 
@@ -7,6 +6,7 @@ import {
   ChevronDown, Filter, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import { authService, usersService } from '../services/api';
+import { t, setLang, getLang } from '../utils/i18n';
 
 // Available modules for permissions
 const AVAILABLE_MODULES = [
@@ -1161,14 +1161,15 @@ const SettingsPage = () => {
   };
 
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: Users },
-    { id: 'organization', label: 'Organization', icon: Building },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'security', label: 'Security', icon: Shield },
-    { id: 'branding', label: 'Branding', icon: Palette },
+    { id: 'profile', label: t('settings.profile'), icon: Users },
+    { id: 'organization', label: t('settings.organization'), icon: Building },
+    { id: 'notifications', label: t('settings.notificationsTab'), icon: Bell },
+    { id: 'security', label: t('settings.security'), icon: Shield },
+    { id: 'branding', label: t('settings.branding'), icon: Palette },
     { id: 'language', label: t('settings.language'), icon: Globe },
     { id: 'users', label: t('settings.userManagement'), icon: UserCheck },
-    { id: 'integrations', label: 'التكاملات', icon: Database }
+    { id: 'integrations', label: t('settings.integrations'), icon: Database },
+    { id: 'approvals', label: t('settings.approvals'), icon: Shield }
   ];
 
   return (
@@ -1392,24 +1393,24 @@ const SettingsPage = () => {
               
               <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
                 <button
-                  onClick={() => { localStorage.setItem('lang', 'en'); window.location.reload(); }}
+                  onClick={() => setLang('en')}
                   style={{
                     flex: 1, padding: '24px', borderRadius: '12px', border: '2px solid',
-                    borderColor: (localStorage.getItem('lang') || 'en') === 'en' ? '#2980b9' : '#e2e8f0',
-                    background: (localStorage.getItem('lang') || 'en') === 'en' ? '#eef7ff' : '#fff',
+                    borderColor: getLang() === 'en' ? '#2980b9' : '#e2e8f0',
+                    background: getLang() === 'en' ? '#eef7ff' : '#fff',
                     cursor: 'pointer', textAlign: 'center'
                   }}
                 >
                   <div style={{ fontSize: '48px', marginBottom: '12px' }}>🇬🇧</div>
                   <div style={{ fontSize: '18px', fontWeight: 600 }}>{t('settings.english')}</div>
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>{t('settings.english')}</div>
+                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>English Interface</div>
                 </button>
                 <button
-                  onClick={() => { localStorage.setItem('lang', 'ar'); window.location.reload(); }}
+                  onClick={() => setLang('ar')}
                   style={{
                     flex: 1, padding: '24px', borderRadius: '12px', border: '2px solid',
-                    borderColor: (localStorage.getItem('lang') || 'en') === 'ar' ? '#2980b9' : '#e2e8f0',
-                    background: (localStorage.getItem('lang') || 'en') === 'ar' ? '#eef7ff' : '#fff',
+                    borderColor: getLang() === 'ar' ? '#2980b9' : '#e2e8f0',
+                    background: getLang() === 'ar' ? '#eef7ff' : '#fff',
                     cursor: 'pointer', textAlign: 'center'
                   }}
                 >
@@ -1432,7 +1433,106 @@ const SettingsPage = () => {
               <IntegrationSettings />
             </div>
           )}
+
+          {activeTab === 'approvals' && (
+            <div className="settings-content">
+              <ApprovalSettings />
+            </div>
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Approval Settings Component
+const ApprovalSettings = () => {
+  const [settings, setSettings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(authService.getCurrentUser());
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/approvals/settings', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) setSettings(data.settings);
+    } catch (e) {
+      console.error('Error fetching approval settings:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleApproval = async (module, currentValue) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/approvals/settings/${module}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ requires_approval: !currentValue })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSettings(settings.map(s => s.module_name === module ? data.setting : s));
+      }
+    } catch (e) {
+      console.error('Error toggling approval:', e);
+    }
+  };
+
+  if (user?.role !== 'owner' && user?.role !== 'admin') {
+    return <p style={{ padding: '20px', color: '#6b7280' }}>Only owners can manage approval settings.</p>;
+  }
+
+  if (loading) return <p>Loading...</p>;
+
+  const moduleLabels = {
+    sales_orders: 'Sales Orders',
+    purchase_orders: 'Purchase Orders',
+    payroll: 'Payroll',
+    expenses: 'Expenses',
+    production: 'Production',
+    inventory_adjustments: 'Inventory Adjustments'
+  };
+
+  return (
+    <div>
+      <h3 className="card-title">Approval Settings</h3>
+      <p className="settings-description">Toggle which modules require approval before execution. When ON, all requests in that module need manager/owner approval.</p>
+      
+      <div style={{ marginTop: '24px' }}>
+        {settings.map(s => (
+          <div key={s.module_name} style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '16px', marginBottom: '8px', background: '#fff',
+            borderRadius: '8px', border: '1px solid #e2e8f0'
+          }}>
+            <div>
+              <div style={{ fontWeight: 600 }}>{moduleLabels[s.module_name] || s.module_name}</div>
+              <div style={{ fontSize: '12px', color: '#64748b' }}>
+                {s.requires_approval ? 'Approval required' : 'No approval needed'}
+              </div>
+            </div>
+            <button
+              onClick={() => toggleApproval(s.module_name, s.requires_approval)}
+              style={{
+                padding: '8px 20px', borderRadius: '20px', border: 'none',
+                cursor: 'pointer', fontWeight: 600,
+                background: s.requires_approval ? '#dc2626' : '#10b981',
+                color: '#fff'
+              }}
+            >
+              {s.requires_approval ? 'ON' : 'OFF'}
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );

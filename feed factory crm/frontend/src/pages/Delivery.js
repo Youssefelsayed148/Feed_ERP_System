@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatCurrency, formatNumber } from '../utils/formatters';
 import { t } from '../utils/i18n';
+import { authService } from '../services/api';
 import { 
   Truck, Plus, MapPin, Package, 
   Check, X, Play, Clock, Route, User,
@@ -11,7 +12,12 @@ import {
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const getAuthToken = () => localStorage.getItem('token');
-const getUserRole = () => localStorage.getItem('userRole') || 'driver';
+const getUserRole = () => {
+  const user = authService.getCurrentUser();
+  if (!user) return 'driver';
+  if (['owner', 'admin', 'logistics_coordinator'].includes(user.role)) return 'foreman';
+  return user.role === 'driver' ? 'driver' : 'foreman';
+};
 
 const headers = () => ({
   'Content-Type': 'application/json',
@@ -700,9 +706,9 @@ export default function Delivery() {
       return (
         <div style={{ padding: '48px', textAlign: 'center' }}>
           <Truck className="w-12 h-12" style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
-          <p style={{ color: '#64748b' }}>لا توجد توصيلات نشطة مسندة إليك</p>
+          <p style={{ color: '#64748b' }}>{t('delivery.noActive')}</p>
           <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '8px' }}>
-            Check back later for new assignments
+            {t('delivery.checkLaterAssig')}
           </p>
         </div>
       );
@@ -895,9 +901,9 @@ export default function Delivery() {
           gap: '12px'
         }}>
           <MapPin className="w-12 h-12" style={{ color: '#94a3b8' }} />
-          <p style={{ color: '#64748b', margin: 0 }}>Live Map View - Active Deliveries</p>
+          <p style={{ color: '#64748b', margin: 0 }}>{t('delivery.liveMap')}</p>
           <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>
-            {deliveries.filter(d => ['in_transit', 'arrived'].includes(d.status)).length} vehicles on the road
+            {t('delivery.vehiclesOnRoad', {n: deliveries.filter(d => ['in_transit', 'arrived'].includes(d.status)).length})}
           </p>
         </div>
 
@@ -920,7 +926,7 @@ export default function Delivery() {
                 <tr>
                   <td colSpan="7" style={{ textAlign: 'center', padding: '48px' }}>
                     <Package className="w-12 h-12" style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
-                    <p style={{ color: '#64748b' }}>لا توجد توصيلات معلقة</p>
+                    <p style={{ color: '#64748b' }}>{t('delivery.noPending')}</p>
                   </td>
                 </tr>
               ) : (
@@ -1029,7 +1035,7 @@ export default function Delivery() {
                             className="btn btn-sm btn-outline"
                           >
                             <Clock className="w-4 h-4" />
-                            عرض الرحلة
+                            {t('delivery.viewJourney')}
                           </button>
                         </td>
                       </tr>
@@ -1049,7 +1055,7 @@ export default function Delivery() {
       <div className="page-header">
         <div>
           <h1>{t('nav.delivery')}</h1>
-          <p>إدارة التوصيلات والمركبات</p>
+          <p>{t('delivery.subtitle')}</p>
         </div>
         {userRole === 'driver' && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1061,20 +1067,20 @@ export default function Delivery() {
       {/* Role Selector */}
       <div className="card" style={{ marginBottom: '24px', padding: '12px' }}>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span style={{ fontSize: '14px', color: '#64748b', marginRight: '8px' }}>View as:</span>
+          <span style={{ fontSize: '14px', color: '#64748b', marginRight: '8px' }}>{t('delivery.viewAs')}:</span>
           <button
             onClick={() => setUserRole('driver')}
             className={`btn ${userRole === 'driver' ? 'btn-primary' : 'btn-secondary'}`}
           >
             <User className="w-4 h-4" />
-            سائق
+            {t('delivery.driverRole')}
           </button>
           <button
             onClick={() => setUserRole('foreman')}
             className={`btn ${userRole === 'foreman' ? 'btn-primary' : 'btn-secondary'}`}
           >
             <Truck className="w-4 h-4" />
-            مشرف
+            {t('delivery.supervisorRole')}
           </button>
         </div>
       </div>
@@ -1093,14 +1099,14 @@ export default function Delivery() {
                 className={`btn ${activeTab === 'deliveries' ? 'btn-primary' : 'btn-secondary'}`}
               >
                 <Route className="w-4 h-4" />
-                التوصيلات
+                {t('delivery.deliveries')}
               </button>
               <button
                 onClick={() => setActiveTab('vehicles')}
                 className={`btn ${activeTab === 'vehicles' ? 'btn-primary' : 'btn-secondary'}`}
               >
                 <Truck className="w-4 h-4" />
-                المركبات
+                {t('delivery.vehicles')}
               </button>
             </div>
           </div>
@@ -1114,7 +1120,7 @@ export default function Delivery() {
                     <Clock className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="stat-label">مجدول اليوم</p>
+                    <p className="stat-label">{t('delivery.todayScheduled')}</p>
                     <p className="stat-value">{stats.todayScheduled || 0}</p>
                   </div>
                 </div>
@@ -1163,7 +1169,7 @@ export default function Delivery() {
                     <Truck className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="stat-label">إجمالي المركبات</p>
+                    <p className="stat-label">{t('delivery.totalVehicles')}</p>
                     <p className="stat-value">{stats.total}</p>
                   </div>
                 </div>
@@ -1799,7 +1805,7 @@ export default function Delivery() {
                   }}
                   disabled={assignLoading}
                 >
-                  <option value="">Choose a vehicle...</option>
+                  <option value="">{t('delivery.chooseVehicle')}</option>
                   {vehicles
                     .filter(v => v.status === 'available' || v._id === selectedDelivery?.vehicle?._id)
                     .map(veh => (

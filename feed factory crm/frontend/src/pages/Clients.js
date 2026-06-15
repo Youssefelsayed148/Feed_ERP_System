@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { t } from '../utils/i18n';
+import { formatCurrency } from '../utils/formatters';
 import { useNavigate } from 'react-router-dom';
-import { 
+import {
   Users, Plus, Search, Filter, Phone, Mail, MapPin, 
   FileText, DollarSign, Clock, Edit, Trash2, 
   ChevronRight, X, Package, Truck, CreditCard, ShoppingCart,
@@ -9,7 +11,6 @@ import {
 } from 'lucide-react';
 import ClientLiabilities from '../components/ClientLiabilities';
 import DocumentUpload from '../components/DocumentUpload';
-import { t } from '../utils/i18n';
 
 // API Base
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -38,6 +39,7 @@ export default function Clients() {
     paymentMethod: 'cash',
     referenceNumber: '',
     notes: '',
+    storageLocation: '',
     applyTo: 'auto',
     selectedInvoices: [],
     receiptPhoto: null
@@ -64,7 +66,8 @@ export default function Clients() {
     licenseNumber: '',
     avgConsumption: '',
     favoriteFeedType: '',
-    notes: ''
+    notes: '',
+    storageLocation: ''
   });
   const [feedTypes, setFeedTypes] = useState([]);
   const [createdClientId, setCreatedClientId] = useState(null);
@@ -166,7 +169,8 @@ export default function Clients() {
         avg_consumption: formData.avgConsumption ? parseFloat(formData.avgConsumption) : 0,
         favorite_feed_type_id: formData.favoriteFeedType ? parseInt(formData.favoriteFeedType) : null,
         license_number: formData.licenseNumber,
-        notes: formData.notes
+        notes: formData.notes,
+        storage_location: formData.storageLocation
       };
       const response = await fetch(`${API_URL}/clients`, {
         method: 'POST',
@@ -208,7 +212,8 @@ export default function Clients() {
       licenseNumber: '',
       avgConsumption: '',
       favoriteFeedType: '',
-      notes: ''
+      notes: '',
+      storageLocation: ''
     });
     setCreatedClientId(null);
     setCreationStep('form');
@@ -349,6 +354,7 @@ export default function Clients() {
       paymentMethod: 'cash',
       referenceNumber: '',
       notes: '',
+    storageLocation: '',
       applyTo: 'auto',
       selectedInvoices: [],
       receiptPhoto: null
@@ -854,6 +860,10 @@ export default function Clients() {
                       />
                     </div>
                   </div>
+                  <div className="form-group" style={{ padding: '0 16px', marginBottom: '16px' }}>
+                    <label>{t('common.storageLocation')}</label>
+                    <input type="text" value={formData.storageLocation || ''} onChange={(e) => setFormData({...formData, storageLocation: e.target.value})} className="form-input" placeholder={t('clients.storagePlaceholder')} />
+                  </div>
                 </div>
                 <div className="modal-footer">
                   <button
@@ -968,7 +978,7 @@ export default function Clients() {
                     <div className="bg-white rounded-lg p-3 shadow-sm">
                       <p className="text-sm text-gray-600">إجمالي المستحقات</p>
                       <p className="text-xl font-bold text-gray-900">
-                        EGP {selectedClient.summary.totalPending?.toFixed(2) || '0.00'}
+                        {formatCurrency(selectedClient.summary.totalPending || 0)}
                       </p>
                     </div>
                     <div className="bg-white rounded-lg p-3 shadow-sm">
@@ -977,7 +987,7 @@ export default function Clients() {
                         متأخرة
                       </p>
                       <p className="text-xl font-bold text-red-600">
-                        EGP {selectedClient.pendingInvoices?.filter(i => i.status === 'overdue')?.reduce((sum, i) => sum + (i.remainingAmount || i.balance || 0), 0)?.toFixed(2) || '0.00'}
+                        {formatCurrency(selectedClient.pendingInvoices?.filter(i => i.status === 'overdue')?.reduce((sum, i) => sum + (i.remainingAmount || i.balance || 0), 0) || 0)}
                       </p>
                     </div>
                   </div>
@@ -1055,7 +1065,7 @@ export default function Clients() {
                         {selectedClient.recentPayments.map((payment) => (
                           <tr key={payment._id}>
                             <td>{new Date(payment.date).toLocaleDateString()}</td>
-                            <td className="font-semibold text-green-600">EGP {payment.amount?.toFixed(2)}</td>
+                            <td className="font-semibold text-green-600">{formatCurrency(payment.amount || 0)}</td>
                             <td>
                               <span className="badge badge-primary capitalize">
                                 {payment.method?.replace('_', ' ')}
@@ -1122,7 +1132,7 @@ export default function Clients() {
               <div className="modal-body" style={{overflowY: 'auto', maxHeight: 'calc(90vh - 140px)'}}>
                   {/* Amount Input */}
                   <div className="form-group mb-4">
-                    <label className="form-label">Payment Amount (EGP) *</label>
+                    <label className="form-label">{t("common.currency")} *</label>
                     <input
                       type="number"
                       required
@@ -1134,7 +1144,7 @@ export default function Clients() {
                       placeholder="أدخل المبلغ"
                     />
                     <p className="text-sm text-gray-500 mt-1">
-                      Total Receivables: EGP {paymentSummary.totalReceivables?.toFixed(2)}
+                      {formatCurrency(paymentSummary.totalReceivables || 0)}
                     </p>
                   </div>
 
@@ -1213,7 +1223,7 @@ export default function Clients() {
                                   />
                                 </td>
                                 <td>{inv.invoiceNumber}</td>
-                                <td>EGP {inv.balance?.toFixed(2)}</td>
+                                <td>{formatCurrency(inv.balance || 0)}</td>
                                 <td>{new Date(inv.dueDate).toLocaleDateString()}</td>
                               </tr>
                             ))}
@@ -1222,7 +1232,7 @@ export default function Clients() {
                       </div>
                       {paymentData.selectedInvoices.length > 0 && (
                         <p className="text-sm text-gray-600 mt-2">
-                          Remaining after selection: EGP {calculateRemaining()?.toFixed(2)}
+                          {t("common.remainingAfterSelection")}: {formatCurrency(calculateRemaining() || 0)}
                         </p>
                       )}
                     </div>
@@ -1286,7 +1296,7 @@ export default function Clients() {
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span>Total Payment:</span>
-                        <span className="font-semibold">EGP {parseFloat(paymentData.amount || 0)?.toFixed(2)}</span>
+                        <span className="font-semibold">{formatCurrency(parseFloat(paymentData.amount || 0))}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Applied to:</span>
@@ -1295,7 +1305,7 @@ export default function Clients() {
                       <div className="flex justify-between">
                         <span>Remaining Credit:</span>
                         <span className="font-semibold">
-                          EGP {Math.max(0, (paymentSummary.client.currentCredit || 0) - parseFloat(paymentData.amount || 0))?.toFixed(2)}
+                          {formatCurrency(Math.max(0, (paymentSummary.client.currentCredit || 0) - parseFloat(paymentData.amount || 0)))}
                         </span>
                       </div>
                     </div>

@@ -193,8 +193,8 @@ const SalesRep = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-        <StatCard title="{t('sales.myClients')}" value={stats?.totalClients || clients.length} icon={Users} color="#3b82f6" />
-        <StatCard title="{t('sales.myOrders')}" value={stats?.totalOrders || orders.length} icon={ShoppingCart} color="#10b981" />
+        <StatCard title={t('sales.myClients')} value={stats?.totalClients || clients.length} icon={Users} color="#3b82f6" />
+        <StatCard title={t('sales.myOrders')} value={stats?.totalOrders || orders.length} icon={ShoppingCart} color="#10b981" />
         <StatCard title={t('common.totalDue')} value={`ج.م ${((stats?.totalDue || 0) ).toLocaleString()}`} icon={DollarSign} color="#ef4444" />
         <StatCard title={t('sales.upcomingReminders')} value={stats?.upcomingReminders || reminders.filter(r => r.status === 'pending').length} icon={Bell} color="#8b5cf6" />
       </div>
@@ -491,7 +491,7 @@ const SalesRep = () => {
               </select>
             </div>
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px' }}>Amount (EGP) <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px' }}>Amount ({t('common.currency')}) <span style={{ color: '#ef4444' }}>*</span></label>
               <input
                 type="number"
                 name="amount"

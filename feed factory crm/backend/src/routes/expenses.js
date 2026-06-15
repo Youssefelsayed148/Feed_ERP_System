@@ -144,7 +144,19 @@ router.post('/', authenticate, async (req, res) => {
 
     journalExpenseCreated({ ...e, category }).catch(e => console.error('[JOURNAL] expense:', e.message));
 
-    res.status(201).json({ message: 'Expense created successfully', expense });
+    // Approval check
+    try {
+      const appRes = await query("SELECT requires_approval FROM approval_settings WHERE module = 'expenses'");
+      if (appRes.rows.length > 0 && appRes.rows[0].requires_approval) {
+        await query(
+          `INSERT INTO approval_requests (module, reference_type, reference_id, requested_by, status, notes)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          ['expenses', 'expense', expense.id, req.user.id, 'pending', `Expense: ${category} - ${parseFloat(amount).toFixed(2)} EGP`]
+        );
+      }
+    } catch(e) { console.error('Approval check failed:', e.message); }
+
+    res.status(201).json({ success: true, expense });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

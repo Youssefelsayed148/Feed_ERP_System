@@ -67,6 +67,8 @@ app.use('/api/feed-recipes', require('./src/routes/feed-recipes-pg'));
 app.use('/api/production', require('./src/routes/production-pg'));
 app.use('/api/sales', require('./src/routes/sales'));
 app.use('/api/notifications', require('./src/routes/notifications'));
+app.use('/api/location', require('./src/routes/location'));
+app.use('/api/reminders', require('./src/routes/reminders'));
 app.use('/api/purchase-requisitions', require('./src/routes/purchase-requisitions'));
 app.use('/api/maintenance-reminders', require('./src/routes/maintenance-reminders'));
 
@@ -104,6 +106,9 @@ app.use('/api/legal', require('./src/routes/legal'));
 app.use('/api/delivery', require('./src/routes/delivery'));
 app.use('/api/export', require('./src/routes/export'));
 app.use('/api/assets', require('./src/routes/assets'));
+
+// Approval System Routes
+app.use('/api/approvals', require('./src/routes/approvals'));
 
 // Error handling
 app.use((err, req, res, next) => {

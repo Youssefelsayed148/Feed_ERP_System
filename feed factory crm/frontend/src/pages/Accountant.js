@@ -1,4 +1,5 @@
 import { t } from '../utils/i18n';
+import { formatCurrency } from '../utils/formatters';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
