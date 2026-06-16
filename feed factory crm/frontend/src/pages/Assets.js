@@ -815,7 +815,7 @@ export default function Assets() {
         <div className="modal-overlay" onClick={() => setShowScheduleModal(false)}>
           <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Schedule New Maintenance</h2>
+              <h2 className="modal-title">{t('assets.scheduleNewMaintenance')}</h2>
               <button className="modal-close" onClick={() => setShowScheduleModal(false)}>
                 <X className="w-5 h-5" />
               </button>
@@ -1024,7 +1024,7 @@ export default function Assets() {
         <div className="modal-overlay" onClick={() => setShowScheduleModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Setup Maintenance Schedule</h2>
+              <h2 className="modal-title">{t('assets.setupMaintenanceSchedule')}</h2>
               <button className="modal-close" onClick={() => setShowScheduleModal(false)}>
                 <X className="w-5 h-5" />
               </button>
@@ -1127,7 +1127,7 @@ export default function Assets() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowScheduleModal(false)}>{t('common.cancel')}</button>
-              <button className="btn btn-primary" onClick={handleScheduleMaintenanceSetup}>Save Schedule</button>
+              <button className="btn btn-primary" onClick={handleScheduleMaintenanceSetup}>{t('assets.saveSchedule')}</button>
             </div>
           </div>
         </div>
@@ -1138,7 +1138,7 @@ export default function Assets() {
         <div className="modal-overlay" onClick={() => setShowRecordModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Record Maintenance</h2>
+              <h2 className="modal-title">{t('assets.recordMaintenance')}</h2>
               <button className="modal-close" onClick={() => setShowRecordModal(false)}>
                 <X className="w-5 h-5" />
               </button>
@@ -1226,7 +1226,7 @@ export default function Assets() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowRecordModal(false)}>{t('common.cancel')}</button>
-              <button className="btn btn-success" onClick={handleRecordMaintenance}>Record Maintenance</button>
+              <button className="btn btn-success" onClick={handleRecordMaintenance}>{t('assets.recordMaintenance')}</button>
             </div>
           </div>
         </div>
@@ -1237,7 +1237,7 @@ export default function Assets() {
         <div className="modal-overlay" onClick={() => setShowHistoryModal(false)}>
           <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2 className="modal-title">Maintenance History - {selectedMachine?.name}</h2>
+              <h2 className="modal-title">{t('assets.maintenanceHistory')} - {selectedMachine?.name}</h2>
               <button className="modal-close" onClick={() => setShowHistoryModal(false)}>
                 <X className="w-5 h-5" />
               </button>
@@ -1253,7 +1253,7 @@ export default function Assets() {
                       <th>{t('common.cost')}</th>
                       <th>{t('common.hours')}</th>
                       <th>Parts</th>
-                      <th>Next Due</th>
+                      <th>{t('assets.nextDue')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1277,7 +1277,7 @@ export default function Assets() {
               ) : (
                 <div style={{ textAlign: 'center', padding: '48px', color: '#6b7280' }}>
                   <History className="w-12 h-12" style={{ margin: '0 auto 16px', color: '#9ca3af' }} />
-                  <p>No maintenance history available for this machine.</p>
+                  <p>{t('assets.noMaintenanceHistory')}</p>
                 </div>
               )}
             </div>
@@ -1360,7 +1360,7 @@ export default function Assets() {
                 <div className="form-group"><label>{t('common.status')}</label>
                   <select className="form-select" value={vehicleForm.status} onChange={e => setVehicleForm({...vehicleForm, status: e.target.value})}>
                     <option value="available">{t('common.available')}</option>
-                    <option value="in_use">In Use</option>
+                    <option value="in_use">{t('assets.inUse')}</option>
                     <option value="maintenance">{t('assets.underMaintenance')}</option>
                     <option value="retired">Retired</option>
                   </select>
