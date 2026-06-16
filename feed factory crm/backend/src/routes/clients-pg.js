@@ -238,6 +238,39 @@ router.post('/:id/record-payment', async (req, res) => {
           remaining = 0;
         }
       }
+      // Apply remaining payment to oldest pending liabilities
+      if (remaining > 0) {
+        const pendingLiab = await client.query(
+          `SELECT id, amount, paid_amount, remaining_amount FROM client_liabilities
+           WHERE client_id = $1 AND status IN ('pending','partial') AND remaining_amount > 0
+           ORDER BY due_date ASC, id ASC`,
+          [id]
+        );
+        for (const liab of pendingLiab.rows) {
+          if (remaining <= 0) break;
+          const liabRemaining = parseFloat(liab.remaining_amount || liab.amount);
+          const liabPaid = parseFloat(liab.paid_amount || 0);
+          const liabAmount = parseFloat(liab.amount);
+          if (remaining >= liabRemaining) {
+            // Fully pay this liability
+            remaining -= liabRemaining;
+            const newPaid = liabPaid + liabRemaining;
+            await client.query(
+              `UPDATE client_liabilities SET status = 'paid', paid_amount = $1, remaining_amount = 0, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+              [newPaid, liab.id]
+            );
+          } else {
+            // Partial payment
+            const newPaid = liabPaid + remaining;
+            const newRemaining = liabAmount - newPaid;
+            await client.query(
+              `UPDATE client_liabilities SET status = 'partial', paid_amount = $1, remaining_amount = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+              [newPaid, Math.max(0, newRemaining), liab.id]
+            );
+            remaining = 0;
+          }
+        }
+      }
       return payResult.rows[0];
     });
     res.json({ success: true, payment: result, message: 'Payment recorded and applied to invoices', receiptNumber: `PAY-${String(result.id).padStart(5, '0')}` });
@@ -304,6 +337,37 @@ router.post('/:id/payments', async (req, res) => {
             [newPaid, Math.max(0, newBalance), inv.id]
           );
           remaining = 0;
+        }
+      }
+      // Apply remaining payment to oldest pending liabilities
+      if (remaining > 0) {
+        const pendingLiab = await client.query(
+          `SELECT id, amount, paid_amount, remaining_amount FROM client_liabilities
+           WHERE client_id = $1 AND status IN ('pending','partial') AND remaining_amount > 0
+           ORDER BY due_date ASC, id ASC`,
+          [id]
+        );
+        for (const liab of pendingLiab.rows) {
+          if (remaining <= 0) break;
+          const liabRemaining = parseFloat(liab.remaining_amount || liab.amount);
+          const liabPaid = parseFloat(liab.paid_amount || 0);
+          const liabAmount = parseFloat(liab.amount);
+          if (remaining >= liabRemaining) {
+            remaining -= liabRemaining;
+            const newPaid = liabPaid + liabRemaining;
+            await client.query(
+              `UPDATE client_liabilities SET status = 'paid', paid_amount = $1, remaining_amount = 0, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+              [newPaid, liab.id]
+            );
+          } else {
+            const newPaid = liabPaid + remaining;
+            const newRemaining = liabAmount - newPaid;
+            await client.query(
+              `UPDATE client_liabilities SET status = 'partial', paid_amount = $1, remaining_amount = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+              [newPaid, Math.max(0, newRemaining), liab.id]
+            );
+            remaining = 0;
+          }
         }
       }
 
