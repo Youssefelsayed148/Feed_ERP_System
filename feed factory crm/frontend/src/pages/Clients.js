@@ -561,15 +561,15 @@ export default function Clients() {
 
       {/* Client List */}
       <div className="table-container">
-        <table className="table">
+        <table className="table" dir="rtl">
           <thead>
-            <tr>
-              <th>{t('common.client')}</th>
-              <th>{t('clients.category')}</th>
-              <th>{t('clients.contact')}</th>
-              <th>{t('orders.payment')}</th>
-              <th>{t('common.status')}</th>
-              <th>{t('common.actions')}</th>
+            <tr className="text-right">
+              <th className="text-right">{t('clients.clientName')}</th>
+              <th className="text-right">{t('clients.category')}</th>
+              <th className="text-right">{t('common.contact')}</th>
+              <th className="text-right">{t('clients.paymentTerms')}</th>
+              <th className="text-right">{t('common.status')}</th>
+              <th className="text-right"></th>
             </tr>
           </thead>
           <tbody>
@@ -581,13 +581,13 @@ export default function Clients() {
               clients.map((client) => (
                 <tr key={client._id}>
                   <td>
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                        {client.name?.charAt(0)}
-                      </div>
-                      <div className="ml-3">
+                    <div className="flex items-center justify-end">
+                      <div className="ml-3 text-right">
                         <p className="font-medium text-gray-900">{client.name}</p>
                         <p className="text-sm text-gray-500">{client.code}</p>
+                      </div>
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold ml-3">
+                        {client.name?.charAt(0)}
                       </div>
                     </div>
                   </td>
