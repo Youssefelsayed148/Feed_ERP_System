@@ -698,7 +698,7 @@ const ExpectedPaymentRow = ({ payment, onMarkReceived, onDelete }) => {
 };
 
 // Main ClientLiabilities Component
-const ClientLiabilities = ({ client, onUpdate }) => {
+const ClientLiabilities = ({ client, onUpdate, totalPaymentsReceived, overviewOverdueAmount, overviewTotalPending, overviewTotalAmount }) => {
   const [liabilities, setLiabilities] = useState(client.liabilities || []);
   const [expectedPayments, setExpectedPayments] = useState(client.expectedPayments || []);
   const [activeTab, setActiveTab] = useState('liabilities');
@@ -998,6 +998,10 @@ const ClientLiabilities = ({ client, onUpdate }) => {
         client={client}
         liabilities={liabilities}
         expectedPayments={expectedPayments}
+        totalPaymentsReceived={totalPaymentsReceived}
+        overviewOverdueAmount={overviewOverdueAmount}
+        overviewTotalPending={overviewTotalPending}
+        overviewTotalAmount={overviewTotalAmount}
       />
 
       {/* Tabs */}

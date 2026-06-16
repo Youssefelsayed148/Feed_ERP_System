@@ -100,7 +100,7 @@ export default function Clients() {
       clientsData = clientsData.map(c => ({
         ...c,
         _id: c.id,
-        name: c.name_english || c.name_arabic || c.name,
+        name: c.name_arabic || c.name_english || c.name,
         category: c.type || c.category, // PostgreSQL uses 'type'
         currentCredit: parseFloat(c.current_balance || 0),
         creditLimit: parseFloat(c.credit_limit || 0),
@@ -227,7 +227,7 @@ export default function Clients() {
       if (data && data.client) {
         // Map backend fields to frontend expectations
         data.client._id = data.client.id || data.client._id;
-        data.client.name = data.client.name_english || data.client.name_arabic || data.client.name;
+        data.client.name = data.client.name_arabic || data.client.name_english || data.client.name;
         data.client.currentCredit = parseFloat(data.client.current_balance || 0);
         data.client.creditLimit = parseFloat(data.client.credit_limit || 0);
         data.client.paymentType = data.client.payment_terms === 'cash' ? 'cash' : (data.client.payment_terms ? 'credit' : 'cash');
