@@ -74,13 +74,14 @@ const calculateProgress = (paid, total) => {
 };
 
 // Summary Cards Component
-const SummaryCards = ({ client, liabilities, expectedPayments }) => {
+const SummaryCards = ({ client, liabilities, expectedPayments, totalPaymentsReceived, overviewOverdueAmount, overviewTotalPending }) => {
   const totalLiabilities = liabilities.reduce((sum, l) => sum + (l.amount || 0), 0);
-  const totalPaid = liabilities.reduce((sum, l) => sum + (l.paidAmount || 0), 0);
-  const outstandingBalance = liabilities
+  const totalPaidLiabilities = liabilities.reduce((sum, l) => sum + (l.paidAmount || 0), 0);
+  const totalPaid = totalPaymentsReceived !== undefined ? totalPaymentsReceived : totalPaidLiabilities;
+  const outstandingBalance = overviewTotalPending !== undefined ? overviewTotalPending : liabilities
     .filter(l => l.status !== 'paid' && l.status !== 'cancelled')
     .reduce((sum, l) => sum + (l.remainingAmount || 0), 0);
-  const overdueAmount = liabilities
+  const overdueAmount = overviewOverdueAmount !== undefined ? overviewOverdueAmount : liabilities
     .filter(l => l.status !== 'paid' && l.status !== 'cancelled' && new Date(l.dueDate || l.due_date) < new Date())
     .reduce((sum, l) => sum + (l.remainingAmount || l.amount || 0), 0);
   const totalExpected = expectedPayments
