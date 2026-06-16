@@ -629,7 +629,7 @@ export default function Clients() {
       {/* Add Client Modal */}
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal modal-large" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+          <div className="modal modal-large modal-wide" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header">
               <h2 className="modal-title">
                 {creationStep === 'form' ? 'إضافة عميل جديد' :
@@ -937,7 +937,7 @@ export default function Clients() {
       {/* Client Detail Modal */}
       {selectedClient && (
         <div className="modal-overlay">
-          <div className="modal modal-large" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+          <div className="modal modal-large modal-wide" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header">
               <div>
                 <h2 className="modal-title">{selectedClient.client.name}</h2>
@@ -1128,7 +1128,7 @@ export default function Clients() {
       {/* Payment Modal */}
       {showPaymentModal && paymentSummary && (
         <div className="modal-overlay">
-          <div className="modal modal-large">
+          <div className="modal modal-large modal-wide">
             <div className="modal-header">
               <div>
                 <h2 className="modal-title">تسجيل دفعة - {paymentSummary.client.name}</h2>

@@ -916,6 +916,10 @@ body {
   flex-direction: column;
 }
 
+.modal-wide {
+  max-width: 900px;
+}
+
 .modal-content {
   background: white;
   border-radius: 12px;
