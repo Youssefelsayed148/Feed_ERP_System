@@ -240,7 +240,7 @@ router.post('/:id/record-payment', async (req, res) => {
       }
       return payResult.rows[0];
     });
-    res.json({ success: true, payment: result, message: 'Payment recorded and applied to invoices' });
+    res.json({ success: true, payment: result, message: 'Payment recorded and applied to invoices', receiptNumber: `PAY-${String(result.id).padStart(5, '0')}` });
   } catch (error) {
     console.error('Error recording payment:', error);
     res.status(500).json({ error: 'Failed to record payment' });
@@ -317,9 +317,11 @@ router.post('/:id/payments', async (req, res) => {
     });
 
     res.json({
+      success: true,
       message: 'Payment recorded successfully',
       client: result.client,
-      payment: result.payment
+      payment: result.payment,
+      receiptNumber: `PAY-${String(result.payment.id).padStart(5, '0')}`
     });
   } catch (error) {
     console.error('Error recording payment:', error);

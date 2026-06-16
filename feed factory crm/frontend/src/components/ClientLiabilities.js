@@ -74,7 +74,7 @@ const calculateProgress = (paid, total) => {
 };
 
 // Summary Cards Component
-const SummaryCards = ({ client, liabilities, expectedPayments, totalPaymentsReceived, overviewOverdueAmount, overviewTotalPending }) => {
+const SummaryCards = ({ client, liabilities, expectedPayments, totalPaymentsReceived, overviewOverdueAmount, overviewTotalPending, overviewTotalAmount }) => {
   const totalLiabilities = liabilities.reduce((sum, l) => sum + (l.amount || 0), 0);
   const totalPaidLiabilities = liabilities.reduce((sum, l) => sum + (l.paidAmount || 0), 0);
   const totalPaid = totalPaymentsReceived !== undefined ? totalPaymentsReceived : totalPaidLiabilities;
@@ -87,14 +87,16 @@ const SummaryCards = ({ client, liabilities, expectedPayments, totalPaymentsRece
   const totalExpected = expectedPayments
     .filter(p => p.status === 'pending')
     .reduce((sum, p) => sum + (p.amount || 0), 0);
+  // Use overview totalAmount for first card when available (matches Overview tab)
+  const displayAmount = overviewTotalAmount !== undefined ? overviewTotalAmount : totalLiabilities;
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div className="stat-card bg-red-50 border-red-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="stat-label text-red-700">{t('clients.totalLiabilities')}</p>
-            <p className="stat-value text-red-600">{formatCurrency(totalLiabilities)}</p>
+            <p className="stat-label text-red-700">{t(overviewTotalAmount !== undefined ? 'orders.title' : 'clients.totalLiabilities')}</p>
+            <p className="stat-value text-red-600">{formatCurrency(displayAmount)}</p>
           </div>
           <div className="stat-icon bg-red-100 text-red-600">
             <TrendingDown className="w-5 h-5" />

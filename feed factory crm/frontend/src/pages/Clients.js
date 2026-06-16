@@ -1104,6 +1104,7 @@ export default function Clients() {
                   client={selectedClient.client}
                   totalPaymentsReceived={selectedClient.summary?.totalPaid}
                   overviewTotalPending={selectedClient.summary?.totalPending}
+                  overviewTotalAmount={selectedClient.summary?.totalAmount}
                   overviewOverdueAmount={(selectedClient.pendingInvoices || []).filter(i => i.status !== 'paid' && new Date(i.due_date) < new Date()).reduce((sum, i) => sum + parseFloat(i.balance_due || i.remainingAmount || 0), 0)}
                   onUpdate={() => {
                     // Refresh client data after liabilities update
