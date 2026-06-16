@@ -13,7 +13,7 @@ router.get('/', authenticate, async (req, res) => {
         v.plate_number, v.make, v.model,
         u.name as driver_name,
         so.order_number,
-        c.name_english as client_name
+        COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name
       FROM delivery_assignments da
       LEFT JOIN vehicles v ON v.id = da.vehicle_id
       LEFT JOIN users u ON u.id = da.driver_id
@@ -74,7 +74,7 @@ router.get('/pending', authenticate, async (req, res) => {
         v.plate_number, v.make, v.model,
         u.name as driver_name,
         so.order_number,
-        c.name_english as client_name
+        COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name
       FROM delivery_assignments da
       LEFT JOIN vehicles v ON v.id = da.vehicle_id
       LEFT JOIN users u ON u.id = da.driver_id
@@ -98,7 +98,7 @@ router.get('/driver/active', authenticate, async (req, res) => {
         da.*,
         v.plate_number, v.make, v.model,
         so.order_number,
-        c.name_english as client_name
+        COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name
       FROM delivery_assignments da
       LEFT JOIN vehicles v ON v.id = da.vehicle_id
       LEFT JOIN sales_orders so ON so.id = da.order_id
@@ -121,7 +121,7 @@ router.get('/:id', authenticate, async (req, res) => {
         v.plate_number, v.make, v.model,
         u.name as driver_name,
         so.order_number,
-        c.name_english as client_name
+        COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name
       FROM delivery_assignments da
       LEFT JOIN vehicles v ON v.id = da.vehicle_id
       LEFT JOIN users u ON u.id = da.driver_id

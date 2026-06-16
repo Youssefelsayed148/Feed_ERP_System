@@ -44,7 +44,7 @@ router.get('/', authenticate, async (req, res) => {
     
     const result = await query(
       `SELECT o.*, 
-        c.name_english as client_name,
+        COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name,
         c.name_arabic as client_name_arabic,
         (SELECT COUNT(*) FROM sales_order_items WHERE order_id = o.id) as item_count
        FROM sales_orders o

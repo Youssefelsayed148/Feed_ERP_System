@@ -48,7 +48,7 @@ router.get('/reminders/due', auth, async (req, res) => {
     const result = await query(`
       SELECT 
         ms.*,
-        m.name_english as machine_name,
+        COALESCE(NULLIF(m.name_arabic, ''), m.name_english) as machine_name,
         m.code as machine_code
       FROM maintenance_schedules ms
       LEFT JOIN machines m ON m.id = ms.machine_id

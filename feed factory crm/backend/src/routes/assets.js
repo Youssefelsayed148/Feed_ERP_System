@@ -176,7 +176,7 @@ router.put('/vehicles/:id', authenticate, async (req, res) => {
 router.get('/maintenance', authenticate, async (req, res) => {
   try {
     const result = await query(
-      `SELECT ms.*, m.code as machine_code, m.name_english as machine_name
+      `SELECT ms.*, m.code as machine_code, COALESCE(NULLIF(m.name_arabic, ''), m.name_english) as machine_name
        FROM maintenance_schedules ms
        JOIN machines m ON ms.machine_id = m.id
        ORDER BY ms.scheduled_date`
