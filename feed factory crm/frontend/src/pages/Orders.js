@@ -166,7 +166,7 @@ export default function Orders() {
       const mappedClients = (data.clients || []).map(c => ({
         ...c,
         _id: String(c.id || c._id),
-        name: c.name_english || c.name_arabic || c.name,
+        name: c.name_arabic || c.name_english || c.name,
         paymentType: c.payment_type || (c.payment_terms === 'cash' ? 'cash' : 'credit'),
         address: c.address || '',
         discount: c.discount || 0,

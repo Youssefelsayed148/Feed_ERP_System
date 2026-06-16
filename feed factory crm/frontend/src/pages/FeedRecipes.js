@@ -106,7 +106,7 @@ export default function FeedRecipes() {
           feedType: {
             _id: r.feed_type_id,
             id: r.feed_type_id,
-            name: r.feed_name_english || r.feed_name_arabic || '',
+            name: r.feed_name_arabic || r.feed_name_english || '',
             nameArabic: r.feed_name_arabic || '',
             code: r.feed_code || '',
             protein: r.protein_percentage || ''
@@ -148,7 +148,7 @@ export default function FeedRecipes() {
         const mapped = feedTypesArray.map(ft => ({
           _id: ft.id,
           id: ft.id,
-          name: ft.name_english || ft.name || '',
+          name: ft.name_arabic || ft.name_english || ft.name || '',
           nameArabic: ft.name_arabic || ft.nameArabic || '',
           name_english: ft.name_english,
           name_arabic: ft.name_arabic,

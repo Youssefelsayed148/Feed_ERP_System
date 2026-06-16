@@ -117,7 +117,7 @@ export default function Inventory() {
           productionNumber: o.order_number,
           batchNumber: o.batch_number,
           feedType: {
-            name: o.feed_name_english || o.feed_name_arabic || 'Unknown'
+            name: o.feed_name_arabic || o.feed_name_english || 'Unknown'
           },
           totalBags: o.number_of_bags,
           totalOutputWeight: o.quantity_kg,
@@ -143,7 +143,7 @@ export default function Inventory() {
           name: r.name,
           protein: r.protein_percentage,
           feedType: {
-            name: r.feed_name_english || r.feed_name_arabic || 'Unknown'
+            name: r.feed_name_arabic || r.feed_name_english || 'Unknown'
           },
           totalCost: parseFloat(r.total_cost) || 0,
           pricing: r.pricing || {},
