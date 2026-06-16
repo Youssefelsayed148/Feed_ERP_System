@@ -448,7 +448,7 @@ export default function MaintenanceReminders() {
         {loading ? (
           <div className="card" style={{ textAlign: 'center', padding: '48px' }}>
             <div className="loading" style={{ margin: '0 auto' }} />
-            <p style={{ marginTop: '16px', color: '#64748b' }}>Loading maintenance reminders...</p>
+            <p style={{ marginTop: '16px', color: '#64748b' }}>{t('assets.loadingReminders')}</p>
           </div>
         ) : (
           <table className="table">
@@ -462,7 +462,7 @@ export default function MaintenanceReminders() {
                 <th>{t('maintenance.priority')}</th>
                 <th>{t('common.status')}</th>
                 <th>الفني</th>
-                <th>Est. Cost</th>
+                <th>{t('assets.estCost')}</th>
                 <th>{t('common.actions')}</th>
               </tr>
             </thead>
@@ -796,7 +796,7 @@ export default function MaintenanceReminders() {
               </div>
               
               <div className="alert alert-warning">
-                <strong>Note:</strong> Starting work will update the machine status to "Under Maintenance" and track the start time.
+                <strong>{t('common.note')}:</strong> {t('assets.startingWorkNote')}
               </div>
             </div>
             <div className="modal-footer">
@@ -821,7 +821,7 @@ export default function MaintenanceReminders() {
             </div>
             <div className="modal-body">
               <div className="alert alert-info" style={{ marginBottom: '16px' }}>
-                <strong>Current Schedule:</strong> {new Date(selectedReminder.scheduledDate).toLocaleString()}
+                <strong>{t('assets.currentSchedule')}:</strong> {new Date(selectedReminder.scheduledDate).toLocaleString()}
               </div>
               
               <div className="form-row">
@@ -897,7 +897,7 @@ export default function MaintenanceReminders() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Actual Hours Spent *</label>
+                  <label>{t('assets.actualHours')} *</label>
                   <input 
                     type="number" 
                     className="form-input"
@@ -909,7 +909,7 @@ export default function MaintenanceReminders() {
               </div>
               
               <div className="form-group">
-                <label>Parts Used (comma-separated)</label>
+                <label>{t('assets.partsUsed')}</label>
                 <input 
                   type="text" 
                   className="form-input"
@@ -937,9 +937,9 @@ export default function MaintenanceReminders() {
                   value={completeForm.machineStatus}
                   onChange={(e) => setCompleteForm({...completeForm, machineStatus: e.target.value})}
                 >
-                  <option value="active">Active - Ready for Use</option>
-                  <option value="under_maintenance">Under Maintenance - Needs More Work</option>
-                  <option value="broken">Broken - Requires Further Repair</option>
+                  <option value="active">{t('assets.activeReady')}</option>
+                  <option value="under_maintenance">{t('assets.underMainNeeds')}</option>
+                  <option value="broken">{t('assets.brokenNeeds')}</option>
                 </select>
               </div>
             </div>

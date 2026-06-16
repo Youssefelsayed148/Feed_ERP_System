@@ -1560,7 +1560,7 @@ export default function Delivery() {
                       <X className="w-4 h-4" /> Clear Signature
                     </button>
                     {confirmationData.deliveryProof.signature && (
-                      <span style={{ fontSize: '12px', color: '#22c55e' }}>Signature captured</span>
+                      <span style={{ fontSize: '12px', color: '#22c55e' }}>{t('assets.signatureCaptured')}</span>
                     )}
                   </div>
                 </div>
@@ -1722,11 +1722,11 @@ export default function Delivery() {
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
                   <div>
-                    <span style={{ color: '#64748b' }}>Total Bags: </span>
+                    <span style={{ color: '#64748b' }}>{t('assets.totalBags')}: </span>
                     <span style={{ fontWeight: '600' }}>{selectedDelivery.totalBags}</span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b' }}>Total Weight: </span>
+                    <span style={{ color: '#64748b' }}>{t('assets.totalWeight')}: </span>
                     <span style={{ fontWeight: '600' }}>{calculateDeliveryWeight(selectedDelivery).toLocaleString()} kg</span>
                   </div>
                   <div>
@@ -1850,13 +1850,13 @@ export default function Delivery() {
                           fontSize: '13px'
                         }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <span style={{ color: '#64748b' }}>Vehicle Capacity:</span>
+                            <span style={{ color: '#64748b' }}>{t('assets.vehicleCapacity')}:</span>
                             <span style={{ fontWeight: 600, color: isSufficient ? '#16a34a' : '#dc2626' }}>
                               {vehicle?.capacityKg?.toLocaleString()} kg
                             </span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: '#64748b' }}>Delivery Weight:</span>
+                            <span style={{ color: '#64748b' }}>{t('assets.deliveryWeight')}:</span>
                             <span style={{ fontWeight: 600, color: '#374151' }}>
                               {deliveryWeight.toLocaleString()} kg
                             </span>
@@ -2011,7 +2011,7 @@ export default function Delivery() {
                 style={{ minWidth: '140px' }}
               >
                 {assignLoading ? (
-                  <span>Assigning...</span>
+                  <span>{t('assets.assigning')}</span>
                 ) : (
                   <>
                     <User className="w-4 h-4" />
@@ -2029,7 +2029,7 @@ export default function Delivery() {
                 }}
               >
                 {assignLoading ? (
-                  <span>Assigning...</span>
+                  <span>{t('assets.assigning')}</span>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
@@ -2064,7 +2064,7 @@ export default function Delivery() {
             <div className="modal-body">
               <div style={{ position: 'relative', paddingLeft: '24px' }}>
                 {journeyHistory.length === 0 ? (
-                  <p style={{ color: '#64748b' }}>No journey history available</p>
+                  <p style={{ color: '#64748b' }}>{t('assets.noJourneyHistory')}</p>
                 ) : (
                   journeyHistory.map((entry, index) => (
                     <div key={index} style={{ marginBottom: '20px', position: 'relative' }}>
