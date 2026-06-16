@@ -567,6 +567,7 @@ export default function Clients() {
               <th className="text-right">{t('clients.clientName')}</th>
               <th className="text-right">{t('clients.category')}</th>
               <th className="text-right">{t('common.contact')}</th>
+              <th className="text-right">{t('clients.creditLimit')}</th>
               <th className="text-right">{t('clients.paymentTerms')}</th>
               <th className="text-right">{t('common.status')}</th>
               <th className="text-right"></th>
@@ -574,9 +575,9 @@ export default function Clients() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="6" className="text-center py-4">{t('common.loading')}</td></tr>
+              <tr><td colSpan="7" className="text-center py-4">{t('common.loading')}</td></tr>
             ) : clients.length === 0 ? (
-              <tr><td colSpan="6" className="text-center py-4">{t('clients.noClients')}</td></tr>
+              <tr><td colSpan="7" className="text-center py-4">{t('clients.noClients')}</td></tr>
             ) : (
               clients.map((client) => (
                 <tr key={client._id}>
@@ -597,6 +598,13 @@ export default function Clients() {
                   <td>
                     <p className="text-sm">{client.phone}</p>
                     <p className="text-sm text-gray-500">{client.city}</p>
+                  </td>
+                  <td>
+                    {client.creditLimit > 0 ? (
+                      <span className="font-medium">{formatCurrency(client.creditLimit)}</span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
                   <td>
                     {getPaymentBadge(client.paymentType, client.creditPeriod)}
