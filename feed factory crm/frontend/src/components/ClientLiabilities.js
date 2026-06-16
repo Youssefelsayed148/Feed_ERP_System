@@ -706,6 +706,7 @@ const ClientLiabilities = ({ client, onUpdate, totalPaymentsReceived, overviewOv
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [selectedLiability, setSelectedLiability] = useState(null);
   const [showAddExpectedModal, setShowAddExpectedModal] = useState(false);
+  const [dateFilter, setDateFilter] = useState('all');
 
   // Update liabilities when client changes
   useEffect(() => {
@@ -974,7 +975,22 @@ const ClientLiabilities = ({ client, onUpdate, totalPaymentsReceived, overviewOv
   };
 
   // Filter and sort liabilities
-  const sortedLiabilities = [...liabilities].sort((a, b) => {
+  const filteredLiabilities = liabilities.filter(l => {
+    if (dateFilter === 'all') return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(l.dueDate);
+    const daysUntilDue = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+    switch (dateFilter) {
+      case 'overdue': return due < today && (l.status !== 'paid' && l.status !== 'cancelled');
+      case 'thisWeek': return daysUntilDue >= 0 && daysUntilDue <= 7;
+      case 'thisMonth': return daysUntilDue >= 0 && daysUntilDue <= 30;
+      case 'next30': return daysUntilDue >= 0 && daysUntilDue <= 30;
+      default: return true;
+    }
+  });
+  
+  const sortedLiabilities = [...filteredLiabilities].sort((a, b) => {
     // Sort by status priority: overdue > pending > partial > paid
     const statusPriority = { overdue: 0, pending: 1, partial: 2, paid: 3 };
     const priorityDiff = (statusPriority[a.status] || 4) - (statusPriority[b.status] || 4);
@@ -1027,13 +1043,29 @@ const ClientLiabilities = ({ client, onUpdate, totalPaymentsReceived, overviewOv
         <div>
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">{t('clients.clientLiabilities')}</h3>
-            <button
-              onClick={() => setShowAddLiabilityModal(true)}
-              className="btn btn-danger"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              {t('clients.addLiability')}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowAddLiabilityModal(true)}
+                className="btn btn-danger"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                {t('clients.addLiability')}
+              </button>
+            </div>
+          </div>
+
+          {/* Date Filter Bar */}
+          <div className="flex flex-wrap gap-2 mb-4 p-3 bg-gray-50 rounded-lg border">
+            <span className="text-sm text-gray-600 pt-1">{t('common.filterByDate')}:</span>
+            {[['all', t('common.all')],['overdue', t('common.statuses.overdue')],['thisWeek', t('common.thisWeek')],['thisMonth', t('common.thisMonth')],['next30', t('common.next30Days')]].map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setDateFilter(k)}
+                className={`px-3 py-1 rounded-full text-sm font-medium ${dateFilter === k ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 border hover:bg-blue-50'}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {sortedLiabilities.length === 0 ? (
