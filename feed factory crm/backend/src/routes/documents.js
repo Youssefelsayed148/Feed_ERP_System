@@ -65,9 +65,9 @@ router.post('/upload/:entityType/:entityId', authenticate, upload.single('file')
     const relativePath = path.join('uploads', entityType, req.file.filename);
 
     const result = await query(
-      `INSERT INTO documents (entity_type, entity_id, file_name, file_path, file_size, file_type, description, uploaded_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [entityType, entityId, req.file.originalname, relativePath, req.file.size, req.file.mimetype, description || null, uploadedBy]
+      `INSERT INTO documents (entity_type, entity_id, doc_type, file_path, description, uploaded_by)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [entityType, entityId, req.file.originalname, relativePath, description || null, uploadedBy]
     );
 
     res.status(201).json({ success: true, document: result.rows[0], message: 'File uploaded successfully' });
@@ -96,8 +96,8 @@ router.get('/download/:id', authenticate, async (req, res) => {
       return res.status(404).json({ success: false, error: 'File not found on disk' });
     }
 
-    res.setHeader('Content-Disposition', `attachment; filename="${doc.file_name}"`);
-    res.setHeader('Content-Type', doc.file_type || 'application/octet-stream');
+    res.setHeader('Content-Disposition', 'attachment; filename="' + (doc.doc_type || 'document') + '"');
+    res.setHeader('Content-Type', 'application/octet-stream');
     res.sendFile(filePath);
   } catch (error) {
     console.error('Error downloading document:', error);

@@ -102,10 +102,10 @@ export default function Clients() {
         _id: c.id,
         name: c.name_english || c.name_arabic || c.name,
         category: c.type || c.category, // PostgreSQL uses 'type'
-        currentCredit: c.current_balance || c.currentCredit || 0,
-        creditLimit: c.credit_limit || c.creditLimit || 0,
-        creditPeriod: c.payment_terms?.replace(' days', '') || c.creditPeriod || 0,
-        paymentType: c.payment_terms === 'cash' ? 'cash' : (c.payment_type || 'credit'),
+        currentCredit: parseFloat(c.current_balance || 0),
+        creditLimit: parseFloat(c.credit_limit || 0),
+        creditPeriod: c.payment_terms ? parseInt(c.payment_terms.replace(/[^0-9]/g, '')) || 0 : 0,
+        paymentType: c.payment_terms === 'cash' ? 'cash' : (c.payment_terms ? 'credit' : 'cash'),
         assignedTo: c.assigned_to || c.assignedTo || null
       }));
       
@@ -120,7 +120,7 @@ export default function Clients() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${API_URL}/dashboard`, { headers: headers() });
+      const response = await fetch(`${API_URL}/clients/dashboard`, { headers: headers() });
       const data = await response.json();
       // Map PostgreSQL stats to component format
       const mappedStats = data?.total_clients ? {
@@ -228,14 +228,29 @@ export default function Clients() {
         // Map backend fields to frontend expectations
         data.client._id = data.client.id || data.client._id;
         data.client.name = data.client.name_english || data.client.name_arabic || data.client.name;
-        data.client.currentCredit = data.client.current_balance || data.client.currentCredit || 0;
-        data.client.creditLimit = data.client.credit_limit || data.client.creditLimit || 0;
-        data.client.paymentType = data.client.payment_type || (data.client.payment_terms === 'cash' ? 'cash' : 'credit');
-        data.client.creditPeriod = data.client.payment_terms?.replace(' days', '') || data.client.creditPeriod || 0;
+        data.client.currentCredit = parseFloat(data.client.current_balance || 0);
+        data.client.creditLimit = parseFloat(data.client.credit_limit || 0);
+        data.client.paymentType = data.client.payment_terms === 'cash' ? 'cash' : (data.client.payment_terms ? 'credit' : 'cash');
+        data.client.creditPeriod = data.client.payment_terms ? parseInt(data.client.payment_terms.replace(/[^0-9]/g, '')) || 0 : 0;
         data.client.discount = data.client.discount || 0;
-        // Ensure liabilities and expectedPayments are arrays
-        if (!data.client.liabilities) data.client.liabilities = [];
-        if (!data.client.expectedPayments) data.client.expectedPayments = [];
+        // Ensure liabilities and expectedPayments are arrays from the correct API fields
+        data.client.liabilities = (data.liabilities || []).map(l => ({
+          ...l,
+          _id: l.id || l._id,
+          amount: parseFloat(l.amount || 0),
+          paidAmount: parseFloat(l.paid_amount || l.paidAmount || 0),
+          remainingAmount: parseFloat(l.remaining_amount || l.remainingAmount || l.amount || 0),
+          dueDate: l.due_date || l.dueDate,
+          date: l.date || l.created_at
+        }));
+        data.client.expectedPayments = data.expectedPayments || [];
+        // Map summary fields from snake_case to camelCase
+        if (data.summary) {
+          data.summary.totalOrders = parseInt(data.summary.totalOrders || data.summary.total_orders || 0);
+          data.summary.totalAmount = parseFloat(data.summary.totalAmount || data.summary.total_amount || 0);
+          data.summary.totalPaid = parseFloat(data.summary.totalPaid || data.summary.total_paid || 0);
+          data.summary.totalPending = parseFloat(data.summary.totalPending || data.summary.total_pending || 0);
+        }
         // Map invoice and payment IDs for selection
         if (data.pendingInvoices) {
           data.pendingInvoices = data.pendingInvoices.map(inv => ({...inv, _id: inv.id || inv._id}));
@@ -246,7 +261,7 @@ export default function Clients() {
         setSelectedClient(data);
       } else {
         setSelectedClient({
-          client: { ...client, liabilities: [], expectedPayments: [] },
+          client: { ...client, _id: client._id || client.id, id: client.id || client._id, liabilities: [], expectedPayments: [] },
           summary: { totalOrders: 0, totalAmount: 0, totalPaid: 0, totalPending: 0 },
           pendingInvoices: []
         });
@@ -254,7 +269,7 @@ export default function Clients() {
     } catch (error) {
       console.error('Error fetching client details:', error);
       setSelectedClient({
-        client: { ...client, liabilities: [], expectedPayments: [] },
+        client: { ...client, _id: client._id || client.id, id: client.id || client._id, liabilities: [], expectedPayments: [] },
         summary: { totalOrders: 0, totalAmount: 0, totalPaid: 0, totalPending: 0 },
         pendingInvoices: []
       });
@@ -319,6 +334,11 @@ export default function Clients() {
         if (data.pendingInvoices) {
           data.pendingInvoices = data.pendingInvoices.map(inv => ({...inv, _id: inv.id || inv._id}));
         }
+        // Map client credit field
+        data.client.currentCredit = parseFloat(data.client.current_balance || 0);
+        data.client.creditLimit = parseFloat(data.client.credit_limit || 0);
+        data.client._id = data.client._id || data.client.id;
+        data.client.id = data.client.id || data.client._id;
         setPaymentSummary(data);
         setShowPaymentModal(true);
       } else {
@@ -407,13 +427,10 @@ export default function Clients() {
       
       const payload = {
         amount: parseFloat(paymentData.amount),
+        date: new Date().toISOString().split('T')[0],
         paymentMethod: paymentData.paymentMethod,
-        referenceNumber: paymentData.referenceNumber,
+        description: `Payment received - ${paymentData.referenceNumber || 'No reference'}`,
         notes: paymentData.notes,
-        receiptPhoto: paymentData.receiptPhoto,
-        invoiceId: paymentData.applyTo === 'specific' && paymentData.selectedInvoices.length === 1 
-          ? paymentData.selectedInvoices[0] 
-          : null
       };
       
       const response = await fetch(`${API_URL}/clients/${clientId}/record-payment`, {
@@ -629,11 +646,11 @@ export default function Clients() {
                   {/* Section: Basic Information */}
                   <div className="card mb-4">
                     <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
-                      المعلومات الأساسية
+                      {t('clients.basicInfo')}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="form-group">
-                        <label className="form-label">Name (English) *</label>
+                        <label className="form-label">{t('clients.nameEn')} *</label>
                         <input
                           type="text"
                           required
@@ -654,7 +671,7 @@ export default function Clients() {
                         />
                       </div>
                       <div className="form-group">
-                        <label className="form-label">Category *</label>
+                        <label className="form-label">{t('common.category')} *</label>
                         <select
                           value={formData.category}
                           onChange={(e) => setFormData({...formData, category: e.target.value})}
@@ -687,7 +704,7 @@ export default function Clients() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="form-group">
-                        <label className="form-label">Phone *</label>
+                        <label className="form-label">{t('common.phone')} *</label>
                         <input
                           type="text"
                           required
@@ -728,7 +745,7 @@ export default function Clients() {
                         />
                       </div>
                       <div className="form-group md:col-span-2">
-                        <label className="form-label">{t('common.address')}</label>
+                        <label className="form-label">{t('clients.address')}</label>
                         <input
                           type="text"
                           value={formData.address}
@@ -789,8 +806,8 @@ export default function Clients() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                       <div className="form-group">
                         <label className="form-label">
-                          Discount %
-                          <small className="form-help ml-1">(Standing discount)</small>
+                          خصم %
+                          <small className="form-help ml-1">(خصم دائم)</small>
                         </label>
                         <input
                           type="number"
@@ -809,13 +826,13 @@ export default function Clients() {
                   {/* Section: Sales Information */}
                   <div className="card mb-4">
                     <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
-                      Sales Information
+                      معلومات المبيعات
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="form-group">
                         <label className="form-label">
                           متوسط الاستهلاك الشهري
-                          <small className="form-help ml-1">(tons/kg)</small>
+                          <small className="form-help ml-1">(طن/كجم)</small>
                         </label>
                         <input
                           type="number"
@@ -824,7 +841,7 @@ export default function Clients() {
                           value={formData.avgConsumption}
                           onChange={(e) => setFormData({...formData, avgConsumption: e.target.value})}
                           className="form-input"
-                          placeholder="e.g. 50"
+                          placeholder="مثال 50"
                         />
                       </div>
                       <div className="form-group">
@@ -834,7 +851,7 @@ export default function Clients() {
                           onChange={(e) => setFormData({...formData, favoriteFeedType: e.target.value})}
                           className="form-select"
                         >
-                          <option value="">-- Select --</option>
+                          <option value="">-- اختر --</option>
                           {feedTypes.map(ft => (
                             <option key={ft.id} value={ft.id}>
                               {ft.name_english} / {ft.name_arabic}
@@ -889,9 +906,9 @@ export default function Clients() {
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                     <CheckSquare className="w-8 h-8 text-green-600" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900">Client Created Successfully!</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">تم إنشاء العميل بنجاح!</h3>
                   <p className="text-gray-500 text-sm mt-1">
-                    Now you can upload related documents (contracts, licenses, IDs, etc.)
+                    يمكنك الآن رفع المستندات (العقود، التراخيص، إلخ)
                   </p>
                 </div>
                 <DocumentUpload
@@ -924,7 +941,7 @@ export default function Clients() {
             <div className="modal-header">
               <div>
                 <h2 className="modal-title">{selectedClient.client.name}</h2>
-                <p className="text-gray-600 text-sm">Code: {selectedClient.client.code}</p>
+                <p className="text-gray-600 text-sm">الكود: {selectedClient.client.code}</p>
               </div>
               <button onClick={closeClientDetail} className="modal-close">
                 <X className="w-6 h-6" />
@@ -984,10 +1001,10 @@ export default function Clients() {
                     <div className="bg-white rounded-lg p-3 shadow-sm">
                       <p className="text-sm text-gray-600 flex items-center gap-1">
                         <AlertTriangle className="w-4 h-4 text-red-500" />
-                        متأخرة
+                        {t('common.statuses.overdue')}
                       </p>
                       <p className="text-xl font-bold text-red-600">
-                        {formatCurrency(selectedClient.pendingInvoices?.filter(i => i.status === 'overdue')?.reduce((sum, i) => sum + (i.remainingAmount || i.balance || 0), 0) || 0)}
+                        {formatCurrency((selectedClient.pendingInvoices || []).filter(i => i.status !== 'paid' && new Date(i.due_date) < new Date()).reduce((sum, i) => sum + parseFloat(i.balance_due || i.remainingAmount || 0), 0) || 0)}
                       </p>
                     </div>
                   </div>
@@ -1006,20 +1023,20 @@ export default function Clients() {
               {/* Account Summary */}
               <div className="stats-grid mb-6">
                 <div className="stat-card bg-blue-50">
-                  <p className="stat-label">إجمالي الطلبات</p>
+                  <p className="stat-label">{t('orders.totalOrders')}</p>
                   <p className="stat-value">{selectedClient.summary.totalOrders}</p>
                 </div>
                 <div className="stat-card bg-green-50">
-                  <p className="stat-label">المبلغ الإجمالي</p>
-                  <p className="stat-value">{selectedClient.summary.totalAmount?.toFixed(2)}</p>
+                  <p className="stat-label">{t('orders.title')}</p>
+                  <p className="stat-value">{formatCurrency(selectedClient.summary.totalAmount)}</p>
                 </div>
                 <div className="stat-card bg-yellow-50">
-                  <p className="stat-label">إجمالي المدفوع</p>
-                  <p className="stat-value">{selectedClient.summary.totalPaid?.toFixed(2)}</p>
+                  <p className="stat-label">{t('common.statuses.paid')}</p>
+                  <p className="stat-value">{formatCurrency(selectedClient.summary.totalPaid)}</p>
                 </div>
                 <div className="stat-card bg-red-50">
                   <p className="stat-label">{t('common.statuses.pending')}</p>
-                  <p className="stat-value">{selectedClient.summary.totalPending?.toFixed(2)}</p>
+                  <p className="stat-value">{formatCurrency(selectedClient.summary.totalPending)}</p>
                 </div>
               </div>
 
@@ -1028,11 +1045,11 @@ export default function Clients() {
                 <h3 className="card-title">شروط الدفع</h3>
                 <div className="flex gap-4 flex-wrap">
                   <span className={`badge ${selectedClient.client.paymentType === 'cash' ? 'badge-primary' : 'badge-warning'}`}>
-                    {selectedClient.client.paymentType === 'cash' ? 'Cash' : `Credit ${selectedClient.client.creditPeriod} days`}
+                    {selectedClient.client.paymentType === 'cash' ? 'نقدي' : `ائتمان ${selectedClient.client.creditPeriod} يوم`}
                   </span>
                   {selectedClient.client.creditLimit > 0 && (
                     <span className="badge">
-                      Limit: {selectedClient.client.creditLimit}
+                      الحد: {selectedClient.client.creditLimit}
                     </span>
                   )}
                   {selectedClient.client.discount > 0 && (
@@ -1110,8 +1127,8 @@ export default function Clients() {
           <div className="modal modal-large">
             <div className="modal-header">
               <div>
-                <h2 className="modal-title">Record Payment - {paymentSummary.client.name}</h2>
-                <p className="text-gray-600 text-sm">Client Code: {paymentSummary.client.code}</p>
+                <h2 className="modal-title">تسجيل دفعة - {paymentSummary.client.name}</h2>
+                <p className="text-gray-600 text-sm">الكود: {paymentSummary.client.code}</p>
               </div>
               <button onClick={closePaymentModal} className="modal-close">
                 <X className="w-6 h-6" />
@@ -1123,9 +1140,9 @@ export default function Clients() {
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckSquare className="w-8 h-8 text-green-600" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Payment Recorded Successfully!</h3>
-                <p className="text-gray-600 mb-4">Receipt #: {submitSuccess}</p>
-                <p className="text-sm text-gray-500">Closing in a moment...</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">تم تسجيل الدفعة بنجاح!</h3>
+                <p className="text-gray-600 mb-4">رقم الإيصال: {submitSuccess}</p>
+                <p className="text-sm text-gray-500">جارٍ الإغلاق...</p>
               </div>
             ) : (
             <form onSubmit={submitPayment} style={{display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0}}>
@@ -1137,7 +1154,6 @@ export default function Clients() {
                       type="number"
                       required
                       min="1"
-                      max={paymentSummary.totalReceivables}
                       value={paymentData.amount}
                       onChange={(e) => setPaymentData({...paymentData, amount: e.target.value})}
                       className="form-input text-lg"
@@ -1325,7 +1341,7 @@ export default function Clients() {
                     className="btn btn-success"
                     disabled={paymentLoading || !paymentData.amount}
                   >
-                    {paymentLoading ? 'Processing...' : 'Submit Payment'}
+                    {paymentLoading ? 'جارٍ المعالجة...' : 'إرسال الدفعة'}
                   </button>
                 </div>
               </form>

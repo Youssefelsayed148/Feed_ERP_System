@@ -85,7 +85,7 @@ const Accountant = () => {
             const bal = balanceMap[a.id] || {};
             return {
               id: a.id,
-              code: a.account_code || '',
+              code: a.code || a.account_code || '',
               name: a.name || '',
               type: a.type || '',
               category: a.category || '',
@@ -440,7 +440,7 @@ const Accountant = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: '#64748b', fontSize: '0.9rem' }}>{entry.date ? new Date(entry.date).toLocaleDateString() : ''}</span>
+                      <span style={{ color: '#64748b', fontSize: '0.9rem' }}>{new Date(entry.date || entry.entry_date).toLocaleDateString() || ''}</span>
                       <span style={{ fontSize: '0.8em', padding: '2px 8px', borderRadius: '4px', background: `${getTypeColor(entry.reference_type)}20`, color: getTypeColor(entry.reference_type), fontWeight: 500 }}>
                         {getTypeLabel(entry.reference_type)}
                       </span>

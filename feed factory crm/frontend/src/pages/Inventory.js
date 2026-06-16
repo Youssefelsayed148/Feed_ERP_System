@@ -326,6 +326,21 @@ export default function Inventory() {
     return badges[status] || 'badge-info';
   };
 
+  const getCategoryLabel = (cat) => {
+    const labels = {
+      additive: t('inventory.additive'),
+      enzyme: t('inventory.enzyme'),
+      fiber: t('inventory.fiber'),
+      grain: t('inventory.grain'),
+      mineral: t('inventory.mineral'),
+      medication: t('inventory.medication'),
+      protein: t('inventory.protein'),
+      raw_materials: t('inventory.rawMaterials'),
+      finished_goods: t('inventory.finishedGoods')
+    };
+    return labels[cat] || cat;
+  };
+
   const getStockStatusLabel = (status) => {
     const labels = {
       normal: t('common.normal'),
@@ -398,12 +413,12 @@ export default function Inventory() {
           if (response.ok) {
             const result = await response.json();
             broadcastInventoryUpdate('newMaterial', result);
-            alert('Stock added successfully!');
+            alert(t('inventory.stockAdded'));
             setShowAddStockModal(false);
             fetchData();
           } else {
             const errorData = await response.json();
-            alert(`Failed to add stock: ${errorData.message || 'Unknown error'}`);
+            alert(`${t('inventory.failedAddStock')}: ${errorData.message || t('common.unknownError')}`);
           }
         } else {
           // Add stock to existing material
@@ -414,7 +429,7 @@ export default function Inventory() {
               quantity: parseFloat(formData.quantity),
               unit_price: parseFloat(formData.costPerUnit),
               transaction_type: 'purchase',
-              notes: formData.notes || 'Manual stock addition'
+              notes: formData.notes || t('inventory.manualStockAddition')
             })
           });
           
@@ -425,7 +440,7 @@ export default function Inventory() {
               quantity: parseFloat(formData.quantity),
               result
             });
-            alert('Stock added successfully!');
+            alert(t('inventory.stockAdded'));
             setShowAddStockModal(false);
             fetchData();
           } else {
@@ -468,7 +483,7 @@ export default function Inventory() {
             broadcastInventoryUpdate('stockMovement', newMovement);
             return updated;
           });
-          alert('Stock added successfully (Demo Mode)');
+          alert(t('inventory.stockAddedDemo'));
         } else {
           const material = rawMaterials.find(m => m._id === formData.materialId);
           const oldQuantity = material?.quantity || 0;
@@ -602,7 +617,7 @@ export default function Inventory() {
               {/* Quantity and Unit */}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
                 <div className="form-group">
-                  <label className="form-label">Quantity *</label>
+                  <label className="form-label">{t('common.quantity')} *</label>
                   <input
                     type="number"
                     step="0.01"
@@ -613,22 +628,22 @@ export default function Inventory() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Unit *</label>
+                  <label className="form-label">{t('common.unit')} *</label>
                   <select
                     className="form-select"
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                     required
                   >
-                    <option value="kg">kg</option>
-                    <option value="ton">ton</option>
+                    <option value="kg">{t('common.kg')}</option>
+                    <option value="ton">{t('common.tons')}</option>
                   </select>
                 </div>
               </div>
               
               {/* Unit Cost */}
               <div className="form-group">
-                <label className="form-label">Unit Cost (EGP per kg) *</label>
+                <label className="form-label">{t('inventory.unitCostPerKg')} *</label>
                 <input
                   type="number"
                   step="0.01"
@@ -693,7 +708,7 @@ export default function Inventory() {
                   className="form-textarea"
                   value={formData.notes}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Additional information about this stock addition..."
+                  placeholder={t('inventory.stockNotesPlaceholder')}
                   rows="3"
                 />
               </div>
@@ -701,10 +716,10 @@ export default function Inventory() {
             
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setShowAddStockModal(false)}>
-                إلغاء
+                {t('common.cancel')}
               </button>
               <button type="submit" className="btn btn-success" disabled={submitting}>
-                {submitting ? 'Adding Stock...' : 'Add Stock'}
+                {submitting ? t('inventory.adding') : t('inventory.addStock')}
               </button>
             </div>
           </form>
@@ -879,8 +894,8 @@ export default function Inventory() {
                   ))}
                 </select>
                 {selectedMaterial && (
-                  <small className="form-help">
-                    Current Stock: {selectedMaterial.quantity} {selectedMaterial.unit} @ {selectedMaterial.costPerUnit?.toFixed(2)} EGP/kg
+                  <small style={{ color: '#6b7280', fontSize: '0.75rem' }}>
+                    {t('inventory.currentStock')}: {selectedMaterial.quantity} {selectedMaterial.unit} @ {selectedMaterial.costPerUnit?.toFixed(2)} {t('common.currency')}/{t('common.kg')}
                   </small>
                 )}
               </div>
@@ -939,7 +954,7 @@ export default function Inventory() {
               
               {/* Transfer Type */}
               <div className="form-group">
-                <label className="form-label">Transfer Type *</label>
+                <label className="form-label">{t('inventory.transferType')} *</label>
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                   {['INTERNAL_TRANSFER', 'PRODUCTION_USE', 'STOCK_ADJUSTMENT'].map(type => (
                     <label key={type} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
@@ -959,24 +974,24 @@ export default function Inventory() {
               
               {/* Reference */}
               <div className="form-group">
-                <label className="form-label">المرجع (رقم أمر الشراء/الإنتاج)</label>
+                <label className="form-label">{t('inventory.reference')}</label>
                 <input
                   type="text"
                   className="form-input"
                   value={formData.reference}
                   onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
-                  placeholder="e.g., PRD-2025-001 or PO-2025-012"
+                  placeholder={t('inventory.transferRefPlaceholder')}
                 />
               </div>
               
               {/* Reason */}
               <div className="form-group">
-                <label className="form-label">سبب النقل</label>
+                <label className="form-label">{t('inventory.transferReason')}</label>
                 <textarea
                   className="form-textarea"
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  placeholder="Why is this transfer happening?"
+                  placeholder={t('inventory.transferReasonPlaceholder')}
                   rows="3"
                 />
               </div>
@@ -984,14 +999,14 @@ export default function Inventory() {
             
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => setShowTransferModal(false)}>
-                إلغاء
+                {t('common.cancel')}
               </button>
               <button 
                 type="submit" 
                 className="btn btn-primary"
                 disabled={submitting || (selectedMaterial && parseFloat(formData.quantity) > selectedMaterial.quantity)}
               >
-                {submitting ? 'Transferring...' : 'Transfer Stock'}
+                {submitting ? t('inventory.transferring') : t('inventory.transferStock')}
               </button>
             </div>
           </form>
@@ -1001,27 +1016,27 @@ export default function Inventory() {
   };
 
   const approveProduction = async (productionOrder) => {
-    if (!window.confirm(`Approve production order ${productionOrder.productionNumber}?`)) return;
+    if (!window.confirm(t('inventory.confirmApprove', { number: productionOrder.productionNumber }))) return;
     try {
       const response = await fetch(`${PRODUCTION_API_URL}/production-orders/${productionOrder.id}/approve`, {
         method: 'PUT',
         headers: headers()
       });
       if (response.ok) {
-        alert('Production order approved successfully');
+        alert(t('inventory.productionApproved'));
         fetchData();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert('Failed to approve production: ' + (errorData.error || 'Unknown error'));
+        alert(t('inventory.failedApproveProduction') + (errorData.error || t('common.unknownError')));
       }
     } catch (error) {
       console.error('Error approving production:', error);
-      alert('Failed to approve production: ' + (error.message || 'Unknown error'));
+      alert(t('inventory.failedApproveProduction') + (error.message || t('common.unknownError')));
     }
   };
 
   const startProduction = async (productionOrder) => {
-    if (!window.confirm(`Start production ${productionOrder.productionNumber}? This will deduct raw materials from inventory.`)) {
+    if (!window.confirm(t('inventory.confirmStart', { number: productionOrder.productionNumber }))) {
       return;
     }
     
@@ -1083,14 +1098,14 @@ export default function Inventory() {
                 className="btn btn-success"
               >
                 <PlusCircle className="w-5 h-5" />
-                Add Stock
+                {t('inventory.addStock')}
               </button>
               <button 
                 onClick={() => setShowTransferModal(true)}
                 className="btn btn-primary"
               >
                 <ArrowLeftRight className="w-5 h-5" />
-                نقل مخزون
+                {t('inventory.transferStock')}
               </button>
             </>
           )}
@@ -1100,7 +1115,7 @@ export default function Inventory() {
               className="btn btn-primary"
             >
               <Plus className="w-5 h-5" />
-              Add Finished Good
+              {t('inventory.addFinishedGood')}
             </button>
           )}
         </div>
@@ -1112,49 +1127,49 @@ export default function Inventory() {
           className={`btn ${activeTab === 'raw' ? 'btn-primary' : 'btn-secondary'}`}
         >
           <Box className="w-4 h-4" />
-          Raw Materials
+          {t('nav.inventory')}
         </button>
         <button
           onClick={() => setActiveTab('finished')}
           className={`btn ${activeTab === 'finished' ? 'btn-primary' : 'btn-secondary'}`}
         >
           <Package className="w-4 h-4" />
-          منتجات نهائية
+          {t('inventory.finishedGoods')}
         </button>
         <button
           onClick={() => setActiveTab('production')}
           className={`btn ${activeTab === 'production' ? 'btn-primary' : 'btn-secondary'}`}
         >
           <Factory className="w-4 h-4" />
-          Production
+          {t('nav.production')}
         </button>
         <button
           onClick={() => setActiveTab('recipes')}
           className={`btn ${activeTab === 'recipes' ? 'btn-primary' : 'btn-secondary'}`}
         >
           <ChefHat className="w-4 h-4" />
-          Recipes
+          {t('nav.feedRecipes')}
         </button>
         <button
           onClick={() => setActiveTab('movements')}
           className={`btn ${activeTab === 'movements' ? 'btn-primary' : 'btn-secondary'}`}
         >
           <History className="w-4 h-4" />
-          Stock Movements
+          {t('inventory.stockMovements')}
         </button>
         <button
           onClick={() => setActiveTab('requisitions')}
           className={`btn ${activeTab === 'requisitions' ? 'btn-primary' : 'btn-secondary'}`}
         >
           <FileText className="w-4 h-4" />
-          Requisitions
+          {t('inventory.requisitions')}
         </button>
         <button
           onClick={() => setActiveTab('purchase-orders')}
           className={`btn ${activeTab === 'purchase-orders' ? 'btn-primary' : 'btn-secondary'}`}
         >
           <Truck className="w-4 h-4" />
-          Purchase Orders
+          {t('nav.purchaseOrders')}
         </button>
       </div>
 
@@ -1252,7 +1267,7 @@ export default function Inventory() {
               </div>
               <div className="stat-card">
                 <p className="stat-label">متوسط التكلفة/1000 كجم</p>
-                <p className="stat-value">{(stats.avgCost || 0).toFixed(0)} EGP</p>
+                <p className="stat-value">{formatCurrency(stats.avgCost || 0)}</p>
               </div>
               {(stats.byFeedType || []).map((ft) => (
                 <div key={ft._id} className="stat-card">
@@ -1274,28 +1289,28 @@ export default function Inventory() {
               <tr>
                 <th>{t('common.material')}</th>
                 <th>{t('common.category')}</th>
-                <th>المخزون الحالي</th>
-                <th>متوسط التكلفة</th>
-                <th>إجمالي القيمة</th>
+                <th>{t('inventory.currentStock')}</th>
+                <th>{t('inventory.avgCost')}</th>
+                <th>{t('common.totalValue')}</th>
                 <th>{t('common.status')}</th>
               </tr>
             </thead>
             <tbody>
               {rawMaterials.length === 0 ? (
-                <tr><td colSpan="6" className="text-center">لا توجد خامات</td></tr>
+                <tr><td colSpan="6" className="text-center">{t('inventory.noMaterials')}</td></tr>
               ) : rawMaterials.map((mat) => (
                 <tr key={mat._id} onClick={() => handleMaterialClick(mat)} style={{ cursor: 'pointer' }}>
                   <td>
                     <p className="font-medium">{mat.name}</p>
                     <p style={{ fontSize: '0.875rem', color: '#64748b' }}>{mat.code}</p>
                   </td>
-                  <td className="capitalize">{mat.category}</td>
+                  <td className="capitalize">{getCategoryLabel(mat.category)}</td>
                   <td>
                     <p className="font-medium">{mat.quantity} {mat.unit}</p>
                     {mat.quantity <= mat.minimumStock && (
                       <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                         <AlertTriangle className="w-3 h-3" />
-                        مخزون منخفض
+                        {t('inventory.lowStockBadge')}
                       </span>
                     )}
                   </td>
@@ -1314,8 +1329,8 @@ export default function Inventory() {
           <table className="table">
             <thead>
               <tr>
-                <th>نوع العلف</th>
-                <th>Package</th>
+                <th>{t('common.feedType')}</th>
+                <th>{t('common.package')}</th>
                 <th>{t('common.bags')}</th>
                 <th>{t('common.quantity')}</th>
                 <th>{t('inventory.batch')}</th>
@@ -1324,20 +1339,20 @@ export default function Inventory() {
             </thead>
             <tbody>
               {finishedGoods.length === 0 ? (
-                <tr><td colSpan="6" className="text-center">No finished goods in inventory</td></tr>
+                <tr><td colSpan="6" className="text-center">{t('inventory.noFinishedGoods')}</td></tr>
               ) : finishedGoods.map((good) => (
                 <tr key={good._id}>
                   <td>
                     <p className="font-medium">{good.feedType?.name}</p>
                     <p style={{ fontSize: '0.875rem', color: '#64748b' }}>{good.feedType?.code}</p>
                   </td>
-                  <td>{good.packageSize} kg bag</td>
+                  <td>{good.packageSize} {t('common.kg')} {t('inventory.bag')}</td>
                   <td>
                     <p className="font-medium">{good.numberOfBags}</p>
                   </td>
                   <td>
-                    <p className="font-medium">{good.quantityTons} tons</p>
-                    <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{good.quantityKg.toLocaleString()} kg</p>
+                    <p className="font-medium">{good.quantityTons} {t('common.tons')}</p>
+                    <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{good.quantityKg.toLocaleString()} {t('common.kg')}</p>
                   </td>
                   <td>
                     <p>{good.batchNumber}</p>
@@ -1358,9 +1373,9 @@ export default function Inventory() {
           <table className="table">
             <thead>
               <tr>
-                <th>رقم الطلب</th>
-                <th>نوع العلف</th>
-                <th>Output</th>
+                <th>{t('inventory.orderNumber')}</th>
+                <th>{t('common.feedType')}</th>
+                <th>{t('inventory.output')}</th>
                 <th>{t('common.status')}</th>
                 <th>{t('common.date')}</th>
                 <th>{t('common.actions')}</th>
@@ -1368,17 +1383,17 @@ export default function Inventory() {
             </thead>
             <tbody>
               {productionOrders.length === 0 ? (
-                <tr><td colSpan="6" className="text-center">No production orders</td></tr>
+                <tr><td colSpan="6" className="text-center">{t('production.none')}</td></tr>
               ) : productionOrders.map((prod) => (
                 <tr key={prod._id}>
                   <td>
                     <p className="font-medium">{prod.productionNumber}</p>
-                    <p style={{ fontSize: '0.875rem', color: '#64748b' }}>Batch: {prod.batchNumber}</p>
+                    <p style={{ fontSize: '0.875rem', color: '#64748b' }}>{t('inventory.batch')}: {prod.batchNumber}</p>
                   </td>
                   <td>{prod.feedType?.name}</td>
                   <td>
-                    <p className="font-medium">{prod.totalBags} bags</p>
-                    <p style={{ fontSize: '0.875rem', color: '#64748b' }}>{prod.totalOutputWeight} kg</p>
+                    <p className="font-medium">{prod.totalBags} {t('common.bagsUnit')}</p>
+                    <p style={{ fontSize: '0.875rem', color: '#64748b' }}>{prod.totalOutputWeight} {t('common.kg')}</p>
                   </td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(prod.status)}`}>
@@ -1453,9 +1468,9 @@ export default function Inventory() {
                     <td>{recipe.feedType?.name || 'Unknown'}</td>
                     <td>{recipe.version || '-'}</td>
                     <td>{recipe.ingredientCount || recipe.ingredients?.length || '-'}</td>
-                    <td>EGP {(recipe.totalCost || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    <td>EGP {parseFloat(p.cost_per_ton || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    <td>EGP {parseFloat(p.sell_per_ton || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td>{formatCurrency(recipe.totalCost || 0)}</td>
+                    <td>{formatCurrency(parseFloat(p.cost_per_ton || 0))}</td>
+                    <td>{formatCurrency(parseFloat(p.sell_per_ton || 0))}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(recipe.status)}`}>
                         {recipe.status}
@@ -1687,8 +1702,8 @@ export default function Inventory() {
                     <tr key={po.id}>
                       <td className="font-medium">{po.po_number}</td>
                       <td>{po.supplier_name || po.supplier?.name || '-'}</td>
-                      <td>{po.item_count || (po.items?.length || 0)} items</td>
-                      <td>EGP {parseFloat(po.total_amount || po.total || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                      <td>{po.item_count || (po.items?.length || 0)} {t('common.items')}</td>
+                      <td>{formatCurrency(parseFloat(po.total_amount || po.total || 0))}</td>
                       <td>
                         <span className={`badge ${po.status === 'approved' ? 'badge-success' : po.status === 'rejected' ? 'badge-danger' : po.status === 'pending_approval' ? 'badge-warning' : 'badge-secondary'}`}>
                           {po.status || 'unknown'}
@@ -1799,9 +1814,9 @@ export default function Inventory() {
                 onChange={(e) => setMovementFilters({ ...movementFilters, movementType: e.target.value })}
               >
                 <option value="">{t('inventory.allTypes')}</option>
-                <option value="PURCHASE">Purchase</option>
-                <option value="TRANSFER">Transfer</option>
-                <option value="RECEIPT">الإيصال</option>
+                <option value="PURCHASE">{t('inventory.purchase')}</option>
+                <option value="TRANSFER">{t('inventory.transfer')}</option>
+                <option value="RECEIPT">{t('inventory.receipt')}</option>
                 <option value="PRODUCTION">{t('nav.production')}</option>
                 <option value="ADJUSTMENT">{t('inventory.adjustment')}</option>
               </select>
@@ -1814,15 +1829,15 @@ export default function Inventory() {
                   <th>{t('common.material')}</th>
                   <th>{t('inventory.type')}</th>
                   <th>{t('common.quantity')}</th>
-                  <th>Unit Cost</th>
+                  <th>{t('inventory.unitCost')}</th>
                   <th>{t('common.totalValue')}</th>
                   <th>{t('common.reference')}</th>
-                  <th>User</th>
+                  <th>{t('common.user')}</th>
                 </tr>
               </thead>
               <tbody>
                 {stockMovements.length === 0 ? (
-                  <tr><td colSpan="8" className="text-center">No stock movements recorded</td></tr>
+                  <tr><td colSpan="8" className="text-center">{t('inventory.noMovements')}</td></tr>
                 ) : stockMovements
                   .filter(m => {
                     if (movementFilters.material && m.materialId !== movementFilters.material) return false;

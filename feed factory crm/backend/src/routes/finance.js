@@ -23,12 +23,12 @@ router.get('/dashboard', authenticate, async (req, res) => {
       WHERE a.is_active = true
     `);
 
-    // Get invoice data
+    // Get invoice data — overdue calculated from due_date, not status
     const invRes = await query(`
       SELECT
         COUNT(*) as total,
         COALESCE(SUM(balance_due) FILTER (WHERE status IN ('pending', 'partial', 'overdue')), 0) as total_receivables,
-        COALESCE(SUM(balance_due) FILTER (WHERE status = 'overdue'), 0) as overdue_amount
+        COALESCE(SUM(balance_due) FILTER (WHERE status != 'paid' AND due_date < CURRENT_DATE AND balance_due > 0), 0) as overdue_amount
       FROM invoices
     `);
     
@@ -64,11 +64,11 @@ router.get('/dashboard', authenticate, async (req, res) => {
       ORDER BY date DESC LIMIT 10
     `);
     
-    // Payables
+    // Payables — overdue based on due_date
     const supPayRes = await query(`
       SELECT
         COALESCE(SUM(balance), 0) as total_payables,
-        COALESCE(SUM(balance) FILTER (WHERE status = 'overdue'), 0) as overdue_payables,
+        COALESCE(SUM(balance) FILTER (WHERE status IN ('pending','partial') AND due_date < CURRENT_DATE AND balance > 0), 0) as overdue_payables,
         COUNT(*) as payable_count
       FROM supplier_payables
       WHERE status IN ('pending', 'partial', 'overdue')
@@ -324,14 +324,17 @@ router.get('/receivables', authenticate, async (req, res) => {
 
     const totalsRow = totalsResult.rows[0];
     const aging = agingResult.rows.map(c => ({
-      client: c.name_arabic,
-      clientEnglish: c.name_english,
+      client: c.name_arabic || c.name_english,
+      clientEnglish: c.name_english || c.name_arabic,
       code: c.code,
       phone: c.phone,
+      clientId: c.id,
+      creditLimit: parseFloat(c.credit_limit || 0),
+      currentBalance: parseFloat(c.current_balance || 0),
       amount: parseFloat(c.total_due),
       total_due: parseFloat(c.total_due),
       overdue_due: parseFloat(c.overdue_due),
-      days: parseFloat(c.bucket_over_90) > 0 ? 90 : parseFloat(c.bucket_61_90) > 0 ? 60 : parseFloat(c.bucket_31_60) > 0 ? 30 : parseFloat(c.bucket_1_30) > 0 ? 1 : 0,
+      days: parseFloat(c.bucket_over_90) > 0 ? 90 : parseFloat(c.bucket_61_90) > 0 ? 61 : parseFloat(c.bucket_31_60) > 0 ? 31 : parseFloat(c.bucket_1_30) > 0 ? 1 : 0,
       current: parseFloat(c.current),
       bucket_1_30: parseFloat(c.bucket_1_30),
       bucket_31_60: parseFloat(c.bucket_31_60),

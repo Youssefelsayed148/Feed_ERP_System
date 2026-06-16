@@ -251,14 +251,14 @@ const Dashboard = () => {
             <Wallet size={24} />
           </div>
           <div className="stat-value">{formatCurrency((stats?.total_payables || 0) )}</div>
-          <div className="stat-label">{t('dashboard.totalLabel')} {t('dashboard.totalPayables')}</div>
+          <div className="stat-label">{t('dashboard.totalPayables')}</div>
         </div>
         <div className="stat-card">
           <div className="stat-icon" style={{ background: '#3b82f620', color: '#3b82f6' }}>
             <TrendingUp size={24} />
           </div>
           <div className="stat-value">{formatCurrency((stats?.total_receivables || 0) )}</div>
-          <div className="stat-label">{t('dashboard.totalLabel')} {t('dashboard.totalReceivables')}</div>
+          <div className="stat-label">{t('dashboard.totalReceivables')}</div>
         </div>
         <div className="stat-card">
           <div className="stat-icon" style={{ background: '#ec489920', color: '#ec4899' }}>
@@ -381,6 +381,10 @@ const Dashboard = () => {
             <div className="stat-row" style={{ fontSize: '1.1em', borderBottom: '2px solid #e5e7eb', paddingBottom: '10px', marginBottom: '10px' }}>
               <span>{t('common.totalThisMonth')}:</span>
               <strong style={{ color: '#3b82f6' }}>{formatCurrency((stats?.expenses_this_month || 0) )}</strong>
+            </div>
+            {/* Simple expense bar */}
+            <div style={{ height: '6px', borderRadius: '3px', background: '#e5e7eb', marginBottom: '12px', overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min(100, ((stats?.expenses_this_month || 0) / 200000) * 100)}%`, height: '100%', background: 'linear-gradient(90deg, #8b5cf6, #a78bfa)', borderRadius: '3px', transition: 'width 0.5s' }} />
             </div>
           </div>
           <button onClick={() => navigate('/finance/expenses')} className="btn btn-primary" style={{ marginTop: '15px', width: '100%' }}>
@@ -506,6 +510,30 @@ const Dashboard = () => {
               <div style={{ color: '#3b82f6', marginTop: '5px', fontWeight: 'bold' }}>{t('dashboard.netPosition')}</div>
             </div>
           </div>
+          {/* Visual cash flow bar */}
+          {(() => {
+            const rec = stats?.total_receivables || 0;
+            const pay = stats?.total_payables || 0;
+            const total = rec + pay;
+            const recPct = total > 0 ? (rec / total * 100) : 50;
+            const payPct = total > 0 ? (pay / total * 100) : 50;
+            return (
+              <div style={{ marginTop: '16px' }}>
+                <div style={{ display: 'flex', height: '24px', borderRadius: '12px', overflow: 'hidden', background: '#f1f5f9' }}>
+                  <div style={{ width: recPct + '%', background: 'linear-gradient(90deg, #10b981, #34d399)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '11px', fontWeight: 600, transition: 'width 0.5s' }}>
+                    {recPct > 10 ? `${Math.round(recPct)}%` : ''}
+                  </div>
+                  <div style={{ width: payPct + '%', background: 'linear-gradient(90deg, #ef4444, #f87171)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '11px', fontWeight: 600 }}>
+                    {payPct > 10 ? `${Math.round(payPct)}%` : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '12px', color: '#64748b' }}>
+                  <span>🟢 {t('dashboard.totalReceivables')}</span>
+                  <span>🔴 {t('dashboard.totalPayables')}</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Maintenance Overview */}
@@ -823,22 +851,22 @@ const Dashboard = () => {
           <div className="data-table-card" style={{ gridColumn: 'span 2', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(245,158,11,0.12)', border: 'none' }}>
             <div className="data-table-header" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', padding: '18px 24px' }}>
               <Activity size={22} />
-              <h3 style={{ margin: 0, fontSize: '1.1em', fontWeight: 600 }}>Team Activity Tracker</h3>
+              <h3 style={{ margin: 0, fontSize: '1.1em', fontWeight: 600 }}>{t('dashboard.teamActivity')}</h3>
               <span style={{ marginLeft: 'auto', fontSize: '0.85em', background: 'rgba(255,255,255,0.15)', padding: '4px 12px', borderRadius: '20px' }}>
                 <RefreshCw size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '6px' }} />
-                Last Actions
+                {t('dashboard.lastActions')}
               </span>
             </div>
             <div style={{ maxHeight: '300px', overflowY: 'auto' }} id="owner-activity-panel">
               <table className="data-table">
                 <thead>
                   <tr style={{ background: '#fffbeb' }}>
-                    <th>User</th>
-                    <th>Role</th>
-                    <th>Last Action</th>
-                    <th>Module</th>
-                    <th>Details</th>
-                    <th style={{ textAlign: 'right' }}>Time</th>
+                    <th>{t('common.user')}</th>
+                    <th>{t('common.role')}</th>
+                    <th>{t('dashboard.lastAction')}</th>
+                    <th>{t('common.module')}</th>
+                    <th>{t('common.details')}</th>
+                    <th style={{ textAlign: 'right' }}>{t('common.time')}</th>
                   </tr>
                 </thead>
                 <tbody id="owner-activity-body">

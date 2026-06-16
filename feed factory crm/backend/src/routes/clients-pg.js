@@ -17,26 +17,41 @@ router.get('/dashboard', async (req, res) => {
         COUNT(*) FILTER (WHERE type = 'wholesale') as wholesale_count,
         COUNT(*) FILTER (WHERE type = 'retail') as retail_count,
         COUNT(*) FILTER (WHERE type = 'farm') as farm_count,
+        COUNT(*) FILTER (WHERE type = 'distributor') as distributor_count,
         COUNT(*) FILTER (WHERE current_balance > 0) as clients_with_balance,
-        COALESCE(SUM(current_balance), 0) as total_receivables,
-        COALESCE(SUM(current_balance) FILTER (WHERE status = 'active'), 0) as active_receivables
+        COALESCE(SUM(current_balance), 0) as total_balance,
+        COALESCE(SUM(current_balance) FILTER (WHERE status = 'active'), 0) as active_balance
       FROM clients
       WHERE is_active = true
     `);
 
-    // Get overdue clients
+    // Get overdue invoice count and amount
     const overdueResult = await query(`
-      SELECT COUNT(DISTINCT c.id) as overdue_count
+      SELECT
+        COUNT(DISTINCT c.id) as overdue_clients,
+        COUNT(i.id) as overdue_invoice_count,
+        COALESCE(SUM(i.balance_due), 0) as overdue_amount
       FROM clients c
-      JOIN client_liabilities cl ON c.id = cl.client_id
+      JOIN invoices i ON c.id = i.client_id
       WHERE c.is_active = true
-        AND cl.status = 'pending'
-        AND cl.due_date < CURRENT_DATE
+        AND i.status != 'paid'
+        AND i.due_date < CURRENT_DATE
+        AND i.balance_due > 0
+    `);
+
+    // Get total receivables from invoices (matches Finance dashboard)
+    const receivablesResult = await query(`
+      SELECT COALESCE(SUM(balance_due), 0) as total_receivables
+      FROM invoices
+      WHERE status IN ('pending', 'partial', 'overdue')
     `);
 
     res.json({
       ...result.rows[0],
-      overdue_clients: overdueResult.rows[0].overdue_count
+      total_receivables: receivablesResult.rows[0].total_receivables,
+      overdue_clients: overdueResult.rows[0].overdue_clients,
+      overdue_invoice_count: overdueResult.rows[0].overdue_invoice_count,
+      overdue_amount: overdueResult.rows[0].overdue_amount
     });
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
@@ -71,7 +86,7 @@ router.get('/', async (req, res) => {
       SELECT
         c.id, c.code, c.name_arabic, c.name_english,
         c.type, c.status, c.credit_limit,
-        c.current_balance, c.phone,
+        c.current_balance, c.phone, c.payment_terms,
         c.is_active, c.created_at,
         COALESCE(SUM(cl.amount) FILTER (WHERE cl.status = 'pending'), 0) as total_pending,
         COUNT(cl.id) FILTER (WHERE cl.status = 'pending') as pending_count
@@ -141,7 +156,98 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST record payment
+// GET client payment summary
+router.get('/:id/payment-summary', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Get pending invoices
+    const invoicesResult = await query(
+      `SELECT i.*, COUNT(ii.id) as item_count
+       FROM invoices i LEFT JOIN invoice_items ii ON i.id = ii.invoice_id
+       WHERE i.client_id = $1 AND i.status != 'paid'
+       GROUP BY i.id ORDER BY i.created_at DESC`,
+      [id]
+    );
+    // Get client info
+    const clientResult = await query('SELECT * FROM clients WHERE id = $1', [id]);
+    res.json({
+      totalReceivables: invoicesResult.rows.reduce((s, i) => s + parseFloat(i.balance_due || 0), 0),
+      overdueAmount: invoicesResult.rows.filter(i => new Date(i.due_date) < new Date()).reduce((s, i) => s + parseFloat(i.balance_due || 0), 0),
+      pendingInvoices: invoicesResult.rows,
+      recentPayments: [],
+      client: clientResult.rows[0] || {}
+    });
+  } catch (error) {
+    console.error('Error fetching payment summary:', error);
+    res.status(500).json({ error: 'Failed to fetch payment summary' });
+  }
+});
+
+// POST record payment — applies payment to oldest pending invoices
+router.post('/:id/record-payment', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, date, description, paymentMethod, notes } = req.body;
+    if (!amount || !date) {
+      return res.status(400).json({ error: 'Amount and date are required' });
+    }
+    // Normalize payment method to DB-accepted values
+    const methodMap = { 'bank': 'bank_transfer', 'card': 'credit_card', 'cheque': 'check', 'check': 'check' };
+    const normalizedMethod = methodMap[paymentMethod] || paymentMethod || 'cash';
+    const payAmount = parseFloat(amount);
+    const result = await transaction(async (client) => {
+      // Insert payment record
+      const payResult = await client.query(
+        `INSERT INTO client_payment_history (client_id, amount, date, description, method)
+         VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+        [id, payAmount, date, description || 'Payment received', normalizedMethod]
+      );
+      // Update client balance
+      await client.query(
+        `UPDATE clients SET current_balance = GREATEST(current_balance - $1, 0), updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+        [payAmount, id]
+      );
+      // Apply payment to oldest pending invoices
+      let remaining = payAmount;
+      const pendingInv = await client.query(
+        `SELECT id, amount, paid_amount, balance_due FROM invoices
+         WHERE client_id = $1 AND status IN ('pending','partial') AND balance_due > 0
+         ORDER BY due_date ASC, id ASC`,
+        [id]
+      );
+      for (const inv of pendingInv.rows) {
+        if (remaining <= 0) break;
+        const invBalance = parseFloat(inv.balance_due);
+        const invPaid = parseFloat(inv.paid_amount || 0);
+        const invAmount = parseFloat(inv.amount);
+        if (remaining >= invBalance) {
+          // Fully pay this invoice
+          remaining -= invBalance;
+          await client.query(
+            `UPDATE invoices SET status = 'paid', paid_amount = $1, balance_due = 0, paid_date = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+            [invAmount, date, inv.id]
+          );
+        } else {
+          // Partial payment
+          const newPaid = invPaid + remaining;
+          const newBalance = invAmount - newPaid;
+          await client.query(
+            `UPDATE invoices SET status = 'partial', paid_amount = $1, balance_due = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+            [newPaid, Math.max(0, newBalance), inv.id]
+          );
+          remaining = 0;
+        }
+      }
+      return payResult.rows[0];
+    });
+    res.json({ success: true, payment: result, message: 'Payment recorded and applied to invoices' });
+  } catch (error) {
+    console.error('Error recording payment:', error);
+    res.status(500).json({ error: 'Failed to record payment' });
+  }
+});
+
+// POST record payment (older endpoint, same logic)
 router.post('/:id/payments', async (req, res) => {
   try {
     const { id } = req.params;
@@ -150,22 +256,56 @@ router.post('/:id/payments', async (req, res) => {
     if (!amount || !date) {
       return res.status(400).json({ error: 'Amount and date are required' });
     }
+    // Normalize payment method to DB-accepted values
+    const methodMap = { 'bank': 'bank_transfer', 'card': 'credit_card', 'cheque': 'check', 'check': 'check' };
+    const normalizedMethod = methodMap[method] || method || 'cash';
+    const payAmount = parseFloat(amount);
 
     const result = await transaction(async (client) => {
       // Insert payment
-      await client.query(`
+      const payResult = await client.query(`
         INSERT INTO client_payment_history
         (client_id, amount, date, description, method)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [id, amount, date, description, method]);
+        VALUES ($1, $2, $3, $4, $5) RETURNING id
+      `, [id, payAmount, date, description, normalizedMethod]);
 
       // Update client balance
       await client.query(`
         UPDATE clients
-        SET current_balance = current_balance - $1,
+        SET current_balance = GREATEST(current_balance - $1, 0),
             updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
-      `, [amount, id]);
+      `, [payAmount, id]);
+
+      // Apply payment to oldest pending invoices
+      let remaining = payAmount;
+      const pendingInv = await client.query(
+        `SELECT id, amount, paid_amount, balance_due FROM invoices
+         WHERE client_id = $1 AND status IN ('pending','partial') AND balance_due > 0
+         ORDER BY due_date ASC, id ASC`,
+        [id]
+      );
+      for (const inv of pendingInv.rows) {
+        if (remaining <= 0) break;
+        const invBalance = parseFloat(inv.balance_due);
+        const invPaid = parseFloat(inv.paid_amount || 0);
+        const invAmount = parseFloat(inv.amount);
+        if (remaining >= invBalance) {
+          remaining -= invBalance;
+          await client.query(
+            `UPDATE invoices SET status = 'paid', paid_amount = $1, balance_due = 0, paid_date = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+            [invAmount, date, inv.id]
+          );
+        } else {
+          const newPaid = invPaid + remaining;
+          const newBalance = invAmount - newPaid;
+          await client.query(
+            `UPDATE invoices SET status = 'partial', paid_amount = $1, balance_due = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+            [newPaid, Math.max(0, newBalance), inv.id]
+          );
+          remaining = 0;
+        }
+      }
 
       // Return updated client
       const clientResult = await client.query(
@@ -173,16 +313,91 @@ router.post('/:id/payments', async (req, res) => {
         [id]
       );
 
-      return clientResult.rows[0];
+      return { payment: payResult.rows[0], client: clientResult.rows[0] };
     });
 
     res.json({
       message: 'Payment recorded successfully',
-      client: result
+      client: result.client,
+      payment: result.payment
     });
   } catch (error) {
     console.error('Error recording payment:', error);
     res.status(500).json({ error: 'Failed to record payment' });
+  }
+});
+
+// GET client full account details (orders, invoices, payments)
+router.get('/:id/account', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get client info
+    const clientResult = await query(`SELECT * FROM clients WHERE id = $1`, [id]);
+    if (clientResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    const client = clientResult.rows[0];
+
+    // Get orders
+    const ordersResult = await query(
+      `SELECT so.*, COUNT(soi.id) as item_count
+       FROM sales_orders so
+       LEFT JOIN sales_order_items soi ON so.id = soi.order_id
+       WHERE so.client_id = $1
+       GROUP BY so.id
+       ORDER BY so.created_at DESC LIMIT 20`,
+      [id]
+    );
+
+    // Get invoices
+    const invoicesResult = await query(
+      `SELECT i.*, COUNT(ii.id) as item_count
+       FROM invoices i
+       LEFT JOIN invoice_items ii ON i.id = ii.invoice_id
+       WHERE i.client_id = $1
+       GROUP BY i.id
+       ORDER BY i.created_at DESC LIMIT 20`,
+      [id]
+    );
+
+    // Get payments
+    const paymentsResult = await query(
+      `SELECT * FROM client_payment_history WHERE client_id = $1 ORDER BY date DESC LIMIT 20`,
+      [id]
+    );
+
+    // Get liabilities
+    const liabilitiesResult = await query(
+      `SELECT * FROM client_liabilities WHERE client_id = $1 ORDER BY due_date DESC`,
+      [id]
+    );
+
+    // Summary — total_paid from payment history (single source of truth)
+    const summaryResult = await query(
+      `SELECT
+        COUNT(DISTINCT so.id) as total_orders,
+        COALESCE(SUM(so.final_amount), 0) as total_amount,
+        COALESCE((SELECT SUM(amount) FROM client_payment_history WHERE client_id = $1 AND description NOT LIKE '%liability%'), 0) as total_paid,
+        GREATEST(COALESCE(SUM(so.final_amount), 0) - COALESCE((SELECT SUM(amount) FROM client_payment_history WHERE client_id = $1 AND description NOT LIKE '%liability%'), 0), 0) as total_pending
+       FROM sales_orders so
+       WHERE so.client_id = $1`,
+      [id]
+    );
+
+    res.json({
+      client,
+      orders: ordersResult.rows,
+      invoices: invoicesResult.rows,
+      payments: paymentsResult.rows,
+      liabilities: liabilitiesResult.rows,
+      pendingInvoices: invoicesResult.rows.filter(i => i.status !== 'paid'),
+      recentPayments: paymentsResult.rows.slice(0, 5),
+      summary: summaryResult.rows[0] || { totalOrders: 0, totalAmount: 0, totalPaid: 0, totalPending: 0 }
+    });
+  } catch (error) {
+    console.error('Error fetching client account:', error);
+    res.status(500).json({ error: 'Failed to fetch client account' });
   }
 });
 
@@ -365,6 +580,141 @@ router.put('/:id', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error updating client:', error);
     res.status(500).json({ error: 'Failed to update client', message: error.message });
+  }
+});
+
+// ============================================================
+// LIABILITIES ROUTES
+// ============================================================
+
+// POST create liability
+router.post('/:id/liabilities', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, description, type, date, dueDate, notes } = req.body;
+    if (!amount || !date) {
+      return res.status(400).json({ error: 'Amount and date are required' });
+    }
+    const result = await query(
+      `INSERT INTO client_liabilities (client_id, amount, date, due_date, description, type, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending') RETURNING *`,
+      [id, amount, date, dueDate || null, description || null, type || 'balance']
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating liability:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST record payment against a liability
+router.post('/:id/liabilities/:liabilityId/payments', async (req, res) => {
+  try {
+    const { id, liabilityId } = req.params;
+    const { amount, method, date, reference, notes } = req.body;
+    if (!amount) {
+      return res.status(400).json({ error: 'Amount is required' });
+    }
+    const methodNormalized = { 'bank': 'bank_transfer', 'card': 'credit_card', 'cheque': 'check', 'check': 'check' }[method] || method || 'cash';
+    // Insert payment into payment history
+    await query(
+      `INSERT INTO client_payment_history (client_id, amount, date, description, method)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, amount, date || new Date().toISOString().split('T')[0], notes || `Payment for liability #${liabilityId}`, methodNormalized]
+    );
+    // Update client balance
+    await query(
+      'UPDATE clients SET current_balance = current_balance - $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [amount, id]
+    );
+    // Calculate total paid from payment history for this liability
+    const paidRes = await query(
+      `SELECT COALESCE(SUM(amount), 0) as total_paid FROM client_payment_history
+       WHERE client_id = $1 AND description LIKE $2`,
+      [id, `%#${liabilityId}%`]
+    );
+    const totalPaid = parseFloat(paidRes.rows[0].total_paid);
+    // Get the liability
+    const liab = await query('SELECT * FROM client_liabilities WHERE id = $1', [liabilityId]);
+    const liability = liab.rows[0];
+    if (liability) {
+      const remaining = parseFloat(liability.amount) - totalPaid;
+      const newStatus = remaining <= 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'pending';
+      await query(
+        `UPDATE client_liabilities SET status = $1, paid_amount = $2, remaining_amount = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`,
+        [newStatus, totalPaid, Math.max(0, remaining), liabilityId]
+      );
+      const result = { ...liability, status: newStatus, remainingAmount: Math.max(0, remaining), paidAmount: totalPaid };
+      res.json(result);
+    } else {
+      res.json({ id: liabilityId, remainingAmount: 0, paidAmount: parseFloat(amount), status: 'paid' });
+    }
+  } catch (error) {
+    console.error('Error recording liability payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE liability
+router.delete('/:id/liabilities/:liabilityId', async (req, res) => {
+  try {
+    const { liabilityId } = req.params;
+    await query('DELETE FROM client_liabilities WHERE id = $1', [liabilityId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting liability:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================
+// EXPECTED PAYMENTS ROUTES
+// ============================================================
+
+// POST create expected payment
+router.post('/:id/expected-payments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, expectedDate, description } = req.body;
+    if (!amount || !expectedDate) {
+      return res.status(400).json({ error: 'Amount and expected date are required' });
+    }
+    const result = await query(
+      `INSERT INTO client_expected_payments (client_id, amount, expected_date, description, status)
+       VALUES ($1, $2, $3, $4, 'expected') RETURNING *`,
+      [id, amount, expectedDate, description || null]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating expected payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST mark expected payment as received
+router.post('/:id/expected-payments/:paymentId/mark-received', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const result = await query(
+      `UPDATE client_expected_payments SET status = 'received' WHERE id = $1 RETURNING *`,
+      [paymentId]
+    );
+    res.json(result.rows[0] || { success: true });
+  } catch (error) {
+    console.error('Error marking expected payment:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE expected payment
+router.delete('/:id/expected-payments/:paymentId', async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    await query('DELETE FROM client_expected_payments WHERE id = $1', [paymentId]);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting expected payment:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -337,7 +337,7 @@ router.put('/:id/approve-all', authenticate, authorize('owner', 'admin'), async 
         req.user.id
       ]);
 
-      const entryNumber = 'JE-PAY-' + String(ppData.id).padStart(5, '0');
+      const entryNumber = 'JE-PAY-' + String(ppData.id).padStart(5, '0') + '-' + Date.now();
       const jeResult = await client.query(`
         INSERT INTO journal_entries (entry_number, date, description, reference_type, reference_id, total_amount, created_by)
         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
@@ -395,7 +395,7 @@ router.put('/:id/post', authenticate, async (req, res) => {
         req.user.id
       ]);
 
-      const entryNumber = 'JE-PAY-' + String(pp.id).padStart(5, '0');
+      const entryNumber = 'JE-PAY-' + String(pp.id).padStart(5, '0') + '-' + Date.now();
       const jeResult = await client.query(`
         INSERT INTO journal_entries (entry_number, date, description, reference_type, reference_id, total_amount, created_by)
         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id

@@ -138,7 +138,7 @@ export default function Finance() {
     e.preventDefault();
     
     if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
-      alert('Please enter a valid payment amount');
+      alert(t('finance.validPaymentRequired'));
       return;
     }
     
@@ -157,16 +157,16 @@ export default function Finance() {
       });
       
       if (response.ok) {
-        alert('Payment recorded successfully');
+        alert(t('finance.paymentRecorded'));
         closePaymentModal();
         fetchData(); // Refresh data
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to record payment');
+        alert(error.message || t('finance.paymentFailed'));
       }
     } catch (error) {
       console.error('Error recording payment:', error);
-      alert('Failed to record payment');
+      alert(t('finance.paymentFailed'));
     }
   };
 
@@ -228,11 +228,11 @@ export default function Finance() {
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      paid: { color: 'success', label: 'Paid' },
-      pending: { color: 'warning', label: 'معلق' },
-      partial: { color: 'info', label: 'جزئي' },
-      overdue: { color: 'danger', label: 'Overdue' },
-      completed: { color: 'success', label: 'مكتمل' }
+      paid: { color: 'success', label: t('common.statuses.paid') },
+      pending: { color: 'warning', label: t('common.statuses.pending') },
+      partial: { color: 'info', label: t('finance.partial') },
+      overdue: { color: 'danger', label: t('common.statuses.overdue') },
+      completed: { color: 'success', label: t('common.statuses.completed') }
     };
     const statusInfo = statusMap[status] || { color: 'secondary', label: status };
     return <span className={`badge badge-${statusInfo.color}`}>{statusInfo.label}</span>;
@@ -467,7 +467,7 @@ export default function Finance() {
                 <div className="card-header">
                   <h3 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Briefcase size={18} color="#8b5cf6" /> 
-                    Salary Expenses (from Payroll)
+                    {t('finance.salaryExpenses')}
                   </h3>
                   <span style={{ fontWeight: 600, color: '#8b5cf6', fontSize: '18px' }}>
                     {formatCurrency(salaryExpenses.reduce((sum, e) => sum + (e.amount || 0), 0))}
@@ -525,7 +525,7 @@ export default function Finance() {
                     </tr>
                   </thead>
                   <tbody>
-                    {invoices.slice(0, 5).map(inv => (
+                    {invoices.map(inv => (
                       <tr key={inv._id}>
                         <td style={{ fontWeight: 600 }}>{inv.invoiceNumber}</td>
                         <td>{inv.client?.name}</td>
@@ -558,7 +558,7 @@ export default function Finance() {
                             className={`badge ${item.days > 60 ? 'badge-danger' : item.days > 30 ? 'badge-warning' : 'badge-success'}`}
                             style={{ fontSize: '11px' }}
                           >
-                            {item.days} days
+                            {item.days} {t('common.days')}
                           </span>
                         </td>
                         <td style={{ fontWeight: 600, color: '#dc2626' }}>{formatCurrency(Number(item.amount || 0))}</td>
@@ -579,7 +579,7 @@ export default function Finance() {
                 <Search size={18} color="#64748b" />
                 <input
                   type="text"
-                  placeholder="Search invoices..."
+                  placeholder={t('finance.searchInvoices')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="form-input"

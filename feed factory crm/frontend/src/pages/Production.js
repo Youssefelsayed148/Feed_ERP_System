@@ -120,11 +120,11 @@ const Production = () => {
 
   const getStatusLabel = (status) => {
     const labels = {
-      draft: 'Draft',
-      approved: 'Approved',
-      in_progress: 'In Progress',
-      completed: 'Completed',
-      cancelled: 'Cancelled'
+      draft: t('common.statuses.draft'),
+      approved: t('common.statuses.approved'),
+      in_progress: t('common.statuses.in_progress'),
+      completed: t('common.statuses.completed'),
+      cancelled: t('common.statuses.cancelled'),
     };
     return labels[status] || status;
   };
@@ -393,7 +393,7 @@ const Production = () => {
               <option value={10}>{t('production.bag10')}</option>
             </select>
             <button className="btn btn-sm btn-outline" onClick={() => setShowSuggestions(!showSuggestions)}>
-              {showSuggestions ? 'Hide' : 'Show'} Suggestions
+              {showSuggestions ? t('common.hide') : t('production.showSuggestions')}
             </button>
           </div>
         </div>
@@ -443,8 +443,8 @@ const Production = () => {
                       onClick={() => handleCreateFromSuggestion(s)}
                       disabled={creatingFromSuggestion === s.feed_type_id}
                     >
-                      {creatingFromSuggestion === s.feed_type_id ? 'Creating...' : (
-                        <><ShoppingCart size={14} style={{ marginRight: '4px' }} /> Create Production Order</>
+                      {creatingFromSuggestion === s.feed_type_id ? t('common.creating') : (
+                        <><ShoppingCart size={14} style={{ marginRight: '4px' }} /> {t('production.createOrder')}</>
                       )}
                     </button>
                   </div>
@@ -530,7 +530,7 @@ const Production = () => {
                           className="btn btn-sm btn-success"
                           onClick={() => handleCompleteProduction(order)}
                         >
-                          <CheckCircle size={14} /> Complete
+                          <CheckCircle size={14} /> {t('common.complete')}
                         </button>
                       )}
                       <button
@@ -705,7 +705,7 @@ const Production = () => {
                       )}
                       {selectedOrder.completionDate && (
                         <tr>
-                          <td style={{ padding: '8px 0', color: '#64748b' }}>Completed:</td>
+                          <td style={{ padding: '8px 0', color: '#64748b' }}>{t('production.completed')}:</td>
                           <td style={{ padding: '8px 0' }}>{new Date(selectedOrder.completionDate).toLocaleDateString()}</td>
                         </tr>
                       )}
@@ -743,7 +743,7 @@ const Production = () => {
                       if (success) setShowDetailModal(false);
                     }}
                   >
-                    <CheckCircle size={18} /> Complete Production
+                    <CheckCircle size={18} /> {t('production.complete')}
                   </button>
                 )}
               </div>

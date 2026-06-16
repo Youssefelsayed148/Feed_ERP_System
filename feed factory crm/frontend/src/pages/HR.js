@@ -870,7 +870,7 @@ const HR = () => {
               <Clock size={24} />
             </div>
             <div className="stat-value">{todayAttendance.filter(a => a.status === 'late').length}</div>
-            <div className="stat-label">متأخري الحضور</div>
+            <div className="stat-label">{t('hr.lateAttendance')}</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-red text-red">
@@ -1447,7 +1447,7 @@ const HR = () => {
                     <div className="stat-value">
                       {formatCurrency(selectedPayroll.totalNetSalary || 0)}
                     </div>
-                    <div className="stat-label">Total Net Salary (EGP)</div>
+                    <div className="stat-label">{t('payroll.totalNet')}</div>
                   </div>
                 </div>
 

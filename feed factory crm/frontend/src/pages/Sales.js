@@ -397,7 +397,7 @@ const Sales = () => {
           </button>
         </div>
         <div style={styles.ordersList}>
-          {orders.slice(0, 5).map(order => (
+          {orders.map(order => (
             <OrderCard key={order.id} order={order} onClick={() => viewOrderDetails(order)} />
           ))}
           {orders.length === 0 && (
@@ -581,7 +581,6 @@ const Sales = () => {
           </p>
         </div>
         <div style={styles.userInfo}>
-          <span style={styles.roleBadge}>{user?.role?.replace('_', ' ')}</span>
           <span style={styles.userName}>{user?.name}</span>
         </div>
       </div>

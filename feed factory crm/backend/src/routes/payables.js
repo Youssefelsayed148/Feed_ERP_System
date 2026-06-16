@@ -120,7 +120,7 @@ router.get('/dashboard', authenticate, async (req, res) => {
     const overdueResult = await query(
       `SELECT COALESCE(SUM(balance), 0) as total, COUNT(*) as count
        FROM supplier_payables
-       WHERE status = 'overdue'`
+       WHERE status IN ('pending','partial') AND due_date < CURRENT_DATE AND balance > 0`
     );
     
     const overdueAmount = parseFloat(overdueResult.rows[0].total);

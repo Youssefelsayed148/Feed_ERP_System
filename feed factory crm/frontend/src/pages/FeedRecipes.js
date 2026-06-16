@@ -593,7 +593,7 @@ export default function FeedRecipes() {
           padding: '40px',
           color: '#6b7280'
         }}>
-          Loading recipes... Please wait.
+          {t('common.loading')}...
         </div>
       )}
 
@@ -682,7 +682,7 @@ export default function FeedRecipes() {
                       {recipe.nameArabic && (
                         <p className="text-sm text-blue-600" dir="rtl">{recipe.nameArabic}</p>
                       )}
-                      <p className="text-sm text-gray-600">Used {recipe.usageCount || 0} times</p>
+                      <p className="text-sm text-gray-600">{t('recipes.used', { count: recipe.usageCount || 0 })}</p>
                     </td>
                     <td>
                       <p>{(getLang() === 'ar' ? (recipe.feedType?.nameArabic || recipe.feedType?.name) : (recipe.feedType?.name)) || 'غير معروف'}</p>
@@ -759,50 +759,50 @@ export default function FeedRecipes() {
                   {/* Recipe Header */}
                   <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
                     <div>
-                      <p className="text-sm text-gray-600">Recipe Name / اسم الوصفة</p>
+                      <p className="text-sm text-gray-600">{t('recipes.name')}</p>
                       <p className="font-medium text-lg">{selectedRecipe.name}</p>
                       {selectedRecipe.nameArabic && (
                         <p className="font-medium text-lg text-blue-600" dir="rtl">{selectedRecipe.nameArabic}</p>
                       )}
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Feed Type / نوع العلف</p>
+                      <p className="text-sm text-gray-600">{t('production.feedType')}</p>
                       <p className="font-medium">{selectedRecipe.feedType?.name}</p>
                       {selectedRecipe.feedType?.nameArabic && (
                         <p className="font-medium text-blue-600" dir="rtl">{selectedRecipe.feedType?.nameArabic}</p>
                       )}
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Version / إصدار</p>
+                      <p className="text-sm text-gray-600">{t('recipes.version')}</p>
                       <p className="font-medium">{selectedRecipe.version}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600">Status / الحالة</p>
+                      <p className="text-sm text-gray-600">{t('common.status')}</p>
                       <span className={`badge ${getStatusBadgeClass(selectedRecipe.status)}`}>
                         {selectedRecipe.status}
                       </span>
                     </div>
                     {selectedRecipe.batchSize && (
                       <div>
-                        <p className="text-sm text-gray-600">Batch Size / حجم الدفعة</p>
-                        <p className="font-medium">{selectedRecipe.batchSize.toFixed(3)} kg</p>
+                        <p className="text-sm text-gray-600">{t('recipes.batchSize')}</p>
+                        <p className="font-medium">{selectedRecipe.batchSize.toFixed(3)} {t('common.kg')}</p>
                       </div>
                     )}
                     {selectedRecipe.costPerKg && (
                       <div>
-                        <p className="text-sm text-gray-600">Cost per kg / التكلفة لكل كجم</p>
+                        <p className="text-sm text-gray-600">{t('recipes.costPerKg')}</p>
                         <p className="font-medium text-blue-600">{formatCurrency(selectedRecipe.costPerKg || 0)}</p>
                       </div>
                     )}
                     {selectedRecipe.costPerTon > 0 && (
                       <div>
-                        <p className="text-sm text-gray-600">Cost per ton / التكلفة للطن</p>
+                        <p className="text-sm text-gray-600">{t('recipes.costPerTon')}</p>
                         <p className="font-medium">{formatCurrency(selectedRecipe.costPerTon)}</p>
                       </div>
                     )}
                     {selectedRecipe.sellPerTon > 0 && (
                       <div>
-                        <p className="text-sm text-gray-600">Sell per ton / سعر البيع للطن</p>
+                        <p className="text-sm text-gray-600">{t('recipes.sellPerTon')}</p>
                         <p className="font-medium text-green-600">{formatCurrency(selectedRecipe.sellPerTon)}</p>
                       </div>
                     )}
@@ -812,18 +812,18 @@ export default function FeedRecipes() {
                   <div>
                     <h3 className="font-semibold mb-3 flex items-center gap-2">
                       <DollarSign className="w-5 h-5" />
-                      Cost Breakdown / تفاصيل التكلفة (per 1000kg)
+                      {t('recipes.costBreakdown')}
                     </h3>
                     <div className="table-responsive">
                       <table className="table recipe-table">
                         <thead>
                           <tr>
-                            <th>Material / المادة</th>
+                            <th>{t('recipes.material')}</th>
                             <th>%</th>
-                            <th>Qty / الكمية</th>
-                            <th>Unit / الوحدة</th>
-                            <th>Price / السعر</th>
-                            <th>Total / الإجمالي</th>
+                            <th>{t('common.quantity')}</th>
+                            <th>{t('common.unit')}</th>
+                            <th>{t('common.price')}</th>
+                            <th>{t('common.total')}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -836,13 +836,13 @@ export default function FeedRecipes() {
                               </td>
                               <td className="text-right">{ing.percentage?.toFixed(2)}%</td>
                               <td className="text-right">{ing.quantity?.toFixed(3)}</td>
-                              <td>{ing.unit || 'kg'}</td>
+                              <td>{ing.unit || t('common.kg')}</td>
                               <td className="text-right">{formatCurrency(ing.unitPrice || ing.costPerUnit || 0)}</td>
                               <td className="text-right font-medium">{formatCurrency(ing.totalCost || 0)}</td>
                             </tr>
                           ))}
                           <tr className="font-bold bg-gray-100">
-                            <td colSpan="5" className="text-right">Total Cost / التكلفة الإجمالية:</td>
+                            <td colSpan="5" className="text-right">{t('recipes.totalCostLabel')}:</td>
 <td className="text-right text-blue-600">{formatCurrency(selectedRecipe.totalCost || 0)}</td>
                             </tr>
                             <tr>

@@ -744,14 +744,38 @@ export default function Orders() {
     const classes = {
       draft: 'badge badge-info',
       pending: 'badge badge-warning',
+      pending_approval: 'badge badge-warning',
       confirmed: 'badge badge-primary',
-      processing: 'badge badge-primary',
+      approved: 'badge badge-success',
+      processing: 'badge badge-warning',
       ready: 'badge badge-info',
       delivered: 'badge badge-success',
       invoiced: 'badge badge-primary',
-      cancelled: 'badge badge-danger'
+      cancelled: 'badge badge-danger',
+      paid: 'badge badge-success',
+      completed: 'badge badge-success',
+      overdue: 'badge badge-danger',
     };
-    return classes[orderStatus] || classes.draft;
+    return classes[orderStatus] || 'badge badge-info';
+  };
+
+  const getStatusLabel = (orderStatus) => {
+    const labels = {
+      draft: t('common.statuses.draft'),
+      pending: t('common.statuses.pending'),
+      pending_approval: t('common.statuses.pending_approval'),
+      confirmed: t('common.statuses.confirmed'),
+      approved: t('common.statuses.approved'),
+      processing: t('common.statuses.processing'),
+      ready: t('common.statuses.ready'),
+      delivered: t('common.statuses.delivered'),
+      invoiced: t('common.statuses.invoiced'),
+      cancelled: t('common.statuses.cancelled'),
+      paid: t('common.statuses.paid'),
+      completed: t('common.statuses.completed'),
+      overdue: t('common.statuses.overdue'),
+    };
+    return labels[orderStatus] || orderStatus;
   };
 
   const getItemPrice = (item, type) => {
@@ -965,7 +989,7 @@ export default function Orders() {
                   <td>
                     <div className="flex flex-col gap-1">
                       <span className={getStatusBadgeClass(order.status)}>
-                        {order.status}
+                        {getStatusLabel(order.status)}
                       </span>
                       {order.invoice && (
                         <span className={getInvoiceStatusBadgeClass(order.invoice.status || 'pending')} style={{ fontSize: '10px' }}>

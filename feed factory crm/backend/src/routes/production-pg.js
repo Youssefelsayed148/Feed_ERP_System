@@ -520,7 +520,7 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
         await client.query(`
           INSERT INTO inventory_transactions (raw_material_id, transaction_type, quantity, unit_price, total_cost, reference_id, reference_type, notes, created_by, created_at)
           VALUES (25, 'production', $1, (SELECT unit_price FROM raw_materials WHERE id = 25), $1 * (SELECT unit_price FROM raw_materials WHERE id = 25), $2, 'production', 'Bags used for packaging', $3, NOW())
-        `, [numBags, id, userId]);
+        `, [-numBags, id, userId]);
       }
 
       // Update order status
@@ -539,7 +539,7 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
       return updateResult.rows[0];
     });
 
-    const soNumberFromNotes = result.notes?.match(/Auto from (SO-\d+)/i)?.[1];
+    const soNumberFromNotes = result.notes?.match(/from sales order (SO-\d+)/i)?.[1] || result.notes?.match(/Auto from (SO-\d+)/i)?.[1];
 
     logActivity({
       userId: result.created_by || 0, action: 'complete', module: 'production',
@@ -561,6 +561,11 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
             [soRes.rows[0].id, 'pending', 'in_transit', 'assigned']
           );
           if (existingDel.rows.length === 0) {
+            // Update sales order status to 'ready'
+            await query(
+              'UPDATE sales_orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+              ['ready', soRes.rows[0].id]
+            );
             const delResult = await query(`
               INSERT INTO delivery_assignments (order_id, scheduled_date, status, notes, created_by)
               VALUES ($1, CURRENT_DATE + INTERVAL '1 day', 'pending', $2, $3) RETURNING id

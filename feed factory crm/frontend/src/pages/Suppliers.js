@@ -1379,12 +1379,12 @@ const Suppliers = () => {
           <div>
             <h1 style={{ margin: 0 }}>{t('nav.suppliers')}</h1>
             <p style={{ margin: '4px 0 0 0', color: '#6b7280' }}>
-              Manage suppliers, materials, and performance metrics
+              {t('suppliers.subtitle')}
             </p>
           </div>
           <button className="btn btn-primary" onClick={openCreateSupplierModal}>
             <Plus size={18} style={{ marginRight: '8px', display: 'inline' }} />
-            Add Supplier
+            {t('suppliers.addSupplier')}
           </button>
         </div>
         
@@ -1540,7 +1540,7 @@ const Suppliers = () => {
                       )}
                       {(!supplier.materials || supplier.materials.length === 0) && (
                         <span style={{ color: '#9ca3af', fontSize: '12px', fontStyle: 'italic' }}>
-                          No materials
+                          {t('suppliers.noMaterials')}
                         </span>
                       )}
                     </div>
@@ -1752,7 +1752,7 @@ const Suppliers = () => {
                     
                     {supplierForm.materials.length === 0 && (
                       <p style={{ color: '#9ca3af', fontSize: '14px', fontStyle: 'italic', marginBottom: '12px' }}>
-                        No materials added yet. Click below to add materials.
+                        {t('suppliers.noMaterials')} added yet. Click below to add materials.
                       </p>
                     )}
                     

@@ -354,44 +354,44 @@ const PurchaseOrders = () => {
         <body>
           <div class="company">
             <div class="name">Feed Factory CRM</div>
-            <div class="info">Purchase Order</div>
+            <div class="info">${t('po.title')}</div>
           </div>
-          <h1>Purchase Order</h1>
+          <h1>${t('po.title')}</h1>
           <div class="header">
             <div>
-              <div class="label">PO Number</div>
+              <div class="label">${t('po.number')}</div>
               <div class="value">${po.po_number || po.id}</div>
             </div>
             <div>
-              <div class="label">Date</div>
+              <div class="label">${t('common.date')}</div>
               <div class="value">${po.created_at ? new Date(po.created_at).toLocaleDateString('en-GB') : '-'}</div>
             </div>
             <div>
-              <div class="label">Status</div>
+              <div class="label">${t('common.status')}</div>
               <div class="value" style="text-transform: capitalize;">${(po.status || 'draft').replace(/_/g, ' ')}</div>
             </div>
           </div>
           <div class="header">
             <div>
-              <div class="label">Supplier</div>
+              <div class="label">${t('common.supplier')}</div>
               <div class="value">${po.supplier_name || (po.supplier?.name_arabic || po.supplier?.name) || '-'}</div>
             </div>
             <div>
-              <div class="label">Expected Delivery</div>
+              <div class="label">${t('po.expectedDelivery')}</div>
               <div class="value">${po.expected_date ? new Date(po.expected_date).toLocaleDateString('en-GB') : '-'}</div>
             </div>
           </div>
           <table>
             <thead>
               <tr>
-                <th>Material</th>
-                <th>Quantity</th>
-                <th>Unit Cost</th>
-                <th>Total</th>
+                <th>${t('common.material')}</th>
+                <th>${t('common.quantity')}</th>
+                <th>${t('po.unitCost')}</th>
+                <th>${t('common.total')}</th>
               </tr>
             </thead>
             <tbody>
-              ${items || '<tr><td colspan="4" style="text-align:center;">No items</td></tr>'}
+              ${items || `<tr><td colspan="4" style="text-align:center;">${t('po.noItems')}</td></tr>`}
             </tbody>
           </table>
           <div class="total">
@@ -537,7 +537,7 @@ const PurchaseOrders = () => {
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button className="btn btn-sm" onClick={() => openViewModal(po)}>{t('common.view')}</button>
                       <button className="btn btn-sm" onClick={() => downloadPOAsPDF(po)} title={t('po.printPDF')}>{t('common.pdf')}</button>
-                      <button className="btn btn-sm" onClick={() => sendWhatsApp(po)} title={t('po.shareWhatsApp')}>WhatsApp</button>
+                      <button className="btn btn-sm" onClick={() => sendWhatsApp(po)} title={t('po.shareWhatsApp')}>{t('po.shareWhatsApp')}</button>
                       
                       {po.status === 'draft' && (
                         <button 
@@ -783,22 +783,22 @@ const PurchaseOrders = () => {
                 marginBottom: '16px'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span>Subtotal:</span>
+                  <span>{t('common.subtotal')}:</span>
                   <span>{t('common.currency')} {formatNumber(calculateTotals().subtotal)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span>VAT (14%):</span>
+                  <span>{t('common.vat')} (14%):</span>
                   <span>{t('common.currency')} {formatNumber(calculateTotals().vat)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
-                  <span>Total:</span>
+                  <span>{t('common.total')}:</span>
                   <span>{t('common.currency')} {formatNumber(calculateTotals().total)}</span>
                 </div>
               </div>
             )}
 
             <div className="form-group">
-              <label className="form-label">Delivery Date *</label>
+              <label className="form-label">{t('po.deliveryDate')} *</label>
               <input
                 type="date"
                 className="form-input"
@@ -914,16 +914,16 @@ const PurchaseOrders = () => {
                 marginBottom: '24px'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '14px' }}>
-                  <span>Subtotal (excl. VAT):</span>
+                  <span>{t('common.subtotal')} ({t('common.excludingVat')}):</span>
                   <span>{formatCurrency(parseFloat(selectedPO.total_amount))}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '14px', color: '#6b7280' }}>
-                  <span>VAT (14%):</span>
+                  <span>{t('common.vat')} (14%):</span>
                   <span>{formatCurrency(parseFloat(selectedPO.vat_amount || 0))}</span>
                 </div>
                 <div style={{ borderTop: '1px solid #ddd', margin: '8px 0' }} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
-                  <span>Grand Total:</span>
+                  <span>{t('common.grandTotal')}:</span>
                   <span>{formatCurrency(parseFloat(selectedPO.total_amount || 0) + parseFloat(selectedPO.vat_amount || 0))}</span>
                 </div>
               </div>
@@ -935,7 +935,7 @@ const PurchaseOrders = () => {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
               <button type="button" className="btn" onClick={() => downloadPOAsPDF(selectedPO)}>{t('common.pdf')}</button>
-              <button type="button" className="btn" onClick={() => sendWhatsApp(selectedPO)}>WhatsApp</button>
+              <button type="button" className="btn" onClick={() => sendWhatsApp(selectedPO)}>{t('po.shareWhatsApp')}</button>
               {selectedPO.status === 'pending_approval' && (
                 <>
                   <button type="button" className="btn btn-success" onClick={() => { approvePO(selectedPO.id); closeModal(); }}>

@@ -191,14 +191,15 @@ router.post('/', auth, async (req, res) => {
       // Insert GRN items
       for (const item of items) {
         await client.query(`
-          INSERT INTO grn_items (grn_id, raw_material_id, ordered_quantity, received_quantity, accepted_quantity, unit_price, total_price)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          INSERT INTO grn_items (grn_id, raw_material_id, ordered_quantity, received_quantity, quantity_accepted, quantity_rejected, unit_price, total_price)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `, [
           grn.id,
           item.raw_material_id,
           item.ordered_quantity || item.quantity_ordered || 0,
           item.received_quantity || item.quantity_received || 0,
           item.accepted_quantity || item.quantity_accepted || 0,
+          item.rejected_quantity || item.quantity_rejected || 0,
           item.unit_price || item.unit_cost || 0,
           item.total_price || item.total_cost || 0
         ]);
@@ -226,7 +227,7 @@ router.put('/:id/inspect', auth, async (req, res) => {
           await client.query(`
             UPDATE grn_items
             SET received_quantity = $1,
-                accepted_quantity = $2,
+                quantity_accepted = $2,
                 rejected_quantity = $3,
                 rejection_reason = $4,
                 total_cost = $5
@@ -244,9 +245,9 @@ router.put('/:id/inspect', auth, async (req, res) => {
 
       // Determine status: rejected if all items have zero accepted quantity
       const itemsResult = await client.query(`
-        SELECT accepted_quantity FROM grn_items WHERE grn_id = $1
+        SELECT quantity_accepted FROM grn_items WHERE grn_id = $1
       `, [id]);
-      const allRejected = itemsResult.rows.length > 0 && itemsResult.rows.every(i => Number(i.accepted_quantity || 0) === 0);
+      const allRejected = itemsResult.rows.length > 0 && itemsResult.rows.every(i => Number(i.quantity_accepted || 0) === 0);
       const newStatus = allRejected ? 'rejected' : 'inspected';
 
       const grnResult = await client.query(`
@@ -310,7 +311,7 @@ router.put('/:id/approve', auth, async (req, res) => {
 
       // Update raw_materials stock, purchase_order_items received_quantity, and create inventory_transactions
       for (const item of items) {
-        const acceptedQty = parseFloat(item.accepted_quantity) || 0;
+        const acceptedQty = parseFloat(item.quantity_accepted) || 0;
         if (acceptedQty <= 0) continue;
 
         // 1. Update raw_materials current_stock

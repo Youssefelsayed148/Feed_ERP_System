@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Upload, X, Download, Trash2, FileImage, FileSpreadsheet } from 'lucide-react';
 import { documentService } from '../services/api';
+import { t, getLang } from '../utils/i18n';
 
 const DocumentUpload = ({ entityType, entityId, allowUpload = true }) => {
   const [documents, setDocuments] = useState([]);
@@ -82,29 +83,36 @@ const DocumentUpload = ({ entityType, entityId, allowUpload = true }) => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const getDocDisplayName = (doc) => {
+    // Use description if available, otherwise use doc_type formatted
+    if (doc.description) return doc.description;
+    if (doc.doc_type) return doc.doc_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    return t('common.documents');
+  };
+
   return (
     <div className="document-upload">
       <h4 className="document-upload-header">
-        <FileText size={18} /> Documents / المستندات ({documents.length})
+        <FileText size={18} /> {t('common.documents')} ({documents.length})
       </h4>
 
       {allowUpload && (
         <div className="document-upload-area">
           <div className="document-upload-row">
             <div className="document-upload-field">
-              <label>File</label>
+              <label>{t('common.file')}</label>
               <input
                 type="file"
                 onChange={handleFileSelect}
               />
             </div>
             <div className="document-upload-field">
-              <label>Description</label>
+              <label>{t('common.description')}</label>
               <input
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optional description..."
+                placeholder={t('common.additionalNotes')}
               />
             </div>
             <button
@@ -112,25 +120,25 @@ const DocumentUpload = ({ entityType, entityId, allowUpload = true }) => {
               disabled={!selectedFile || uploading}
               className="document-upload-btn"
             >
-              <Upload size={14} /> {uploading ? 'Uploading...' : 'Upload'}
+              <Upload size={14} /> {uploading ? t('common.creating') : 'رفع'}
             </button>
           </div>
         </div>
       )}
 
       {loading ? (
-        <p style={{ color: '#9ca3af', fontSize: '13px' }}>Loading documents...</p>
+        <p style={{ color: '#9ca3af', fontSize: '13px' }}>{t('common.loading')}...</p>
       ) : documents.length === 0 ? (
-        <p style={{ color: '#9ca3af', fontSize: '13px' }}>No documents uploaded yet.</p>
+        <p style={{ color: '#9ca3af', fontSize: '13px' }}>لا توجد مستندات</p>
       ) : (
         <div className="document-list">
           {documents.map((doc) => (
             <div key={doc.id} className="document-item">
-              {getFileIcon(doc.file_type)}
+              {getFileIcon(doc.doc_type)}
               <div className="document-item-info">
-                <div className="document-item-name">{doc.file_name}</div>
+                <div className="document-item-name">{getDocDisplayName(doc)}</div>
                 <div className="document-item-meta">
-                  {formatFileSize(doc.file_size)} {doc.description ? `| ${doc.description}` : ''}
+                  {doc.file_path ? formatFileSize(0) : ''} {doc.description ? `| ${doc.description}` : ''}
                 </div>
               </div>
               <a
@@ -138,7 +146,7 @@ const DocumentUpload = ({ entityType, entityId, allowUpload = true }) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="document-action-btn download"
-                title="Download"
+                title={t('common.download')}
               >
                 <Download size={14} />
               </a>
@@ -146,7 +154,7 @@ const DocumentUpload = ({ entityType, entityId, allowUpload = true }) => {
                 <button
                   onClick={() => handleDelete(doc.id)}
                   className="document-action-btn delete"
-                  title="Delete"
+                  title={t('common.delete')}
                 >
                   <Trash2 size={14} />
                 </button>

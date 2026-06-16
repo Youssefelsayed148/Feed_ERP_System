@@ -650,11 +650,11 @@ export default function Assets() {
                             <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>جدول الصيانة</h4>
                             {mach.maintenanceSchedule ? (
                               <div style={{ fontSize: '0.85em' }}>
-                                <div><strong>Type:</strong> {mach.maintenanceSchedule.type?.replace('_', ' ')}</div>
-                                <div><strong>Interval:</strong> {mach.maintenanceSchedule.intervalValue} {mach.maintenanceSchedule.intervalUnit}</div>
-                                <div><strong>Last Service:</strong> {mach.maintenanceSchedule.lastMaintenanceDate ? new Date(mach.maintenanceSchedule.lastMaintenanceDate).toLocaleDateString() : '-'}</div>
-                                <div><strong>Next Service:</strong> {mach.maintenanceSchedule.nextMaintenanceDate ? new Date(mach.maintenanceSchedule.nextMaintenanceDate).toLocaleDateString() : '-'}</div>
-                                <div><strong>Reminders:</strong> {mach.maintenanceSchedule.reminderDaysBefore || 7} days before</div>
+                                <div><strong>{t('assets.maintenanceType')}:</strong> {mach.maintenanceSchedule.type?.replace('_', ' ')}</div>
+                                <div><strong>{t('assets.intervalValue')}:</strong> {mach.maintenanceSchedule.intervalValue} {mach.maintenanceSchedule.intervalUnit}</div>
+                                <div><strong>{t('assets.lastMaintenanceDate')}:</strong> {mach.maintenanceSchedule.lastMaintenanceDate ? new Date(mach.maintenanceSchedule.lastMaintenanceDate).toLocaleDateString() : '-'}</div>
+                                <div><strong>{t('assets.nextService')}:</strong> {mach.maintenanceSchedule.nextMaintenanceDate ? new Date(mach.maintenanceSchedule.nextMaintenanceDate).toLocaleDateString() : '-'}</div>
+                                <div><strong>{t('assets.reminders')}:</strong> {mach.maintenanceSchedule.reminderDaysBefore || 7} {t('common.days')} {t('assets.before')}</div>
                               </div>
                             ) : (
                               <div style={{ color: '#64748b', fontSize: '0.85em' }}>لم يتم تعيين جدول</div>
@@ -664,10 +664,10 @@ export default function Assets() {
                             <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>إعدادات التذكيرات</h4>
                             {mach.reminders ? (
                               <div style={{ fontSize: '0.85em' }}>
-                                <div><strong>Enabled:</strong> {mach.reminders.enabled ? 'Yes' : 'No'}</div>
-                                <div><strong>Email:</strong> {mach.reminders.emailEnabled ? 'Yes' : 'No'}</div>
-                                <div><strong>WhatsApp:</strong> {mach.reminders.whatsappEnabled ? 'Yes' : 'No'}</div>
-                                <div><strong>Notify Users:</strong> {mach.reminders.notifyUsers?.length || 0} user(s)</div>
+                                <div><strong>{t('common.enabled')}:</strong> {mach.reminders.enabled ? t('common.yes') : t('common.no')}</div>
+                                <div><strong>{t('common.email')}:</strong> {mach.reminders.emailEnabled ? t('common.yes') : t('common.no')}</div>
+                                <div><strong>{t('common.whatsapp')}:</strong> {mach.reminders.whatsappEnabled ? t('common.yes') : t('common.no')}</div>
+                                <div><strong>{t('assets.notifyUsers')}:</strong> {mach.reminders.notifyUsers?.length || 0} {t('common.users')}</div>
                               </div>
                             ) : (
                               <div style={{ color: '#64748b', fontSize: '0.85em' }}>{t('assets.defaultSettings')}</div>
@@ -677,9 +677,9 @@ export default function Assets() {
                             <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>آخر الصيانات</h4>
                             {mach.maintenanceHistory && mach.maintenanceHistory.length > 0 ? (
                               <div style={{ fontSize: '0.85em' }}>
-                                <div><strong>Last:</strong> {new Date(mach.maintenanceHistory[mach.maintenanceHistory.length - 1].date).toLocaleDateString()}</div>
-                                <div><strong>Type:</strong> {mach.maintenanceHistory[mach.maintenanceHistory.length - 1].type}</div>
-                                <div><strong>Cost:</strong> {formatCurrency(mach.maintenanceHistory[mach.maintenanceHistory.length - 1].cost)}</div>
+                                <div><strong>{t('common.last')}:</strong> {new Date(mach.maintenanceHistory[mach.maintenanceHistory.length - 1].date).toLocaleDateString()}</div>
+                                <div><strong>{t('common.type')}:</strong> {mach.maintenanceHistory[mach.maintenanceHistory.length - 1].type}</div>
+                                <div><strong>{t('common.cost')}:</strong> {formatCurrency(mach.maintenanceHistory[mach.maintenanceHistory.length - 1].cost)}</div>
                               </div>
                             ) : (
                               <div style={{ color: '#64748b', fontSize: '0.85em' }}>لا يوجد سجل صيانة</div>

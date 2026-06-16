@@ -6,6 +6,8 @@ import {
   TrendingUp, AlertCircle, ChevronDown, ChevronRight,
   Receipt, ArrowRightCircle, History, Flag
 } from 'lucide-react';
+import { formatCurrency } from '../utils/formatters';
+import { t } from '../utils/i18n';
 
 // API Base
 const API_URL = process.env.REACT_APP_API_URL || '/api';
@@ -17,10 +19,6 @@ const headers = () => ({
 });
 
 // Helper functions
-const formatCurrency = (amount) => {
-  return `EGP ${(amount || 0).toFixed(2)}`;
-};
-
 const formatDate = (date) => {
   if (!date) return '-';
   return new Date(date).toLocaleDateString('en-US', {
@@ -40,23 +38,23 @@ const getDaysUntilDue = (dueDate) => {
 
 const getStatusBadge = (status) => {
   const badges = {
-    pending: { class: 'badge', label: 'Pending' },
-    partial: { class: 'badge badge-warning', label: 'Partial' },
-    paid: { class: 'badge badge-success', label: 'Paid' },
-    overdue: { class: 'badge badge-danger', label: 'Overdue' },
-    cancelled: { class: 'badge', label: 'Cancelled' }
+    pending: { class: 'badge', label: t('common.statuses.pending') },
+    partial: { class: 'badge badge-warning', label: t('finance.partial') },
+    paid: { class: 'badge badge-success', label: t('common.statuses.paid') },
+    overdue: { class: 'badge badge-danger', label: t('common.statuses.overdue') },
+    cancelled: { class: 'badge', label: t('common.statuses.cancelled') }
   };
   return badges[status] || badges.pending;
 };
 
 const getLiabilityTypeLabel = (type) => {
   const labels = {
-    previous_balance: 'Previous Balance',
-    invoice: 'Invoice',
-    loan: 'Loan',
-    other: 'Other'
+    previous_balance: t('clients.previousBalance'),
+    invoice: t('common.invoice'),
+    loan: t('finance.partial'),
+    other: t('common.other')
   };
-  return labels[type] || 'Other';
+  return labels[type] || t('common.other');
 };
 
 const getLiabilityTypeIcon = (type) => {
@@ -83,8 +81,8 @@ const SummaryCards = ({ client, liabilities, expectedPayments }) => {
     .filter(l => l.status !== 'paid' && l.status !== 'cancelled')
     .reduce((sum, l) => sum + (l.remainingAmount || 0), 0);
   const overdueAmount = liabilities
-    .filter(l => l.status === 'overdue')
-    .reduce((sum, l) => sum + (l.remainingAmount || 0), 0);
+    .filter(l => l.status !== 'paid' && l.status !== 'cancelled' && new Date(l.dueDate || l.due_date) < new Date())
+    .reduce((sum, l) => sum + (l.remainingAmount || l.amount || 0), 0);
   const totalExpected = expectedPayments
     .filter(p => p.status === 'pending')
     .reduce((sum, p) => sum + (p.amount || 0), 0);
@@ -94,7 +92,7 @@ const SummaryCards = ({ client, liabilities, expectedPayments }) => {
       <div className="stat-card bg-red-50 border-red-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="stat-label text-red-700">Total Liabilities</p>
+            <p className="stat-label text-red-700">{t('clients.totalLiabilities')}</p>
             <p className="stat-value text-red-600">{formatCurrency(totalLiabilities)}</p>
           </div>
           <div className="stat-icon bg-red-100 text-red-600">
@@ -106,7 +104,7 @@ const SummaryCards = ({ client, liabilities, expectedPayments }) => {
       <div className="stat-card bg-green-50 border-green-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="stat-label text-green-700">Total Paid</p>
+            <p className="stat-label text-green-700">{t('clients.totalPaid')}</p>
             <p className="stat-value text-green-600">{formatCurrency(totalPaid)}</p>
           </div>
           <div className="stat-icon bg-green-100 text-green-600">
@@ -118,7 +116,7 @@ const SummaryCards = ({ client, liabilities, expectedPayments }) => {
       <div className="stat-card bg-yellow-50 border-yellow-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="stat-label text-yellow-700">Outstanding</p>
+            <p className="stat-label text-yellow-700">{t('clients.outstanding')}</p>
             <p className="stat-value text-yellow-600">{formatCurrency(outstandingBalance)}</p>
           </div>
           <div className="stat-icon bg-yellow-100 text-yellow-600">
@@ -130,7 +128,7 @@ const SummaryCards = ({ client, liabilities, expectedPayments }) => {
       <div className="stat-card bg-orange-50 border-orange-200">
         <div className="flex items-center justify-between">
           <div>
-            <p className="stat-label text-orange-700">Overdue</p>
+            <p className="stat-label text-orange-700">{t('common.statuses.overdue')}</p>
             <p className="stat-value text-orange-600">{formatCurrency(overdueAmount)}</p>
           </div>
           <div className="stat-icon bg-orange-100 text-orange-600">
@@ -142,7 +140,7 @@ const SummaryCards = ({ client, liabilities, expectedPayments }) => {
       <div className="stat-card bg-blue-50 border-blue-200 md:col-span-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="stat-label text-blue-700">Expected Payments</p>
+            <p className="stat-label text-blue-700">{t('clients.expectedPayments')}</p>
             <p className="stat-value text-blue-600">{formatCurrency(totalExpected)}</p>
           </div>
           <div className="stat-icon bg-blue-100 text-blue-600">
@@ -200,7 +198,7 @@ const AddLiabilityModal = ({ isOpen, onClose, onSave, client }) => {
     <div className="modal-overlay" style={{ zIndex: 2000 }}>
       <div className="modal">
         <div className="modal-header">
-          <h2 className="modal-title">Add New Liability</h2>
+          <h2 className="modal-title">{t('clients.addLiability')}</h2>
           <button onClick={onClose} className="modal-close">
             <X className="w-5 h-5" />
           </button>
@@ -283,7 +281,7 @@ const AddLiabilityModal = ({ isOpen, onClose, onSave, client }) => {
               Cancel
             </button>
             <button type="submit" className="btn btn-danger">
-              Add Liability
+              {t('clients.addLiability')}
             </button>
           </div>
         </form>
@@ -585,16 +583,16 @@ const LiabilityRow = ({ liability, onAddPayment, onDelete }) => {
             <div className="mb-4">
               <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
                 <Receipt className="w-4 h-4" />
-                Payment History
+                {t('clients.paymentHistory')}
               </h4>
               <div className="table-container">
                 <table className="table table-sm">
                   <thead>
                     <tr>
-                      <th>Date</th>
-                      <th>Amount</th>
-                      <th>Method</th>
-                      <th>Reference</th>
+                      <th>{t('common.date')}</th>
+                      <th>{t('common.amount')}</th>
+                      <th>{t('common.method')}</th>
+                      <th>{t('common.reference')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -619,7 +617,7 @@ const LiabilityRow = ({ liability, onAddPayment, onDelete }) => {
           {/* Notes */}
           {liability.notes && (
             <div className="mb-4">
-              <h4 className="text-sm font-semibold mb-1">Notes</h4>
+              <h4 className="text-sm font-semibold mb-1">{t('common.notes')}</h4>
               <p className="text-sm text-gray-600 bg-white p-2 rounded">{liability.notes}</p>
             </div>
           )}
@@ -632,7 +630,7 @@ const LiabilityRow = ({ liability, onAddPayment, onDelete }) => {
                 className="btn btn-sm btn-success"
               >
                 <Wallet className="w-4 h-4 mr-1" />
-                Add Payment
+                {t('clients.addPayment')}
               </button>
             )}
             <button
@@ -640,7 +638,7 @@ const LiabilityRow = ({ liability, onAddPayment, onDelete }) => {
               className="btn btn-sm btn-outline btn-danger"
             >
               <Trash2 className="w-4 h-4 mr-1" />
-              Delete
+              {t('common.delete')}
             </button>
           </div>
         </div>
@@ -1006,14 +1004,14 @@ const ClientLiabilities = ({ client, onUpdate }) => {
           className={`px-4 py-2 font-medium ${activeTab === 'liabilities' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}
         >
           <FileText className="w-4 h-4 inline mr-2" />
-          Liabilities ({liabilities.length})
+          {t('clients.liabilities')} ({liabilities.length})
         </button>
         <button
           onClick={() => setActiveTab('expected')}
           className={`px-4 py-2 font-medium ${activeTab === 'expected' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'}`}
         >
           <Calendar className="w-4 h-4 inline mr-2" />
-          Expected Payments ({expectedPayments.filter(p => p.status === 'pending').length})
+          {t('clients.expectedPayments')} ({expectedPayments.filter(p => p.status === 'pending').length})
         </button>
       </div>
 
@@ -1021,25 +1019,25 @@ const ClientLiabilities = ({ client, onUpdate }) => {
       {activeTab === 'liabilities' && (
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Client Liabilities</h3>
+            <h3 className="text-lg font-semibold">{t('clients.clientLiabilities')}</h3>
             <button
               onClick={() => setShowAddLiabilityModal(true)}
               className="btn btn-danger"
             >
               <Plus className="w-4 h-4 mr-1" />
-              Add Liability
+              {t('clients.addLiability')}
             </button>
           </div>
 
           {sortedLiabilities.length === 0 ? (
             <div className="text-center py-8 bg-gray-50 rounded-lg">
               <DollarSign className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No liabilities found</p>
+              <p className="text-gray-500">{t('clients.noLiabilities')}</p>
               <button
                 onClick={() => setShowAddLiabilityModal(true)}
                 className="btn btn-outline mt-3"
               >
-                Add First Liability
+                {t('clients.addLiability')}
               </button>
             </div>
           ) : (
