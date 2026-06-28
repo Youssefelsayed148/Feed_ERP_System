@@ -68,9 +68,9 @@ router.get('/stats', authenticate, async (req, res) => {
     const result = await query(`
       SELECT 
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE category = 'wholesale') as wholesale,
-        COUNT(*) FILTER (WHERE category = 'retail') as retail,
-        COUNT(*) FILTER (WHERE category = 'farm') as farm,
+        COUNT(*) FILTER (WHERE status = 'wholesale') as wholesale,
+        COUNT(*) FILTER (WHERE status = 'retail') as retail,
+        COUNT(*) FILTER (WHERE status = 'farm') as farm,
         COUNT(*) FILTER (WHERE created_at >= CURRENT_DATE - INTERVAL '30 days') as new_this_month
       FROM clients
       WHERE status = 'inactive'
@@ -87,10 +87,10 @@ router.get('/stats', authenticate, async (req, res) => {
 router.get('/sources', authenticate, async (req, res) => {
   try {
     const result = await query(`
-      SELECT DISTINCT category as source
+      SELECT DISTINCT status as source
       FROM clients
-      WHERE status = 'inactive' AND category IS NOT NULL
-      ORDER BY category
+      WHERE status = 'inactive' AND status IS NOT NULL
+      ORDER BY status
     `);
 
     res.json(result.rows.map(r => r.source));
@@ -101,7 +101,7 @@ router.get('/sources', authenticate, async (req, res) => {
 });
 
 // POST /api/leads/sources - Create source (map to a default category or return success)
-router.post('/sources', authenticate, authorize('owner', 'admin', 'manager'), async (req, res) => {
+router.post('/sources', authenticate, authorize('owner', 'admin', 'sales_manager'), async (req, res) => {
   try {
     const { name } = req.body;
     if (!name) {
@@ -223,7 +223,7 @@ router.post('/:id/activities', authenticate, async (req, res) => {
 });
 
 // POST /api/leads/assign - Assign leads
-router.post('/assign', authenticate, authorize('owner', 'admin', 'manager', 'team_leader'), async (req, res) => {
+router.post('/assign', authenticate, authorize('owner', 'admin', 'sales_manager'), async (req, res) => {
   try {
     const { lead_ids, assigned_to } = req.body;
     if (!lead_ids || !Array.isArray(lead_ids) || lead_ids.length === 0 || !assigned_to) {

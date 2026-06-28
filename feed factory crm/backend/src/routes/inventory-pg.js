@@ -322,9 +322,17 @@ router.get('/movements', authenticate, async (req, res) => {
     const { material_id, type, startDate, endDate, page = 1, limit = 50 } = req.query;
     const offset = (page - 1) * limit;
     let sql = `
-      SELECT it.*, rm.name_arabic as material_name, rm.code as material_code, rm.unit
+      SELECT 
+        it.*,
+        rm.name_arabic as material_name,
+        rm.code as material_code,
+        rm.unit,
+        u.name as user_name,
+        s.name as supplier_name
       FROM inventory_transactions it
       LEFT JOIN raw_materials rm ON it.raw_material_id = rm.id
+      LEFT JOIN users u ON it.created_by = u.id
+      LEFT JOIN suppliers s ON it.supplier_id = s.id
       WHERE 1=1
     `;
     const params = [];

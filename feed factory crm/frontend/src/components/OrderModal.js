@@ -60,7 +60,7 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
     const validLines = orderLines.filter(line => line.material && line.quantity && line.unitPrice);
     
     if (validLines.length === 0) {
-      alert('Please add at least one material with quantity and price');
+      alert('يرجى إضافة مادة واحدة على الأقل مع الكمية والسعر');
       return;
     }
     
@@ -95,8 +95,8 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal modal-large order-modal">
         <div className="modal-header">
-          <h2 className="modal-title">Create Purchase Order - {supplier.name}</h2>
-          <button className="modal-close" onClick={onClose} aria-label="Close">
+          <h2 className="modal-title">إنشاء أمر شراء - {supplier.name}</h2>
+          <button className="modal-close" onClick={onClose} aria-label="إغلاق">
             <X size={24} />
           </button>
         </div>
@@ -110,17 +110,17 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
                 {supplier.name}
               </div>
               <div className="order-supplier-meta">
-                {(supplier.materials || supplier.materialsSupplied || []).length} materials available
+                {(supplier.materials || supplier.materialsSupplied || []).length} مادة متاحة
               </div>
             </div>
             
             {/* Order Lines Table */}
             <div style={{ marginBottom: '20px' }}>
               <div className="order-lines-header">
-                <div>Material</div>
-                <div>Quantity</div>
-                <div>Unit Price</div>
-                <div>Total</div>
+                <div>المادة</div>
+                <div>الكمية</div>
+                <div>سعر الوحدة</div>
+                <div>الإجمالي</div>
                 <div></div>
               </div>
               
@@ -140,7 +140,7 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
                     }}
                     required
                   >
-                    <option value="">Select material...</option>
+                    <option value="">اختر المادة...</option>
                     {supplierMaterials.map(mat => (
                       <option key={mat.code || mat._id} value={mat.code || mat._id}>
                         {mat.name_arabic || mat.name || mat.name_english || mat.code} - {(mat.unit_price || mat.unitPrice || 0).toFixed(2)} EGP/{mat.unit || 'kg'}
@@ -154,9 +154,9 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
                     className="form-input"
                     value={line.quantity}
                     onChange={(e) => updateLine(index, 'quantity', e.target.value)}
-                    min="0.01"
+                    min="0"
                     step="0.01"
-                    placeholder="Qty"
+                    placeholder="الكمية"
                     required
                   />
                   
@@ -168,13 +168,13 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
                     onChange={(e) => updateLine(index, 'unitPrice', e.target.value)}
                     min="0"
                     step="0.01"
-                    placeholder="Price"
+                    placeholder="السعر"
                     required
                   />
                   
                   {/* Total */}
                   <div className="order-line-total">
-                    {line.total.toLocaleString()} EGP
+                    {(line.total || 0).toLocaleString()} EGP
                   </div>
                   
                   {/* Remove Button */}
@@ -183,7 +183,7 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
                     onClick={() => removeLine(index)}
                     className="order-line-remove"
                     disabled={orderLines.length === 1}
-                    title="Remove line"
+                    title="حذف السطر"
                   >
                     <X size={16} />
                   </button>
@@ -197,29 +197,29 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
                 className="add-line-btn"
               >
                 <Plus size={18} />
-                Add Another Material
+                إضافة مادة أخرى
               </button>
             </div>
             
             {/* Totals */}
             <div className="order-totals-box">
               <div className="order-total-row">
-                <span>Subtotal:</span>
+                <span>المجموع الجزئي:</span>
                 <span>{subtotal.toLocaleString()} EGP</span>
               </div>
               <div className="order-total-row">
-                <span>VAT (14%):</span>
+                <span>ضريبة القيمة المضافة (14%):</span>
                 <span>{vat.toLocaleString()} EGP</span>
               </div>
               <div className="order-total-row grand-total">
-                <span>Grand Total:</span>
+                <span>الإجمالي الكلي:</span>
                 <span>{grandTotal.toLocaleString()} EGP</span>
               </div>
             </div>
             
             {/* Delivery Date */}
             <div className="form-group">
-              <label className="form-label">Required Delivery Date *</label>
+              <label className="form-label">تاريخ التسليم المطلوب *</label>
               <input
                 type="date"
                 className="form-input"
@@ -232,12 +232,12 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
             
             {/* Notes */}
             <div className="form-group">
-              <label className="form-label">Notes</label>
+              <label className="form-label">ملاحظات</label>
               <textarea
                 className="form-textarea"
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Special requirements, delivery instructions, etc..."
+                placeholder="متطلبات خاصة، تعليمات التسليم..."
                 rows="3"
               />
             </div>
@@ -245,7 +245,7 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
           
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>
-              Cancel
+              إلغاء
             </button>
             <button 
               type="submit" 
@@ -255,12 +255,12 @@ const OrderFromSupplierModal = ({ supplier, rawMaterials, onClose, onSubmit }) =
               {isSubmitting ? (
                 <>
                   <RefreshCw size={16} className="loading-spin" style={{ marginRight: '8px', display: 'inline' }} />
-                  Creating...
+                  جاري الإنشاء...
                 </>
               ) : (
                 <>
                   <Send size={16} style={{ marginRight: '8px', display: 'inline' }} />
-                  Create Purchase Order ({orderLines.filter(l => l.material && l.quantity).length} items)
+                  إنشاء أمر الشراء ({orderLines.filter(l => l.material && l.quantity).length} عناصر)
                 </>
               )}
             </button>

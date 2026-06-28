@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency, formatDate, formatNumber } from '../utils/formatters';
 import { t } from '../utils/i18n';
 import { authService } from '../services/api';
 import { 
@@ -180,7 +180,7 @@ export default function Delivery() {
         ]);
         const data = await delRes.json();
         const statsData = await statsRes.json();
-        const deliveriesData = data?.deliveries || [];
+        const deliveriesData = (data?.deliveries || []).map(normalizeDelivery);
         setDeliveries(deliveriesData);
         setStats(statsData || {});
       } else {
@@ -262,22 +262,19 @@ export default function Delivery() {
       });
       if (response.ok) {
         const data = await response.json();
-        setAvailableDrivers(data?.drivers || []);
+        const drivers = (data?.drivers || []).map(d => ({
+          _id: d._id || d.id,
+          name: d.name || '',
+          firstName: d.name?.split(' ')[0] || '',
+          lastName: d.name?.split(' ').slice(1).join(' ') || '',
+          email: d.email || '',
+          currentAssignment: 'متاح',
+        }));
+        setAvailableDrivers(drivers);
       }
     } catch (error) {
       console.error('Error fetching available drivers:', error);
-      // Fallback: extract from vehicles
-      const driversFromVehicles = vehicles
-        .filter(v => v.status === 'available' && v.driver)
-        .map(v => ({
-          _id: v.driver._id,
-          firstName: v.driver.firstName,
-          lastName: v.driver.lastName,
-          phone: v.driver.phone || 'N/A',
-          currentAssignment: v.status === 'on_delivery' ? 'قيد التوصيل' : 'متاح',
-          vehicle: { _id: v._id, plateNumber: v.plateNumber, model: v.model }
-        }));
-      setAvailableDrivers(driversFromVehicles);
+      setAvailableDrivers([]);
     }
   };
 
@@ -296,34 +293,67 @@ export default function Delivery() {
     }
     
     // Fallback check using local data
-    const vehicle = vehicles.find(v => v._id === vehicleId);
+    const vehicle = vehicles.find(v => String(v._id) === String(vehicleId));
     return {
       available: vehicle?.status === 'available',
       currentDelivery: vehicle?.status === 'on_delivery' || vehicle?.status === 'assigned',
-      message: vehicle?.status === 'on_delivery' 
-        ? 'Vehicle is currently on another delivery' 
+      message: vehicle?.status === 'on_delivery'
+        ? 'المركبة قيد التوصيل حالياً'
         : vehicle?.status === 'assigned'
-        ? 'Vehicle is already assigned to a delivery'
-        : 'Vehicle is available'
+        ? 'المركبة معينة لتوصيل آخر'
+        : 'المركبة متاحة'
     };
   };
 
   // Calculate delivery weight
+  const normalizeDelivery = (d) => {
+    if (!d) return d;
+    return {
+      ...d,
+      _id: d._id || d.id,
+      deliveryNumber: d.delivery_number || d.deliveryNumber || `DEL-${d.id || d._id}`,
+      client: d.client || (d.client_name ? {
+        name: d.client_name,
+        phone: d.client_phone,
+        address: d.client_address
+      } : null),
+      vehicle: d.vehicle || (d.vehicle_id ? {
+        _id: d.vehicle_id,
+        plateNumber: d.plate_number,
+        model: d.model,
+        make: d.make,
+        capacityKg: d.capacity_kg
+      } : null),
+      driver: d.driver || (d.driver_id ? {
+        _id: d.driver_id,
+        firstName: d.driver_name?.split(' ')[0] || '',
+        lastName: d.driver_name?.split(' ').slice(1).join(' ') || '',
+        phone: d.driver_phone || ''
+      } : null),
+      items: Array.isArray(d.items_summary) ? d.items_summary : (Array.isArray(d.items) ? d.items : []),
+      totalBags: d.total_bags || 0,
+      totalWeightKg: d.total_weight_kg || 0,
+      scheduledDate: d.scheduled_date || d.scheduledDate || d.delivery_date,
+      deliveryAddress: d.client_address || d.delivery_address || d.deliveryAddress || ''
+    };
+  };
+
   const calculateDeliveryWeight = (delivery) => {
-    if (!delivery?.items) return 0;
+    if (!delivery?.items || !Array.isArray(delivery.items)) return 0;
     return delivery.items.reduce((total, item) => {
-      const bagSize = item.packageSize || 25; // Default 25kg per bag
+      const bagSize = item.packageSize || item.bagSizeKg || 25;
       return total + (bagSize * item.quantity);
     }, 0);
   };
 
   // Check vehicle capacity sufficiency
   const isVehicleCapacitySufficient = (vehicleId, delivery) => {
-    const vehicle = vehicles.find(v => v._id === vehicleId);
-    if (!vehicle || !vehicle.capacityKg) return true; // Assume sufficient if no capacity data
-    
+    const vehicle = vehicles.find(v => String(v._id) === String(vehicleId));
+    const cap = vehicle?.capacity_kg || vehicle?.capacityKg;
+    if (!vehicle || !cap) return true; // Assume sufficient if no capacity data
+
     const deliveryWeight = calculateDeliveryWeight(delivery);
-    return vehicle.capacityKg >= deliveryWeight;
+    return parseFloat(cap) >= deliveryWeight;
   };
 
   // Notification helper
@@ -350,11 +380,11 @@ export default function Delivery() {
         const result = await response.json();
         setOtpSent(true);
         setOtpCode(result.otpCode); // For demo, in production don't show this
-        alert(`OTP sent: ${result.otpCode}`);
+        alert(`تم إرسال OTP: ${result.otpCode}`);
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
-      alert('Failed to send OTP');
+      alert('فشل إرسال OTP');
     }
   };
 
@@ -373,13 +403,13 @@ export default function Delivery() {
           ...prev,
           receivedBy: { ...prev.receivedBy, otpVerified: true }
         }));
-        alert('OTP verified successfully!');
+        alert('تم التحقق من OTP بنجاح!');
       } else {
-        alert('Invalid OTP code');
+        alert('رمز OTP غير صحيح');
       }
     } catch (error) {
       console.error('Error verifying OTP:', error);
-      alert('Failed to verify OTP');
+      alert('فشل التحقق من OTP');
     }
   };
 
@@ -387,7 +417,7 @@ export default function Delivery() {
   const handlePhotoUpload = (e) => {
     const files = Array.from(e.target.files);
     if (uploadedPhotos.length + files.length > 3) {
-      alert('Maximum 3 photos allowed');
+      alert('الحد الأقصى 3 صور');
       return;
     }
     
@@ -468,7 +498,7 @@ export default function Delivery() {
       const max = item.orderedQty;
       const rejected = item.rejectedQty;
       if (val + rejected > max) {
-        alert(`Delivered + Rejected cannot exceed ordered quantity (${max})`);
+        alert(`الكمية المسلمة + المرفوضة لا يمكن أن تتجاوز الكمية المطلوبة (${max})`);
         item.deliveredQty = max - rejected;
       } else {
         item.deliveredQty = val;
@@ -478,7 +508,7 @@ export default function Delivery() {
       const max = item.orderedQty;
       const delivered = item.deliveredQty;
       if (delivered + val > max) {
-        alert(`Delivered + Rejected cannot exceed ordered quantity (${max})`);
+        alert(`الكمية المسلمة + المرفوضة لا يمكن أن تتجاوز الكمية المطلوبة (${max})`);
         item.rejectedQty = max - delivered;
       } else {
         item.rejectedQty = val;
@@ -492,7 +522,7 @@ export default function Delivery() {
 
   const handleConfirmDelivery = async () => {
     if (!selectedDelivery || !confirmationData.receivedBy.name) {
-      alert('Please enter the name of the person who received the delivery');
+      alert('الرجاء إدخال اسم الشخص الذي استلم التوصيل');
       return;
     }
 
@@ -513,11 +543,11 @@ export default function Delivery() {
         const result = await response.json();
         fetchData();
         closeConfirmModal();
-        alert('Delivery confirmed successfully! WhatsApp notification sent to customer.');
+        alert('تم تأكيد التوصيل بنجاح! تم إرسال إشعار واتساب للعميل.');
       }
     } catch (error) {
       console.error('Error confirming delivery:', error);
-      alert('Failed to confirm delivery');
+      alert('فشل تأكيد التوصيل');
     }
   };
 
@@ -557,19 +587,19 @@ export default function Delivery() {
   const handleAssign = async (alsoNotify = false) => {
     // Validate both vehicle and driver are selected
     if (!assignForm.vehicle) {
-      setAssignError('Please select a vehicle');
+      setAssignError('الرجاء اختيار مركبة');
       return;
     }
     if (!assignForm.driver) {
-      setAssignError('Please select a driver');
+      setAssignError('الرجاء اختيار سائق');
       return;
     }
 
     // Validate vehicle capacity
     if (!isVehicleCapacitySufficient(assignForm.vehicle, selectedDelivery)) {
-      const vehicle = vehicles.find(v => v._id === assignForm.vehicle);
+      const vehicle = vehicles.find(v => String(v._id) === String(assignForm.vehicle));
       const deliveryWeight = calculateDeliveryWeight(selectedDelivery);
-      setAssignError(`Vehicle capacity insufficient! Vehicle: ${vehicle?.capacityKg?.toLocaleString()}kg, Delivery: ${deliveryWeight.toLocaleString()}kg`);
+      setAssignError(`سعة المركبة غير كافية! المركبة: ${formatNumber(vehicle?.capacity_kg ?? vehicle?.capacityKg ?? 0)}كجم، التوصيل: ${formatNumber(deliveryWeight)}كجم`);
       return;
     }
 
@@ -580,7 +610,7 @@ export default function Delivery() {
       // Check vehicle availability before assignment
       const availability = await checkVehicleAvailability(assignForm.vehicle);
       if (!availability.available && !selectedDelivery?.vehicle?._id) {
-        setAssignError(availability.message || 'Vehicle is not available');
+        setAssignError(availability.message || 'المركبة غير متاحة');
         setAssignLoading(false);
         return;
       }
@@ -602,7 +632,7 @@ export default function Delivery() {
         // Update deliveries list in UI immediately
         setDeliveries(prev => prev.map(d => {
           if (d._id === selectedDelivery._id) {
-            const assignedVehicle = vehicles.find(v => v._id === assignForm.vehicle);
+            const assignedVehicle = vehicles.find(v => String(v._id) === String(assignForm.vehicle));
             const assignedDriver = availableDrivers.find(drv => drv._id === assignForm.driver);
             return {
               ...d,
@@ -618,9 +648,9 @@ export default function Delivery() {
         fetchData();
         
         // Show success message
-        const successMsg = alsoNotify 
-          ? 'Delivery assigned and driver notified successfully!' 
-          : 'Delivery assigned successfully!';
+        const successMsg = alsoNotify
+          ? 'تم تعيين التوصيل وإشعار السائق بنجاح!'
+          : 'تم تعيين التوصيل بنجاح!';
         showNotification(successMsg);
         
         // Close modal after short delay
@@ -629,11 +659,11 @@ export default function Delivery() {
         }, 1500);
       } else {
         const errorData = await response.json();
-        setAssignError(errorData.message || 'Failed to assign delivery. Please try again.');
+        setAssignError(errorData.message || 'فشل تعيين التوصيل. الرجاء المحاولة مرة أخرى.');
       }
     } catch (error) {
       console.error('Error assigning delivery:', error);
-      setAssignError('Failed to assign delivery. Please check your connection and try again.');
+      setAssignError('فشل تعيين التوصيل. الرجاء التحقق من الاتصال والمحاولة مرة أخرى.');
     } finally {
       setAssignLoading(false);
     }
@@ -676,15 +706,15 @@ export default function Delivery() {
   const getStatusLabel = (status) => {
     const labels = {
       pending: 'معلق',
-      assigned: 'Assigned',
+      assigned: 'تم التعيين',
       accepted: 'مقبول',
-      picked_up: t('delivery.pickedUp'),
-      in_transit: 'قيد النقل',
+      picked_up: 'تم الاستلام',
+      in_transit: 'قيد التوصيل',
       arrived: 'وصل',
-      delivered: 'Delivered',
-      partial: 'Partial',
-      rejected: 'Rejected',
-      rescheduled: 'Rescheduled',
+      delivered: 'تم التوصيل',
+      partial: 'جزئي',
+      rejected: 'مرفوض',
+      rescheduled: 'معاد جدولته',
       cancelled: 'ملغي'
     };
     return labels[status] || status;
@@ -721,7 +751,7 @@ export default function Delivery() {
             توصيلات نشطة
           </h2>
           <p style={{ color: '#64748b', margin: 0, fontSize: '14px' }}>
-            {activeDeliveries.length} delivery{activeDeliveries.length > 1 ? 'ies' : 'y'} in progress
+            {activeDeliveries.length} توصيلة قيد التنفيذ
           </p>
         </div>
 
@@ -800,7 +830,7 @@ export default function Delivery() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Package className="w-4 h-4" style={{ color: '#64748b', flexShrink: 0 }} />
-                  <p style={{ margin: 0, fontSize: '14px' }}>{delivery.totalBags} bags · {delivery.items?.length} items</p>
+                  <p style={{ margin: 0, fontSize: '14px' }}>{delivery.totalBags} كيس · {delivery.items?.length} عنصر</p>
                 </div>
               </div>
 
@@ -814,7 +844,7 @@ export default function Delivery() {
                 color: '#64748b'
               }}>
                 <Navigation className="w-4 h-4" style={{ color: '#22c55e' }} />
-                <span>GPS Active • Location tracking enabled</span>
+                <span>GPS نشط • تتبع الموقع مفعّل</span>
               </div>
 
               {/* Action Buttons */}
@@ -860,13 +890,13 @@ export default function Delivery() {
                   </button>
                 )}
                 {delivery.status === 'arrived' && (
-                  <button 
+                  <button
                     onClick={() => openConfirmModal(delivery)}
                     className="btn btn-success"
                     style={{ flex: 1, justifyContent: 'center', background: '#22c55e' }}
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    Complete Delivery
+                    إكمال التوصيل
                   </button>
                 )}
                 <button 
@@ -887,164 +917,69 @@ export default function Delivery() {
   // Foreman Dashboard Component
   const ForemanDashboard = () => {
     return (
-      <div>
-        {/* Map View Placeholder */}
-        <div style={{ 
-          background: '#f1f5f9', 
-          height: '300px', 
-          borderRadius: '8px', 
-          marginBottom: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: '12px'
-        }}>
-          <MapPin className="w-12 h-12" style={{ color: '#94a3b8' }} />
-          <p style={{ color: '#64748b', margin: 0 }}>{t('delivery.liveMap')}</p>
-          <p style={{ color: '#94a3b8', fontSize: '14px', margin: 0 }}>
-            {t('delivery.vehiclesOnRoad', {n: deliveries.filter(d => ['in_transit', 'arrived'].includes(d.status)).length})}
-          </p>
-        </div>
-
-        {/* Assignments Table */}
-        <div className="table-container">
-          <table className="table">
-            <thead>
+      <div className="table-container">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>رقم التوصيل</th>
+              <th>العميل</th>
+              <th>المركبة</th>
+              <th>السائق</th>
+              <th>تاريخ التسليم</th>
+              <th>الحالة</th>
+              <th>{t('common.actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {deliveries.length === 0 ? (
               <tr>
-                <th>رقم التوصيل</th>
-                <th>{t('common.client')}</th>
-                <th>{t('common.items')}</th>
-                <th>مجدول</th>
-                <th>{t('common.status')}</th>
-                <th>{t('delivery.assignedTo')}</th>
-                <th>{t('common.actions')}</th>
+                <td colSpan="7" style={{ textAlign: 'center', padding: '48px' }}>
+                  <Package className="w-12 h-12" style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
+                  <p style={{ color: '#64748b' }}>لا توجد توصيلات</p>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {deliveries.filter(d => d.status === 'pending').length === 0 ? (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '48px' }}>
-                    <Package className="w-12 h-12" style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
-                    <p style={{ color: '#64748b' }}>{t('delivery.noPending')}</p>
+            ) : (
+              deliveries.map(del => (
+                <tr key={del._id}>
+                  <td style={{ fontWeight: 600 }}>{del.deliveryNumber}</td>
+                  <td>{del.client?.name || '-'}</td>
+                  <td>{del.vehicle?.plateNumber || del.plate_number || '-'}</td>
+                  <td>
+                    {del.driver
+                      ? `${del.driver.firstName} ${del.driver.lastName}`.trim() || del.driver_name || '-'
+                      : del.driver_name || '-'}
+                  </td>
+                  <td>{del.scheduledDate ? formatDate(del.scheduledDate) : 'غير محدد'}</td>
+                  <td>
+                    <span className={getStatusBadgeClass(del.status)}>
+                      {getStatusLabel(del.status)}
+                    </span>
+                  </td>
+                  <td>
+                    {del.status === 'pending' && (
+                      <button
+                        onClick={() => openAssignModal(del)}
+                        className="btn btn-sm btn-primary"
+                      >
+                        <User className="w-4 h-4" />
+                        تعيين
+                      </button>
+                    )}
+                    {['assigned', 'accepted', 'picked_up', 'in_transit', 'arrived'].includes(del.status) && (
+                      <button
+                        onClick={() => openJourneyModal(del)}
+                        className="btn btn-sm btn-outline"
+                      >
+                        <Clock className="w-4 h-4" />
+                        {t('delivery.viewJourney')}
+                      </button>
+                    )}
                   </td>
                 </tr>
-              ) : (
-                deliveries
-                  .filter(d => d.status === 'pending')
-                  .map(del => (
-                    <tr key={del._id}>
-                      <td>
-                        <p style={{ fontWeight: 600, margin: 0 }}>{del.deliveryNumber}</p>
-                        <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>{del.totalBags} bags</p>
-                      </td>
-                      <td>
-                        <p style={{ fontWeight: 500, margin: 0 }}>{del.client?.name}</p>
-                        <p style={{ fontSize: '12px', color: '#64748b', margin: '4px 0 0 0' }}>{del.deliveryAddress}</p>
-                      </td>
-                      <td>{del.items?.length} items</td>
-                      <td>{del.scheduledDate ? new Date(del.scheduledDate).toLocaleDateString() : '-'}</td>
-                      <td>
-                        <span className={getStatusBadgeClass(del.status)}>
-                          {getStatusLabel(del.status)}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ color: '#94a3b8' }}>-</span>
-                      </td>
-                      <td>
-                        <button
-                          onClick={() => openAssignModal(del)}
-                          className="btn btn-sm btn-primary"
-                        >
-                          <User className="w-4 h-4" />
-                          تعيين
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Active Deliveries */}
-        <div style={{ marginTop: '32px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '16px' }}>
-            توصيلات نشطة
-          </h3>
-          <div className="table-container">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>رقم التوصيل</th>
-                  <th>{t('common.client')}</th>
-                  <th>{t('delivery.driver')}</th>
-                  <th>{t('delivery.vehicle')}</th>
-                  <th>{t('common.status')}</th>
-                  <th>التقدم</th>
-                  <th>{t('common.actions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {deliveries.filter(d => ['assigned', 'accepted', 'picked_up', 'in_transit', 'arrived'].includes(d.status)).length === 0 ? (
-                  <tr>
-                    <td colSpan="7" style={{ textAlign: 'center', padding: '48px' }}>
-                      <p style={{ color: '#64748b' }}>{t('delivery.none')}</p>
-                    </td>
-                  </tr>
-                ) : (
-                  deliveries
-                    .filter(d => ['assigned', 'accepted', 'picked_up', 'in_transit', 'arrived'].includes(d.status))
-                    .map(del => (
-                      <tr key={del._id}>
-                        <td>
-                          <p style={{ fontWeight: 600, margin: 0 }}>{del.deliveryNumber}</p>
-                        </td>
-                        <td>{del.client?.name}</td>
-                        <td>{del.driver ? `${del.driver.firstName} ${del.driver.lastName}` : '-'}</td>
-                        <td>{del.vehicle?.plateNumber || '-'}</td>
-                        <td>
-                          <span className={getStatusBadgeClass(del.status)}>
-                            {getStatusLabel(del.status)}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ 
-                              height: '8px', 
-                              background: '#e2e8f0', 
-                              borderRadius: '4px', 
-                              flex: 1 
-                            }}>
-                              <div style={{
-                                height: '100%',
-                                background: '#22c55e',
-                                borderRadius: '4px',
-                                width: `${(getWorkflowProgress(del.status).currentIndex / 6) * 100}%`
-                              }} />
-                            </div>
-                            <span style={{ fontSize: '12px', color: '#64748b' }}>
-                              {Math.round((getWorkflowProgress(del.status).currentIndex / 6) * 100)}%
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <button
-                            onClick={() => openJourneyModal(del)}
-                            className="btn btn-sm btn-outline"
-                          >
-                            <Clock className="w-4 h-4" />
-                            {t('delivery.viewJourney')}
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     );
   };
@@ -1116,12 +1051,34 @@ export default function Delivery() {
             <div className="stats-grid">
               <div className="stat-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div className="stat-icon" style={{ background: '#dbeafe', color: '#1d4ed8' }}>
+                  <div className="stat-icon" style={{ background: '#f1f5f9', color: '#475569' }}>
+                    <Package className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="stat-label">إجمالي التوصيلات</p>
+                    <p className="stat-value">{stats.total || 0}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="stat-icon" style={{ background: '#fef3c7', color: '#b45309' }}>
                     <Clock className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="stat-label">{t('delivery.todayScheduled')}</p>
-                    <p className="stat-value">{stats.todayScheduled || 0}</p>
+                    <p className="stat-label">معلق</p>
+                    <p className="stat-value" style={{ color: '#b45309' }}>{stats.pending || 0}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="stat-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="stat-icon" style={{ background: '#e0f2fe', color: '#0369a1' }}>
+                    <Truck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="stat-label">قيد التوصيل</p>
+                    <p className="stat-value" style={{ color: '#0369a1' }}>{stats.inTransit || 0}</p>
                   </div>
                 </div>
               </div>
@@ -1131,33 +1088,11 @@ export default function Delivery() {
                     <Check className="w-5 h-5" />
                   </div>
                   <div>
-                    <p className="stat-label">{t('delivery.today')}</p>
-                    <p className="stat-value" style={{ color: '#059669' }}>{stats.todayDelivered || 0}</p>
+                    <p className="stat-label">تم التوصيل</p>
+                    <p className="stat-value" style={{ color: '#059669' }}>{stats.delivered || 0}</p>
                   </div>
                 </div>
               </div>
-              {(stats.byStatus || []).map((s) => (
-                <div key={s._id} className="stat-card">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div className="stat-icon" style={{ 
-                      background: s._id === 'pending' ? '#fef3c7' : 
-                                 s._id === 'assigned' ? '#dbeafe' :
-                                 s._id === 'in_transit' ? '#e0f2fe' :
-                                 s._id === 'delivered' ? '#d1fae5' : '#f1f5f9',
-                      color: s._id === 'pending' ? '#b45309' : 
-                             s._id === 'assigned' ? '#1d4ed8' :
-                             s._id === 'in_transit' ? '#0369a1' :
-                             s._id === 'delivered' ? '#047857' : '#475569'
-                    }}>
-                      <Package className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="stat-label">{getStatusLabel(s._id)}</p>
-                      <p className="stat-value">{s.count}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
 
@@ -1208,17 +1143,16 @@ export default function Delivery() {
                 <thead>
                   <tr>
                     <th>رقم اللوحة</th>
+                    <th>النوع</th>
                     <th>الموديل</th>
-                    <th>{t('common.type')}</th>
-                    <th>{t('delivery.driver')}</th>
-                    <th>{t('delivery.capacity')}</th>
-                    <th>{t('common.status')}</th>
+                    <th>السعة</th>
+                    <th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody>
                   {vehicles.length === 0 ? (
                     <tr>
-                      <td colSpan="6" style={{ textAlign: 'center', padding: '48px' }}>
+                      <td colSpan="5" style={{ textAlign: 'center', padding: '48px' }}>
                         <Truck className="w-12 h-12" style={{ margin: '0 auto 16px', color: '#94a3b8' }} />
                         <p style={{ color: '#64748b' }}>لم يتم العثور على مركبات</p>
                       </td>
@@ -1226,20 +1160,22 @@ export default function Delivery() {
                   ) : (
                     vehicles.map((veh) => (
                       <tr key={veh._id}>
-                        <td style={{ fontWeight: 600 }}>{veh.plateNumber}</td>
-                        <td>{veh.model}</td>
+                        <td style={{ fontWeight: 600 }}>{veh.plate_number}</td>
                         <td style={{ textTransform: 'capitalize' }}>{veh.type?.replace('_', ' ')}</td>
+                        <td>{veh.model}</td>
                         <td>
-                          {veh.driver ? (
-                            <span>{veh.driver.firstName} {veh.driver.lastName}</span>
-                          ) : (
-                            <span style={{ color: '#94a3b8' }}>-</span>
-                          )}
+                          {veh.capacity_kg
+                            ? `${parseFloat(veh.capacity_kg).toLocaleString()} كجم`
+                            : '-'}
                         </td>
-                        <td>{veh.capacityKg?.toLocaleString()} kg</td>
                         <td>
                           <span className={getStatusBadgeClass(veh.status)}>
-                            {veh.status?.replace('_', ' ')}
+                            {veh.status === 'available' ? 'متاح'
+                              : veh.status === 'on_delivery' ? 'قيد الاستخدام'
+                              : veh.status === 'in_use' ? 'قيد الاستخدام'
+                              : veh.status === 'unavailable' ? 'غير متاح'
+                              : veh.status === 'maintenance' ? 'صيانة'
+                              : getStatusLabel(veh.status)}
                           </span>
                         </td>
                       </tr>
@@ -1297,7 +1233,7 @@ export default function Delivery() {
                       {status === 'completed' && <CheckCircle className="w-4 h-4" />}
                       {status === 'partial' && <AlertCircle className="w-4 h-4" />}
                       {status === 'rejected' && <X className="w-4 h-4" />}
-                      {status.charAt(0).toUpperCase() + status.slice(1)}
+                      {status === 'completed' ? 'مكتمل' : status === 'partial' ? 'جزئي' : 'مرفوض'}
                     </button>
                   ))}
                 </div>
@@ -1322,7 +1258,7 @@ export default function Delivery() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                         <span style={{ fontWeight: '500' }}>{item.itemName}</span>
                         <span style={{ color: '#64748b', fontSize: '14px' }}>
-                          Ordered: {item.orderedQty}
+                          الكمية المطلوبة: {item.orderedQty}
                         </span>
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
@@ -1392,7 +1328,7 @@ export default function Delivery() {
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Name <span style={{ color: '#ef4444' }}>*</span></label>
+                    <label className="form-label">الاسم <span style={{ color: '#ef4444' }}>*</span></label>
                     <input
                       type="text"
                       className="form-input"
@@ -1429,7 +1365,7 @@ export default function Delivery() {
                       style={{ flexShrink: 0 }}
                     >
                       <Send className="w-4 h-4" />
-                      {otpSent ? 'OTP Sent' : 'Send OTP'}
+                      {otpSent ? 'تم إرسال OTP' : 'إرسال OTP'}
                     </button>
                     <div style={{ display: 'flex', gap: '8px', flex: 1 }}>
                       <input
@@ -1437,7 +1373,7 @@ export default function Delivery() {
                         className="form-input"
                         value={otpCode}
                         onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder="Enter 6-digit OTP"
+                        placeholder="أدخل رمز OTP مكون من 6 أرقام"
                         maxLength={6}
                         style={{ textAlign: 'center', fontSize: '18px', letterSpacing: '4px' }}
                       />
@@ -1468,23 +1404,23 @@ export default function Delivery() {
                 
                 {/* Photo Upload */}
                 <div style={{ marginBottom: '16px' }}>
-                  <label className="form-label">Photos (max 3)</label>
+                  <label className="form-label">الصور (بحد أقصى 3)</label>
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                     {uploadedPhotos.map((photo, index) => (
-                      <div 
+                      <div
                         key={index}
-                        style={{ 
-                          width: '100px', 
-                          height: '100px', 
-                          borderRadius: '8px', 
+                        style={{
+                          width: '100px',
+                          height: '100px',
+                          borderRadius: '8px',
                           overflow: 'hidden',
                           position: 'relative',
                           border: '2px solid #e5e7eb'
                         }}
                       >
-                        <img 
-                          src={photo} 
-                          alt={`Proof ${index + 1}`}
+                        <img
+                          src={photo}
+                          alt={`إثبات ${index + 1}`}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
                         <button
@@ -1539,7 +1475,7 @@ export default function Delivery() {
 
                 {/* Signature Capture */}
                 <div style={{ marginBottom: '16px' }}>
-                  <label className="form-label">Receiver Signature</label>
+                  <label className="form-label">توقيع المستلم</label>
                   <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', background: '#f9fafb' }}>
                     <canvas
                       ref={signatureRef}
@@ -1557,7 +1493,7 @@ export default function Delivery() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
                     <button type="button" className="btn btn-sm btn-outline" onClick={clearSignature}>
-                      <X className="w-4 h-4" /> Clear Signature
+                      <X className="w-4 h-4" /> مسح التوقيع
                     </button>
                     {confirmationData.deliveryProof.signature && (
                       <span style={{ fontSize: '12px', color: '#22c55e' }}>{t('assets.signatureCaptured')}</span>
@@ -1577,11 +1513,11 @@ export default function Delivery() {
                 }}>
                   <MapPinIcon className="w-5 h-5" style={{ color: '#22c55e' }} />
                   <div style={{ flex: 1 }}>
-                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '500' }}>GPS Location Captured</p>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: '500' }}>تم التقاط موقع GPS</p>
                     <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>
-                      {confirmationData.deliveryProof.gpsLocation 
-                        ? `Lat: ${confirmationData.deliveryProof.gpsLocation.latitude?.toFixed(4)}, Lng: ${confirmationData.deliveryProof.gpsLocation.longitude?.toFixed(4)}`
-                        : 'Acquiring location...'}
+                      {confirmationData.deliveryProof.gpsLocation
+                        ? `خط العرض: ${confirmationData.deliveryProof.gpsLocation.latitude?.toFixed(4)}, خط الطول: ${confirmationData.deliveryProof.gpsLocation.longitude?.toFixed(4)}`
+                        : 'جاري تحديد الموقع...'}
                     </p>
                   </div>
                   <span className="badge badge-success">{t('common.statuses.active')}</span>
@@ -1591,12 +1527,12 @@ export default function Delivery() {
               {/* Notes & Rating */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px' }}>
-                  Additional Information
+                  معلومات إضافية
                 </h4>
-                
+
                 {/* Customer Rating */}
                 <div style={{ marginBottom: '16px' }}>
-                  <label className="form-label">Customer Rating</label>
+                  <label className="form-label">تقييم العميل</label>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -1626,9 +1562,9 @@ export default function Delivery() {
 
                 {/* Issues */}
                 <div style={{ marginBottom: '16px' }}>
-                  <label className="form-label">Issues Encountered</label>
+                  <label className="form-label">المشكلات المواجهة</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {['Traffic Delay', 'Wrong Address', 'Client Not Available', 'Vehicle Issue', 'Damaged Goods'].map((issue) => (
+                    {['تأخير مروري', 'عنوان خاطئ', 'العميل غير متاح', 'مشكلة في المركبة', 'بضائع تالفة'].map((issue) => (
                       <label key={issue} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                         <input
                           type="checkbox"
@@ -1660,7 +1596,7 @@ export default function Delivery() {
                     className="form-textarea"
                     value={confirmationData.deliveryNotes}
                     onChange={(e) => setConfirmationData(prev => ({ ...prev, deliveryNotes: e.target.value }))}
-                    placeholder="Any additional notes about the delivery..."
+                    placeholder="أي ملاحظات إضافية حول التوصيل..."
                     rows="3"
                   />
                 </div>
@@ -1727,16 +1663,16 @@ export default function Delivery() {
                   </div>
                   <div>
                     <span style={{ color: '#64748b' }}>{t('assets.totalWeight')}: </span>
-                    <span style={{ fontWeight: '600' }}>{calculateDeliveryWeight(selectedDelivery).toLocaleString()} kg</span>
+                    <span style={{ fontWeight: '600' }}>{formatNumber(calculateDeliveryWeight(selectedDelivery))} kg</span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b' }}>Items: </span>
+                    <span style={{ color: '#64748b' }}>العناصر: </span>
                     <span style={{ fontWeight: '600' }}>{selectedDelivery.items?.length || 0}</span>
                   </div>
                   <div>
-                    <span style={{ color: '#64748b' }}>Scheduled: </span>
+                    <span style={{ color: '#64748b' }}>المجدول: </span>
                     <span style={{ fontWeight: '600' }}>
-                      {selectedDelivery.scheduledDate ? new Date(selectedDelivery.scheduledDate).toLocaleDateString() : 'Not set'}
+                      {selectedDelivery.scheduledDate ? formatDate(selectedDelivery.scheduledDate) : 'غير محدد'}
                     </span>
                   </div>
                 </div>
@@ -1784,15 +1720,15 @@ export default function Delivery() {
               {/* Vehicle Selection */}
               <div className="form-group" style={{ marginBottom: '20px' }}>
                 <label className="form-label">
-                  Select Vehicle <span style={{ color: '#ef4444' }}>*</span>
+                  اختر مركبة <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <select
                   className="form-input"
                   value={assignForm.vehicle}
                   onChange={(e) => {
                     const vehicleId = e.target.value;
-                    setAssignForm(prev => ({ 
-                      ...prev, 
+                    setAssignForm(prev => ({
+                      ...prev,
                       vehicle: vehicleId,
                       driver: '' // Reset driver when vehicle changes
                     }));
@@ -1805,12 +1741,12 @@ export default function Delivery() {
                   }}
                   disabled={assignLoading}
                 >
-                  <option value="">{t('delivery.chooseVehicle')}</option>
+                  <option value="">اختر مركبة</option>
                   {vehicles
                     .filter(v => v.status === 'available' || v._id === selectedDelivery?.vehicle?._id)
                     .map(veh => (
                     <option key={veh._id} value={veh._id}>
-                      {veh.plateNumber} - {veh.model} ({veh.capacityKg?.toLocaleString()} kg)
+                      {veh.plate_number} - {veh.model} ({formatNumber(veh.capacity_kg ?? 0)} كجم)
                     </option>
                   ))}
                 </select>
@@ -1837,14 +1773,15 @@ export default function Delivery() {
                 {assignForm.vehicle && selectedDelivery && (
                   <div style={{ marginTop: '12px' }}>
                     {(() => {
-                      const vehicle = vehicles.find(v => v._id === assignForm.vehicle);
+                      const vehicle = vehicles.find(v => String(v._id) === String(assignForm.vehicle));
+                      const vehicleCap = vehicle?.capacity_kg || vehicle?.capacityKg || 0;
                       const deliveryWeight = calculateDeliveryWeight(selectedDelivery);
-                      const isSufficient = vehicle?.capacityKg >= deliveryWeight;
-                      
+                      const isSufficient = !vehicleCap || parseFloat(vehicleCap) >= deliveryWeight;
+
                       return (
-                        <div style={{ 
-                          padding: '10px 12px', 
-                          background: isSufficient ? '#f0fdf4' : '#fef2f2', 
+                        <div style={{
+                          padding: '10px 12px',
+                          background: isSufficient ? '#f0fdf4' : '#fef2f2',
                           border: `1px solid ${isSufficient ? '#86efac' : '#fecaca'}`,
                           borderRadius: '6px',
                           fontSize: '13px'
@@ -1852,24 +1789,24 @@ export default function Delivery() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                             <span style={{ color: '#64748b' }}>{t('assets.vehicleCapacity')}:</span>
                             <span style={{ fontWeight: 600, color: isSufficient ? '#16a34a' : '#dc2626' }}>
-                              {vehicle?.capacityKg?.toLocaleString()} kg
+                              {vehicleCap ? `${parseFloat(vehicleCap).toLocaleString()} كجم` : '-'}
                             </span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <span style={{ color: '#64748b' }}>{t('assets.deliveryWeight')}:</span>
                             <span style={{ fontWeight: 600, color: '#374151' }}>
-                              {deliveryWeight.toLocaleString()} kg
+                              {formatNumber(deliveryWeight)} kg
                             </span>
                           </div>
                           {!isSufficient && (
-                            <div style={{ 
-                              marginTop: '8px', 
-                              paddingTop: '8px', 
+                            <div style={{
+                              marginTop: '8px',
+                              paddingTop: '8px',
                               borderTop: '1px solid #fecaca',
                               color: '#dc2626',
-                              fontWeight: 500 
+                              fontWeight: 500
                             }}>
-                              ⚠️ Vehicle capacity is insufficient for this delivery!
+                              ⚠️ سعة المركبة غير كافية لهذا التوصيل!
                             </div>
                           )}
                         </div>
@@ -1882,7 +1819,7 @@ export default function Delivery() {
               {/* Driver Selection */}
               <div className="form-group" style={{ marginBottom: '20px' }}>
                 <label className="form-label">
-                  Select Driver <span style={{ color: '#ef4444' }}>*</span>
+                  اختر سائقاً <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <select
                   className="form-input"
@@ -1891,11 +1828,11 @@ export default function Delivery() {
                   disabled={assignLoading || !assignForm.vehicle}
                 >
                   <option value="">
-                    {!assignForm.vehicle ? 'Select a vehicle first' : 'Choose a driver...'}
+                    {!assignForm.vehicle ? 'اختر مركبة أولاً' : 'اختر سائقاً...'}
                   </option>
                   {availableDrivers.map(driver => (
                     <option key={driver._id} value={driver._id}>
-                      {driver.firstName} {driver.lastName} - {driver.phone || 'No phone'}
+                      {driver.name || `${driver.firstName} ${driver.lastName}`.trim()}
                     </option>
                   ))}
                 </select>
@@ -1927,14 +1864,16 @@ export default function Delivery() {
                               color: 'white',
                               fontWeight: 600
                             }}>
-                              {driver.firstName[0]}{driver.lastName[0]}
+                              {(driver.firstName || driver.name || '?')[0]}
                             </div>
                             <div>
-                              <p style={{ margin: 0, fontWeight: 600 }}>{driver.firstName} {driver.lastName}</p>
-                              <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                                <Phone className="w-3 h-3" style={{ display: 'inline', marginRight: '4px' }} />
-                                {driver.phone || 'No phone number'}
-                              </p>
+                              <p style={{ margin: 0, fontWeight: 600 }}>{driver.name || `${driver.firstName} ${driver.lastName}`.trim()}</p>
+                              {driver.phone && (
+                                <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+                                  <Phone className="w-3 h-3" style={{ display: 'inline', marginRight: '4px' }} />
+                                  {driver.phone}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div style={{ 
@@ -1962,7 +1901,7 @@ export default function Delivery() {
                           {driver.vehicle && (
                             <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#64748b' }}>
                               <Truck className="w-3 h-3" style={{ display: 'inline', marginRight: '4px' }} />
-                              Assigned Vehicle: {driver.vehicle.plateNumber} ({driver.vehicle.model})
+                              المركبة المعينة: {driver.vehicle.plateNumber} ({driver.vehicle.model})
                             </p>
                           )}
                         </div>
@@ -1973,9 +1912,9 @@ export default function Delivery() {
               </div>
 
               {/* Notify Checkbox */}
-              <div style={{ 
-                padding: '12px', 
-                background: '#eff6ff', 
+              <div style={{
+                padding: '12px',
+                background: '#eff6ff',
                 borderRadius: '8px',
                 border: '1px solid #bfdbfe'
               }}>
@@ -1987,11 +1926,11 @@ export default function Delivery() {
                     disabled={assignLoading}
                   />
                   <span style={{ fontSize: '14px', color: '#1e40af', fontWeight: 500 }}>
-                    Send notification to driver
+                    إرسال إشعار للسائق
                   </span>
                 </label>
                 <p style={{ margin: '4px 0 0 24px', fontSize: '12px', color: '#64748b' }}>
-                  Driver will receive an SMS and WhatsApp message about the new assignment
+                  سيتلقى السائق رسالة SMS وواتساب بشأن التعيين الجديد
                 </p>
               </div>
             </div>
@@ -2019,11 +1958,11 @@ export default function Delivery() {
                   </>
                 )}
               </button>
-              <button 
-                className="btn btn-success" 
+              <button
+                className="btn btn-success"
                 onClick={handleAssignAndNotify}
                 disabled={!assignForm.vehicle || !assignForm.driver || assignLoading}
-                style={{ 
+                style={{
                   background: '#22c55e',
                   minWidth: '160px'
                 }}
@@ -2033,7 +1972,7 @@ export default function Delivery() {
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    Assign & Notify
+                    تعيين وإشعار
                   </>
                 )}
               </button>
@@ -2091,10 +2030,10 @@ export default function Delivery() {
                       )}
                       <div>
                         <p style={{ fontWeight: '600', margin: '0 0 4px 0' }}>
-                          {entry.status?.replace('_', ' ').toUpperCase()}
+                          {getStatusLabel(entry.status)}
                         </p>
                         <p style={{ fontSize: '12px', color: '#64748b', margin: '0 0 4px 0' }}>
-                          {new Date(entry.timestamp).toLocaleString()}
+                          {formatNumber(new Date(entry.timestamp))}
                         </p>
                         {entry.notes && (
                           <p style={{ fontSize: '14px', color: '#374151', margin: 0 }}>

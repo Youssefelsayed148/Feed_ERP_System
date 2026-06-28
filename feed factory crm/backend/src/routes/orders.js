@@ -1,25 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
+const { journalSalesOrderApproved } = require('../utils/journal');
+const adminOnly = authorize('owner', 'admin');
 
-const generateOrderNumber = async () => {
-  const countResult = await query(`SELECT COUNT(*) as count FROM sales_orders`);
-  const count = parseInt(countResult.rows[0].count);
+const generateCode = async (prefix, tableName, codeColumn) => {
   const year = new Date().getFullYear();
-  const month = String(new Date().getMonth() + 1).padStart(2, '0');
-  return `SO-${year}${month}-${String(count + 1).padStart(5, '0')}`;
+  const result = await query(
+    `SELECT COUNT(*) as count FROM ${tableName} WHERE ${codeColumn} LIKE $1`,
+    [`${prefix}-${year}-%`]
+  );
+  const count = parseInt(result.rows[0].count) + 1;
+  return `${prefix}-${year}-${String(count).padStart(4, '0')}`;
 };
 
-const generateInvoiceNumber = async () => {
-  const countResult = await query(`SELECT COUNT(*) as count FROM invoices`);
-  const count = parseInt(countResult.rows[0].count);
-  const year = new Date().getFullYear();
-  const month = String(new Date().getMonth() + 1).padStart(2, '0');
-  return `INV-${year}${month}-${String(count + 1).padStart(5, '0')}`;
-};
+const generateOrderNumber = () => generateCode('SO', 'sales_orders', 'order_number');
+const generateInvoiceNumber = () => generateCode('INV', 'invoices', 'invoice_number');
 
-router.get('/', authenticate, async (req, res) => {
+router.get('/', authenticate, adminOnly, async (req, res) => {
   try {
     const { status, client, paymentType, search } = req.query;
     
@@ -46,9 +45,14 @@ router.get('/', authenticate, async (req, res) => {
       `SELECT o.*, 
         COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name,
         c.name_arabic as client_name_arabic,
-        (SELECT COUNT(*) FROM sales_order_items WHERE order_id = o.id) as item_count
+        (SELECT COUNT(*) FROM sales_order_items WHERE order_id = o.id) as item_count,
+        inv.id as invoice_id,
+        inv.invoice_number,
+        inv.status as invoice_status,
+        inv.amount as invoice_amount
        FROM sales_orders o
        LEFT JOIN clients c ON o.client_id = c.id
+       LEFT JOIN invoices inv ON inv.order_id = o.id
        ${whereClause}
        ORDER BY o.created_at DESC`,
       params
@@ -73,7 +77,13 @@ router.get('/', authenticate, async (req, res) => {
       approvedAt: o.approved_at,
       createdAt: o.created_at,
       updatedAt: o.updated_at,
-      itemCount: parseInt(o.item_count) || 0
+      itemCount: parseInt(o.item_count) || 0,
+      invoice: o.invoice_id ? {
+        id: o.invoice_id,
+        invoiceNumber: o.invoice_number,
+        status: o.invoice_status,
+        amount: parseFloat(o.invoice_amount) || 0
+      } : null
     }));
     
     res.json({ orders, total: orders.length });
@@ -82,7 +92,7 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-router.get('/stats', authenticate, async (req, res) => {
+router.get('/stats', authenticate, adminOnly, async (req, res) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
     
@@ -108,7 +118,7 @@ router.get('/stats', authenticate, async (req, res) => {
   }
 });
 
-router.get('/pending/delivery', authenticate, async (req, res) => {
+router.get('/pending/delivery', authenticate, adminOnly, async (req, res) => {
   try {
     const result = await query(
       `SELECT o.*, COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name
@@ -136,7 +146,7 @@ router.get('/pending/delivery', authenticate, async (req, res) => {
   }
 });
 
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', authenticate, adminOnly, async (req, res) => {
   try {
     const orderResult = await query(
       `SELECT o.*, COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name
@@ -198,7 +208,7 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, adminOnly, async (req, res) => {
   try {
     const { clientId, items, paymentType, deliveryAddress, deliveryDate, notes, forceOverride } = req.body;
     
@@ -290,7 +300,7 @@ router.post('/', authenticate, async (req, res) => {
         payment_status, delivery_date, notes, created_by, created_at, updated_at
       ) VALUES ($1, $2, $3, $4, 0, 0, $4, $5, $6, $7, $8, NOW(), NOW())
       RETURNING *`,
-      [orderNumber, clientId, 'pending_approval', subtotal, paymentType === 'credit' ? 'pending' : 'paid', deliveryDate || null, notes, req.user.id]
+      [orderNumber, clientId, 'pending_approval', subtotal, 'pending', deliveryDate || null, notes, req.user.id]
     );
     
     const order = orderResult.rows[0];
@@ -319,9 +329,10 @@ router.post('/', authenticate, async (req, res) => {
           const r = recipeRes.rows[0];
           const recipeTotalKg = parseFloat(r.total_quantity_kg) || 1000;
           const estimatedCost = totalKg > 0 ? (totalKg / recipeTotalKg) * parseFloat(r.total_cost) : 0;
-          await query(
+          const prodResult = await query(
             `INSERT INTO production_orders (order_number, feed_type_id, recipe_id, quantity_kg, package_size, number_of_bags, batch_number, status, production_date, notes, created_by, actual_cost)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', CURRENT_DATE, $8, $9, $10)`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', CURRENT_DATE, $8, $9, $10)
+             RETURNING id`,
             [
               `PROD-${order.order_number}-${item.feedTypeId}`,
               item.feedTypeId,
@@ -335,12 +346,58 @@ router.post('/', authenticate, async (req, res) => {
               estimatedCost
             ]
           );
+          const productionOrderId = prodResult.rows[0].id;
+
+          const recipeItems = await query(
+            `SELECT fri.raw_material_id, fri.quantity_kg, rm.unit_price
+             FROM feed_recipe_items fri
+             JOIN raw_materials rm ON rm.id = fri.raw_material_id
+             WHERE fri.recipe_id = $1`,
+            [r.id]
+          );
+          for (const ri of recipeItems.rows) {
+            const scaledQty = (ri.quantity_kg / recipeTotalKg) * totalKg;
+            const totalCostItem = scaledQty * parseFloat(ri.unit_price);
+            await query(
+              `INSERT INTO production_order_items
+               (production_order_id, raw_material_id, planned_quantity,
+                actual_quantity, unit_cost, total_cost)
+               VALUES ($1, $2, $3, $3, $4, $5)`,
+              [productionOrderId, ri.raw_material_id,
+               scaledQty.toFixed(4), ri.unit_price, totalCostItem.toFixed(2)]
+            );
+          }
+          await query(
+            `UPDATE production_orders
+             SET actual_cost = (
+               SELECT COALESCE(SUM(total_cost), 0)
+               FROM production_order_items
+               WHERE production_order_id = $1
+             )
+             WHERE id = $1`,
+            [productionOrderId]
+          );
         }
       }
     } catch (prodErr) {
       console.error('[PRODUCTION] Auto-create failed:', prodErr.message);
     }
     
+    // ── Create approval request so the order appears in the Approvals screen ──
+    // sales_orders go to sales_manager (Stage 1) then owner (Stage 2).
+    try {
+      await query(
+        `INSERT INTO approval_requests
+           (module_name, request_type, request_id, requester_id, notes, status, stage)
+         VALUES ('sales_orders', 'sales_order', $1, $2, $3, 'pending', 'manager_review')
+         ON CONFLICT DO NOTHING`,
+        [order.id, req.user.id,
+         `طلب مبيعات ${order.order_number} — ${order.final_amount} EGP`]
+      );
+    } catch (approvalErr) {
+      console.error('[APPROVAL] Failed to create approval request for order:', approvalErr.message);
+    }
+
     res.status(201).json({
       id: order.id,
       orderNumber: order.order_number,
@@ -357,24 +414,37 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
-router.put('/:id/status', authenticate, async (req, res) => {
+router.put('/:id/status', authenticate, adminOnly, async (req, res) => {
   try {
     const { status, notes } = req.body;
     
-    const validStatuses = ['pending_approval','approved','confirmed','processing','in_transit','delivered','rejected','cancelled'];
+    const validStatuses = ['pending_approval','approved','confirmed','processing','ready_for_delivery','in_transit','rejected','cancelled'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' });
+      return res.status(400).json({ error: 'Invalid status. Note: "delivered" can no longer be set here — it is only set by the delivery confirmation flow (POST /api/delivery/:id/confirm), which captures proof of delivery.' });
+    }
+
+    // Per access doc: approval/rejection AND confirmation require sales_manager+.
+    // 'processing' and 'ready_for_delivery' are fulfillment-tracking steps open
+    // to any authenticated sales staff (no approval decision needed).
+    const approvalTierStatuses = ['approved', 'rejected', 'confirmed'];
+    if (approvalTierStatuses.includes(status)) {
+      const role = req.user.role;
+      if (!['sales_manager', 'admin', 'owner'].includes(role)) {
+        return res.status(403).json({ error: 'ليس لديك صلاحية لهذا الإجراء — يحتاج موافقة مدير المبيعات' });
+      }
     }
     
     const updates = [status];
     let sql = `UPDATE sales_orders SET status = $1`;
     let paramIdx = 2;
     
-    if (status === 'confirmed') {
-      sql += `, approved_at = NOW()`;
+    if (status === 'approved' || status === 'confirmed') {
+      sql += `, approved_at = NOW(), approved_by = $${paramIdx++}`;
+      updates.push(req.user.id);
     }
-    if (status === 'delivered') {
-      sql += `, delivery_date = COALESCE(delivery_date, CURRENT_DATE)`;
+    if (status === 'ready_for_delivery') {
+      sql += `, ready_at = NOW(), ready_by = $${paramIdx++}`;
+      updates.push(req.user.id);
     }
     if (status === 'cancelled') {
       sql += `, notes = COALESCE(notes, '') || ' | Cancellation: ' || $${paramIdx++}`;
@@ -395,6 +465,103 @@ router.put('/:id/status', authenticate, async (req, res) => {
     }
     
     const o = result.rows[0];
+
+    // Sync approval_requests when order is approved or rejected
+    if (status === 'approved' || status === 'confirmed' || status === 'rejected') {
+      try {
+        const arStatus = status === 'rejected' ? 'rejected' : 'approved';
+        await query(
+          `UPDATE approval_requests SET status = $1, approver_id = $2, updated_at = NOW()
+           WHERE module_name = 'sales_orders' AND request_id = $3 AND status = 'pending'`,
+          [arStatus, req.user.id, req.params.id]
+        );
+      } catch (e) { console.error('[APPROVAL] Failed to sync approval_requests for SO:', e.message); }
+    }
+
+    // Auto-create production orders when status changes to 'processing'
+    if (status === 'processing') {
+      try {
+        const items = await query(
+          'SELECT * FROM sales_order_items WHERE order_id = $1',
+          [req.params.id]
+        );
+        for (const item of items.rows) {
+          const quantityKg = parseFloat(item.quantity) * parseFloat(item.package_size);
+          const numberOfBags = parseInt(item.quantity);
+          const orderNumber = `PRD-${Date.now()}-${item.id}`;
+
+          const recipeResult = await query(
+            `SELECT id, total_quantity_kg FROM feed_recipes
+             WHERE feed_type_id = $1 AND is_active = true
+             ORDER BY version DESC LIMIT 1`,
+            [item.feed_type_id]
+          );
+          const recipe = recipeResult.rows[0];
+          if (!recipe) {
+            console.warn(`[PRODUCTION] No active recipe for feed_type_id=${item.feed_type_id}, creating order without items`);
+          }
+
+          const prodResult = await query(
+            `INSERT INTO production_orders
+             (order_number, feed_type_id, recipe_id, quantity_kg, status, production_date,
+              sales_order_id, package_size, number_of_bags, created_by, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, 'draft', CURRENT_DATE, $5, $6, $7, $8, NOW(), NOW())
+             RETURNING id`,
+            [orderNumber, item.feed_type_id, recipe ? recipe.id : null, quantityKg,
+             req.params.id, item.package_size, numberOfBags, req.user?.id || 1]
+          );
+          const productionOrderId = prodResult.rows[0].id;
+
+          if (recipe && productionOrderId) {
+            const recipeItems = await query(
+              `SELECT fri.raw_material_id, fri.quantity_kg, rm.unit_price
+               FROM feed_recipe_items fri
+               JOIN raw_materials rm ON rm.id = fri.raw_material_id
+               WHERE fri.recipe_id = $1`,
+              [recipe.id]
+            );
+            for (const ri of recipeItems.rows) {
+              const scaledQty = (ri.quantity_kg / recipe.total_quantity_kg) * quantityKg;
+              const totalCost = scaledQty * parseFloat(ri.unit_price);
+              await query(
+                `INSERT INTO production_order_items
+                 (production_order_id, raw_material_id, planned_quantity,
+                  actual_quantity, unit_cost, total_cost)
+                 VALUES ($1, $2, $3, $3, $4, $5)`,
+                [productionOrderId, ri.raw_material_id,
+                 scaledQty.toFixed(4), ri.unit_price, totalCost.toFixed(2)]
+              );
+            }
+            await query(
+              `UPDATE production_orders
+               SET actual_cost = (
+                 SELECT COALESCE(SUM(total_cost), 0)
+                 FROM production_order_items
+                 WHERE production_order_id = $1
+               )
+               WHERE id = $1`,
+              [productionOrderId]
+            );
+          }
+        }
+      } catch (prodErr) {
+        console.error('Failed to create production orders:', prodErr.message);
+      }
+
+      // Create journal entry for sales revenue (idempotent)
+      try {
+        const existingJE = await query(
+          `SELECT id FROM journal_entries WHERE reference_type = 'sales_order' AND reference_id = $1`,
+          [o.id]
+        );
+        if (existingJE.rows.length === 0) {
+          await journalSalesOrderApproved(o);
+        }
+      } catch (jeErr) {
+        console.error('Failed to create sales journal entry:', jeErr.message);
+      }
+    }
+
     res.json({
       id: o.id,
       orderNumber: o.order_number,
@@ -413,7 +580,57 @@ router.put('/:id/status', authenticate, async (req, res) => {
   }
 });
 
-router.post('/:id/invoice', authenticate, async (req, res) => {
+// POST /api/orders/:id/send-to-delivery
+// The actual hand-off to Logistics — creates the delivery_assignments row
+// that makes the order visible in the Logistics Coordinator's queue for
+// driver/vehicle assignment. Distinct from PUT /:id/status with
+// 'ready_for_delivery', which only marks the order as processed/fulfilled
+// without yet notifying delivery.
+//
+// Role scope confirmed 2026-06-21: owner/admin only for now. sales_manager
+// was removed pending a decision on broader role assignment (logistics
+// coordinator, etc.) — re-add here if/when that's decided.
+router.post('/:id/send-to-delivery', authenticate, adminOnly, async (req, res) => {
+  try {
+    const orderRes = await query('SELECT id, order_number, status FROM sales_orders WHERE id = $1', [req.params.id]);
+    if (orderRes.rowCount === 0) return res.status(404).json({ error: 'Order not found' });
+    const order = orderRes.rows[0];
+
+    if (order.status !== 'ready_for_delivery') {
+      return res.status(400).json({ error: `Order must be marked ready for delivery first (current status: ${order.status})` });
+    }
+
+    const existingDel = await query(
+      `SELECT id FROM delivery_assignments WHERE order_id = $1 AND status IN ('pending','assigned','accepted','picked_up','in_transit','arrived')`,
+      [order.id]
+    );
+    if (existingDel.rows.length > 0) {
+      return res.status(400).json({ error: 'This order already has an active delivery assignment', deliveryId: existingDel.rows[0].id });
+    }
+
+    const { scheduled_date, notes } = req.body || {};
+
+    const delResult = await query(
+      `INSERT INTO delivery_assignments (order_id, scheduled_date, status, notes, created_by)
+       VALUES ($1, $2, 'pending', $3, $4) RETURNING *`,
+      [order.id, scheduled_date || null, notes || `Sent to delivery from order ${order.order_number}`, req.user.id]
+    );
+
+    await query(
+      `UPDATE sales_orders SET status = 'in_transit', sent_to_delivery_at = NOW(), sent_to_delivery_by = $1, updated_at = NOW() WHERE id = $2`,
+      [req.user.id, order.id]
+    );
+
+    res.status(201).json({
+      message: 'Order sent to delivery successfully',
+      delivery: delResult.rows[0]
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/:id/invoice', authenticate, adminOnly, async (req, res) => {
   try {
     const orderResult = await query(
       `SELECT * FROM sales_orders WHERE id = $1`,
@@ -432,7 +649,21 @@ router.post('/:id/invoice', authenticate, async (req, res) => {
     );
     
     if (existingInvoice.rows.length > 0) {
-      return res.status(400).json({ error: 'Invoice exists' });
+      const ei = existingInvoice.rows[0];
+      return res.status(200).json({
+        id: ei.id,
+        invoiceNumber: ei.invoice_number,
+        orderId: ei.order_id,
+        clientId: ei.client_id,
+        amount: parseFloat(ei.amount),
+        paidAmount: parseFloat(ei.paid_amount),
+        balanceDue: parseFloat(ei.balance_due),
+        status: ei.status,
+        issueDate: ei.issue_date,
+        dueDate: ei.due_date,
+        createdAt: ei.created_at,
+        alreadyExisted: true
+      });
     }
     
     const invoiceNumber = await generateInvoiceNumber();

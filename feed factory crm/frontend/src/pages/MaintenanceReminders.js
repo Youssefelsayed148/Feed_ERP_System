@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency, formatDate, formatNumber } from '../utils/formatters';
 import { t } from '../utils/i18n';
 import { 
   Wrench, Plus, AlertTriangle, Check, X, Clock, 
@@ -49,14 +49,14 @@ export default function MaintenanceReminders() {
     setLoading(true);
     try {
       const response = await fetch(`${API_URL}/maintenance-reminders/reminders`, {
-        headers: headers() 
+        headers: headers()
       });
       const data = await response.json();
-      if (data.success && data.reminders) {
-        setReminders(data.reminders);
-      }
+      const list = data.reminders || data || [];
+      setReminders(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error('Error fetching reminders:', error);
+      setReminders([]);
     } finally {
       setLoading(false);
     }
@@ -193,28 +193,27 @@ export default function MaintenanceReminders() {
   const handleSubmitReschedule = async () => {
     try {
       const newDateTime = new Date(`${rescheduleForm.newDate}T${rescheduleForm.newTime}`);
-      
-      // NOTE: Backend has no reschedule endpoint. Using correct mount point.
-      const response = await fetch(`${API_URL}/maintenance-reminders/reminders`, {
+
+      const response = await fetch(`${API_URL}/maintenance-reminders/${selectedReminder._id}/reschedule`, {
         method: 'PUT',
         headers: headers(),
         body: JSON.stringify({
-          scheduledDate: newDateTime.toISOString(),
+          due_date: newDateTime.toISOString(),
           reason: rescheduleForm.reason
         })
       });
-      
+
       const data = await response.json();
       if (data.success) {
         setShowRescheduleModal(false);
         fetchReminders();
-        alert('Maintenance rescheduled successfully');
+        alert('تمت إعادة الجدولة بنجاح');
       } else {
-        alert(data.message || 'Failed to reschedule');
+        alert(data.error || data.message || 'فشل إعادة الجدولة');
       }
     } catch (error) {
       console.error('Error rescheduling maintenance:', error);
-      alert('Failed to reschedule maintenance');
+      alert('فشل إعادة جدولة الصيانة');
     }
   };
 
@@ -225,23 +224,22 @@ export default function MaintenanceReminders() {
 
   const handleSubmitStart = async () => {
     try {
-      // NOTE: Backend has no start endpoint for reminders.
-      const response = await fetch(`${API_URL}/maintenance-reminders/reminders`, {
+      const response = await fetch(`${API_URL}/maintenance-reminders/${selectedReminder._id}/start`, {
         method: 'PUT',
         headers: headers()
       });
-      
+
       const data = await response.json();
       if (data.success) {
         setShowStartModal(false);
         fetchReminders();
-        alert('Maintenance work started');
+        alert('بدأت أعمال الصيانة');
       } else {
-        alert(data.message || 'Failed to start maintenance');
+        alert(data.error || data.message || 'فشل بدء الصيانة');
       }
     } catch (error) {
       console.error('Error starting maintenance:', error);
-      alert('Failed to start maintenance');
+        alert('فشل بدء الصيانة');
     }
   };
 
@@ -259,55 +257,54 @@ export default function MaintenanceReminders() {
 
   const handleSubmitComplete = async () => {
     try {
-      // NOTE: Backend has no complete endpoint for reminders.
-      const response = await fetch(`${API_URL}/maintenance-reminders/reminders`, {
+      const response = await fetch(`${API_URL}/maintenance-reminders/${selectedReminder._id}/complete`, {
         method: 'PUT',
         headers: headers(),
         body: JSON.stringify({
-          actualCost: parseFloat(completeForm.actualCost) || 0,
-          actualHours: parseFloat(completeForm.actualHours) || 0,
-          partsUsed: completeForm.partsUsed.split(',').map(p => p.trim()).filter(p => p),
-          notes: completeForm.notes,
-          machineStatus: completeForm.machineStatus
+          cost: parseFloat(completeForm.actualCost) || 0,
+          notes: [
+            completeForm.notes || '',
+            completeForm.actualHours ? `ساعات العمل: ${completeForm.actualHours}` : '',
+            completeForm.partsUsed ? `قطع الغيار: ${completeForm.partsUsed}` : ''
+          ].filter(Boolean).join(' | ') || null
         })
       });
-      
+
       const data = await response.json();
       if (data.success) {
         setShowCompleteModal(false);
         fetchReminders();
-        alert('Maintenance marked as complete');
+        alert('تم إكمال الصيانة بنجاح');
       } else {
-        alert(data.message || 'Failed to complete maintenance');
+        alert(data.error || data.message || 'فشل إكمال الصيانة');
       }
     } catch (error) {
       console.error('Error completing maintenance:', error);
-      alert('Failed to complete maintenance');
+      alert('فشل إكمال الصيانة');
     }
   };
 
   const handleCancel = async (reminder) => {
-    if (!window.confirm('Are you sure you want to cancel this maintenance?')) {
+    if (!window.confirm('هل أنت متأكد من إلغاء هذه الصيانة؟')) {
       return;
     }
 
     try {
-      // NOTE: Backend has no cancel endpoint for reminders.
-      const response = await fetch(`${API_URL}/maintenance-reminders/reminders`, {
+      const response = await fetch(`${API_URL}/maintenance-reminders/${reminder._id}/cancel`, {
         method: 'PUT',
         headers: headers()
       });
-      
+
       const data = await response.json();
       if (data.success) {
         fetchReminders();
-        alert('Maintenance cancelled');
+        alert('تم إلغاء الصيانة');
       } else {
-        alert(data.message || 'Failed to cancel maintenance');
+        alert(data.error || data.message || 'فشل إلغاء الصيانة');
       }
     } catch (error) {
       console.error('Error cancelling maintenance:', error);
-      alert('Failed to cancel maintenance');
+      alert('فشل إلغاء الصيانة');
     }
   };
 
@@ -373,7 +370,7 @@ export default function MaintenanceReminders() {
           <Search className="w-4 h-4" style={{ color: '#94a3b8' }} />
           <input
             type="text"
-            placeholder="Search by title, asset, or technician..."
+            placeholder="البحث بالعنوان أو الأصل أو الفني..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ border: 'none', outline: 'none', background: 'transparent', width: '100%' }}
@@ -386,7 +383,7 @@ export default function MaintenanceReminders() {
             onClick={() => setFilterGroup('all')}
           >
             <Filter className="w-4 h-4" />
-            All
+            الكل
           </button>
           <button 
             className={`btn ${filterGroup === 'overdue' ? 'btn-danger' : ''}`}
@@ -394,7 +391,7 @@ export default function MaintenanceReminders() {
             style={{ color: filterGroup === 'overdue' ? 'white' : '#ef4444' }}
           >
             <AlertTriangle className="w-4 h-4" />
-            Overdue ({grouped.overdue.length})
+            متأخرة ({grouped.overdue.length})
           </button>
           <button 
             className={`btn ${filterGroup === 'today' ? 'btn-warning' : ''}`}
@@ -402,14 +399,14 @@ export default function MaintenanceReminders() {
             style={{ color: filterGroup === 'today' ? 'white' : '#f59e0b' }}
           >
             <Clock className="w-4 h-4" />
-            Today ({grouped.dueToday.length})
+            اليوم ({grouped.dueToday.length})
           </button>
           <button 
             className={`btn ${filterGroup === 'week' ? 'btn-primary' : ''}`}
             onClick={() => setFilterGroup('week')}
           >
             <Calendar className="w-4 h-4" />
-            This Week ({grouped.dueThisWeek.length})
+            هذا الأسبوع ({grouped.dueThisWeek.length})
           </button>
           <button 
             className={`btn ${filterGroup === 'in_progress' ? 'btn-primary' : ''}`}
@@ -417,20 +414,20 @@ export default function MaintenanceReminders() {
             style={{ color: filterGroup === 'in_progress' ? 'white' : '#8b5cf6' }}
           >
             <Play className="w-4 h-4" />
-            In Progress ({grouped.inProgress.length})
+            قيد التنفيذ ({grouped.inProgress.length})
           </button>
           <button 
             className={`btn ${filterGroup === 'upcoming' ? 'btn-success' : ''}`}
             onClick={() => setFilterGroup('upcoming')}
           >
-            Upcoming ({grouped.upcoming.length})
+            قادمة ({grouped.upcoming.length})
           </button>
           <button 
             className={`btn ${filterGroup === 'completed' ? 'btn-secondary' : ''}`}
             onClick={() => setFilterGroup('completed')}
           >
             <Check className="w-4 h-4" />
-            Completed ({grouped.completed.length})
+            مكتملة ({grouped.completed.length})
           </button>
         </div>
 
@@ -439,7 +436,7 @@ export default function MaintenanceReminders() {
           onClick={fetchReminders}
         >
           <RefreshCw className="w-4 h-4" />
-          Refresh
+          تحديث
         </button>
       </div>
 
@@ -497,7 +494,7 @@ export default function MaintenanceReminders() {
                     </span>
                   </td>
                   <td>
-                    <div>{new Date(reminder.scheduledDate).toLocaleDateString()}</div>
+                    <div>{formatDate(reminder.scheduledDate)}</div>
                     <small style={{ color: '#94a3b8' }}>
                       {new Date(reminder.scheduledDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </small>
@@ -515,7 +512,7 @@ export default function MaintenanceReminders() {
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <User className="w-4 h-4" style={{ color: '#64748b' }} />
-                      {reminder.assignedTechnician || 'Unassigned'}
+                      {reminder.assignedTechnician || 'غير معين'}
                     </div>
                   </td>
                   <td>
@@ -650,7 +647,7 @@ export default function MaintenanceReminders() {
                   <label>التاريخ المجدول</label>
                   <input 
                     type="text" 
-                    value={new Date(selectedReminder.scheduledDate).toLocaleString()} 
+                    value={formatNumber(new Date(selectedReminder.scheduledDate))} 
                     disabled 
                     className="form-input" 
                   />
@@ -668,11 +665,11 @@ export default function MaintenanceReminders() {
               <div className="form-row">
                 <div className="form-group">
                   <label>{t('maintenance.assignedTech')}</label>
-                  <input type="text" value={selectedReminder.assignedTechnician || 'Unassigned'} disabled className="form-input" />
+                  <input type="text" value={selectedReminder.assignedTechnician || 'غير معين'} disabled className="form-input" />
                 </div>
                 <div className="form-group">
                   <label>{t('maintenance.estimatedHours')}</label>
-                  <input type="text" value={`${selectedReminder.estimatedHours || '-'} hours`} disabled className="form-input" />
+                    <input type="text" value={`${selectedReminder.estimatedHours || '-'} ساعة`} disabled className="form-input" />
                 </div>
               </div>
               
@@ -718,7 +715,7 @@ export default function MaintenanceReminders() {
                     </div>
                     <div className="form-group">
                       <label>{t('maintenance.actualHours')}</label>
-                      <input type="text" value={`${selectedReminder.actualHours || '-'} hours`} disabled className="form-input" />
+                      <input type="text" value={`${selectedReminder.actualHours || '-'} ساعة`} disabled className="form-input" />
                     </div>
                   </div>
                   <div className="form-group">
@@ -738,14 +735,14 @@ export default function MaintenanceReminders() {
                 <>
                   {selectedReminder.status !== 'in_progress' && (
                     <button className="btn btn-primary" onClick={() => { setShowViewModal(false); handleStartWork(selectedReminder); }}>
-                      <Play className="w-4 h-4" /> Start Work
+                      <Play className="w-4 h-4" /> بدء العمل
                     </button>
                   )}
                   <button className="btn btn-warning" onClick={() => { setShowViewModal(false); handleReschedule(selectedReminder); }}>
-                    <Clock className="w-4 h-4" /> Reschedule
+                    <Clock className="w-4 h-4" /> إعادة الجدولة
                   </button>
                   <button className="btn btn-success" onClick={() => { setShowViewModal(false); handleMarkComplete(selectedReminder); }}>
-                    <Check className="w-4 h-4" /> Mark Complete
+                    <Check className="w-4 h-4" /> تحديد كمكتمل
                   </button>
                 </>
               )}
@@ -766,7 +763,7 @@ export default function MaintenanceReminders() {
             </div>
             <div className="modal-body">
               <div className="alert alert-info" style={{ marginBottom: '16px' }}>
-                <strong>Task:</strong> {selectedReminder.title} ({selectedReminder.recordNumber})
+                <strong>المهمة:</strong> {selectedReminder.title} ({selectedReminder.recordNumber})
               </div>
               
               <div className="form-group">
@@ -784,14 +781,14 @@ export default function MaintenanceReminders() {
                   <label>التاريخ المجدول</label>
                   <input 
                     type="text" 
-                    value={new Date(selectedReminder.scheduledDate).toLocaleString()} 
+                    value={formatNumber(new Date(selectedReminder.scheduledDate))} 
                     disabled 
                     className="form-input" 
                   />
                 </div>
                 <div className="form-group">
                   <label>{t('maintenance.assignedTech')}</label>
-                  <input type="text" value={selectedReminder.assignedTechnician || 'Unassigned'} disabled className="form-input" />
+                  <input type="text" value={selectedReminder.assignedTechnician || 'غير معين'} disabled className="form-input" />
                 </div>
               </div>
               
@@ -802,7 +799,7 @@ export default function MaintenanceReminders() {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowStartModal(false)}>{t('common.cancel')}</button>
               <button className="btn btn-primary" onClick={handleSubmitStart}>
-                <Play className="w-4 h-4" /> Start Work
+                <Play className="w-4 h-4" /> بدء العمل
               </button>
             </div>
           </div>
@@ -821,12 +818,12 @@ export default function MaintenanceReminders() {
             </div>
             <div className="modal-body">
               <div className="alert alert-info" style={{ marginBottom: '16px' }}>
-                <strong>{t('assets.currentSchedule')}:</strong> {new Date(selectedReminder.scheduledDate).toLocaleString()}
+                <strong>{t('assets.currentSchedule')}:</strong> {formatNumber(new Date(selectedReminder.scheduledDate))}
               </div>
               
               <div className="form-row">
                 <div className="form-group">
-                  <label>New Date *</label>
+                  <label>التاريخ الجديد *</label>
                   <input 
                     type="date" 
                     className="form-input"
@@ -835,7 +832,7 @@ export default function MaintenanceReminders() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>New Time *</label>
+                  <label>الوقت الجديد *</label>
                   <input 
                     type="time" 
                     className="form-input"
@@ -850,7 +847,7 @@ export default function MaintenanceReminders() {
                 <textarea 
                   className="form-textarea" 
                   rows="3"
-                  placeholder="Enter reason for rescheduling..."
+                  placeholder="أدخل سبب إعادة الجدولة..."
                   value={rescheduleForm.reason}
                   onChange={(e) => setRescheduleForm({...rescheduleForm, reason: e.target.value})}
                 />
@@ -863,7 +860,7 @@ export default function MaintenanceReminders() {
                 onClick={handleSubmitReschedule}
                 disabled={!rescheduleForm.newDate || !rescheduleForm.newTime}
               >
-                Save Changes
+                حفظ التغييرات
               </button>
             </div>
           </div>
@@ -882,7 +879,7 @@ export default function MaintenanceReminders() {
             </div>
             <div className="modal-body">
               <div className="alert alert-warning" style={{ marginBottom: '16px' }}>
-                <strong>Task:</strong> {selectedReminder.title} ({selectedReminder.recordNumber})
+                <strong>المهمة:</strong> {selectedReminder.title} ({selectedReminder.recordNumber})
               </div>
               
               <div className="form-row">
@@ -913,7 +910,7 @@ export default function MaintenanceReminders() {
                 <input 
                   type="text" 
                   className="form-input"
-                  placeholder="e.g., Bearings, Seals, Oil Filter"
+                  placeholder="مثال: محامل، حشيات، فلتر زيت"
                   value={completeForm.partsUsed}
                   onChange={(e) => setCompleteForm({...completeForm, partsUsed: e.target.value})}
                 />
@@ -924,7 +921,7 @@ export default function MaintenanceReminders() {
                 <textarea 
                   className="form-textarea" 
                   rows="3"
-                  placeholder="Describe the work completed, any issues found, etc."
+                  placeholder="صف العمل المنجز، أي مشاكل تم العثور عليها، إلخ..."
                   value={completeForm.notes}
                   onChange={(e) => setCompleteForm({...completeForm, notes: e.target.value})}
                 />
@@ -950,7 +947,7 @@ export default function MaintenanceReminders() {
                 onClick={handleSubmitComplete}
                 disabled={!completeForm.actualCost || !completeForm.actualHours}
               >
-                <Check className="w-4 h-4" /> Mark Complete
+                <Check className="w-4 h-4" /> تحديد كمكتمل
               </button>
             </div>
           </div>

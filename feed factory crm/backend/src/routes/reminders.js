@@ -18,7 +18,7 @@ router.get('/invoices', authenticate, async (req, res) => {
           WHEN i.due_date < CURRENT_DATE AND i.balance_due > 0 THEN 'overdue'
           ELSE 'other'
         END as reminder_type,
-        EXTRACT(DAY FROM (i.due_date - CURRENT_DATE)) as days_until_due
+        (i.due_date - CURRENT_DATE) as days_until_due
       FROM invoices i
       JOIN clients c ON i.client_id = c.id
       LEFT JOIN users u ON c.assigned_to = u.id

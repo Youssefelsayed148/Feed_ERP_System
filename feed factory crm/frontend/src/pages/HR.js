@@ -10,7 +10,7 @@ import {
   Plus, Info, AlertTriangle, CheckSquare
 } from 'lucide-react';
 import { hrService, authService, employeeRatingService, payrollService } from '../services/api';
-import { formatCurrency } from './Settings';
+import { formatCurrency, formatDate, getStatusLabel } from '../utils/formatters';
 import { captureLocation, getEmployeeLocations } from '../utils/location';
 const HR = () => {
   const [activeTab, setActiveTab] = useState('employees');
@@ -75,6 +75,7 @@ const HR = () => {
   const [showDocModal, setShowDocModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [departmentFilter, setDepartmentFilter] = useState('');
+  const [allEmployees, setAllEmployees] = useState([]);
   
   const [newEmployee, setNewEmployee] = useState({
     firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '',
@@ -92,6 +93,12 @@ const HR = () => {
   const [newDoc, setNewDoc] = useState({
     name: '', type: 'other', fileName: '', fileUrl: '', expiryDate: '', notes: ''
   });
+
+  // Employee edit state
+  const [isEditingEmployee, setIsEditingEmployee] = useState(false);
+  const [editEmployeeData, setEditEmployeeData] = useState({});
+  const [editEmployeeLoading, setEditEmployeeLoading] = useState(false);
+  const [editEmployeeError, setEditEmployeeError] = useState('');
 
   // Payroll Management State
   const [payrollPeriods, setPayrollPeriods] = useState([]);
@@ -139,18 +146,31 @@ const HR = () => {
   const canViewPerformance = ['owner', 'admin', 'sales_director', 'branch_manager'].includes(user?.role);
   const canProcessPayroll = ['owner', 'admin'].includes(user?.role);
   const canCheckIn = true;
+  const [attendanceMessage, setAttendanceMessage] = useState(null);
 
   // Initial data load
   useEffect(() => {
     loadAllData();
   }, []);
 
-  // Reload data when tab changes
+  // Reload data when tab changes (attendance handled separately below)
   useEffect(() => {
-    if (!dataLoaded[activeTab]) {
+    if (activeTab !== 'attendance' && !dataLoaded[activeTab]) {
       fetchDataForTab(activeTab);
     }
-  }, [activeTab, selectedMonth, departmentFilter]);
+  }, [activeTab]);
+
+  // Fetch attendance whenever the selected month changes
+  useEffect(() => {
+    fetchAttendance();
+  }, [selectedMonth]);
+
+  // Reactive department filter — runs immediately when departmentFilter changes
+  useEffect(() => {
+    if (allEmployees.length > 0) {
+      setEmployees(departmentFilter ? allEmployees.filter(e => e.department === departmentFilter) : allEmployees);
+    }
+  }, [departmentFilter, allEmployees]);
 
   // Fetch employee documents when employee is selected
   useEffect(() => {
@@ -158,6 +178,23 @@ const HR = () => {
       fetchEmployeeDocuments(selectedEmployee.id);
     }
   }, [selectedEmployee?.id]);
+
+  // Initialize edit form when selected employee changes
+  useEffect(() => {
+    if (selectedEmployee) {
+      setEditEmployeeData({
+        salary: selectedEmployee.salary || 0,
+        phone: selectedEmployee.phone || '',
+        title: selectedEmployee.title || selectedEmployee.designation || '',
+        position: selectedEmployee.position || selectedEmployee.designation || '',
+        department: selectedEmployee.department || '',
+        status: selectedEmployee.status || 'active',
+        notes: selectedEmployee.notes || ''
+      });
+      setIsEditingEmployee(false);
+      setEditEmployeeError('');
+    }
+  }, [selectedEmployee]);
 
   const fetchEmployeeDocuments = async (employeeId) => {
     try {
@@ -231,7 +268,8 @@ const HR = () => {
       const empResult = await hrService.getAllEmployees();
       const empData = empResult?.employees || [];
       const emps = Array.isArray(empData) ? empData.map(normalizeEmployee) : [];
-      setEmployees(departmentFilter ? emps.filter(e => e.department === departmentFilter) : emps);
+      setAllEmployees(emps);
+      setEmployees(emps);
       setDataLoaded(prev => ({ ...prev, employees: true }));
 
       // Load other data in parallel
@@ -296,7 +334,8 @@ const HR = () => {
       const result = await hrService.getAllEmployees();
       const empData = result?.employees || [];
       const emps = Array.isArray(empData) ? empData.map(normalizeEmployee) : [];
-      setEmployees(departmentFilter ? emps.filter(e => e.department === departmentFilter) : emps);
+      setAllEmployees(emps);
+      setEmployees(emps);
       setDataLoaded(prev => ({ ...prev, employees: true }));
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -307,9 +346,20 @@ const HR = () => {
 
   const fetchAttendance = async () => {
     try {
-      const result = await hrService.getAttendance({ month: selectedMonth });
-      const attData = result?.attendance || [];
-      setAttendance(Array.isArray(attData) ? attData : []);
+      const [yr, mo] = selectedMonth.split('-');
+      const startDate = `${yr}-${mo}-01`;
+      const lastDay = new Date(parseInt(yr), parseInt(mo), 0).getDate();
+      const endDate = `${yr}-${mo}-${String(lastDay).padStart(2, '0')}`;
+      const result = await hrService.getAttendance({ startDate, endDate, limit: 500, _t: Date.now() });
+      console.log('[HR-FETCH] parsed data keys:', Object.keys(result || {}));
+      console.log('[HR-FETCH] attendance array:', result.attendance);
+      console.log('[HR-FETCH] attendance length:', result.attendance?.length);
+      console.log('[ATT DEBUG] raw API response:', JSON.stringify(result));
+      console.log('[ATT DEBUG] result.attendance:', result.attendance);
+      console.log('[ATT DEBUG] attendance array length:', result.attendance?.length);
+      const attData = Array.isArray(result?.attendance) ? result.attendance : [];
+      setAttendance(attData);
+      console.log('[ATT DEBUG] attendance state set to:', attData);
       setDataLoaded(prev => ({ ...prev, attendance: true }));
     } catch (error) {
       console.error('Error fetching attendance:', error);
@@ -357,14 +407,86 @@ const HR = () => {
     }
   };
 
-  const departments = ['Management', 'Production', 'Transport', 'Finance', 'Sales', 'Legal', 'Maintenance', 'Services', 'Warehouse'];
+  const departments = ['الإدارة العامة', 'المالية', 'المبيعات', 'الإنتاج', 'اللوجستيات', 'الصيانة', 'القسم القانوني', 'المشتريات', 'تقنية المعلومات', 'الموارد البشرية'];
   const designations = ['Branch Manager', 'Sales Director', 'Team Lead', 'Senior Agent', 'Agent', 'Marketing Manager', 'Admin Officer', 'Finance Manager', 'Developer', 'HR Manager'];
+
+  const translateDesignation = (designation) => {
+    const map = {
+      'Driver': 'سائق',
+      'Logistics Coordinator': 'منسق لوجستيات',
+      'Manager': 'مدير',
+      'Supervisor': 'مشرف',
+      'Accountant': 'محاسب',
+      'Engineer': 'مهندس',
+      'Technician': 'فني',
+      'Branch Manager': 'مدير فرع',
+      'Sales Director': 'مدير المبيعات',
+      'Team Lead': 'قائد فريق',
+      'Senior Agent': 'مندوب أول',
+      'Agent': 'مندوب',
+      'Marketing Manager': 'مدير التسويق',
+      'Admin Officer': 'مسؤول إداري',
+      'Finance Manager': 'مدير مالي',
+      'Developer': 'مطور',
+      'HR Manager': 'مدير الموارد البشرية',
+    };
+    return map[designation] || designation || '-';
+  };
+
+  const getArabicMonth = (yearMonth) => {
+    const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+    if (!yearMonth) return '';
+    const d = new Date(yearMonth);
+    return months[d.getMonth()] + ' ' + d.getFullYear();
+  };
+
+  const formatTime = (isoString) => {
+    if (!isoString) return '—';
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+
+  const calcHoursWorked = (checkIn, checkOut) => {
+    if (!checkIn) return '—';
+    if (!checkOut) return 'جارٍ';
+    const diffMs = new Date(checkOut) - new Date(checkIn);
+    const totalMinutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours === 0) return `${minutes} دقيقة`;
+    if (minutes === 0) return `${hours} ساعة`;
+    return `${hours} ساعة ${minutes} دقيقة`;
+  };
+
+  const translateDept = (dept) => {
+    const map = {
+      'General Management': 'الإدارة العامة',
+      'Management': 'الإدارة العامة',
+      'Finance': 'المالية',
+      'Finance/HR': 'المالية',
+      'Sales': 'المبيعات',
+      'Production': 'الإنتاج',
+      'Logistics': 'اللوجستيات',
+      'Transport': 'اللوجستيات',
+      'Maintenance': 'الصيانة',
+      'Legal': 'القسم القانوني',
+      'Purchasing': 'المشتريات',
+      'Procurement': 'المشتريات',
+      'Information Technology': 'تقنية المعلومات',
+      'IT': 'تقنية المعلومات',
+      'HR': 'الموارد البشرية',
+      'Human Resources': 'الموارد البشرية',
+      'Services': 'الخدمات',
+      'Warehouse': 'المخازن'
+    };
+    return map[dept] || dept || '-';
+  };
 
   const getDepartmentStats = () => {
     const stats = {};
     const currentEmployees = employees;
     departments.forEach(dept => {
-      const deptEmployees = currentEmployees.filter(e => e.department === dept);
+      const deptEmployees = currentEmployees.filter(e => e.department === dept || translateDept(e.department) === dept);
       stats[dept] = {
         count: deptEmployees.length,
         active: deptEmployees.filter(e => e.status === 'active').length,
@@ -376,28 +498,60 @@ const HR = () => {
 
   const departmentStats = getDepartmentStats();
 
+  const getCurrentUserId = () => user?.id || user?._id;
+
   const handleCheckIn = async () => {
     try {
-      const result = await hrService.checkIn({ checkIn: new Date().toISOString() });
-      alert('Check-in recorded successfully!');
-      fetchAttendance();
+      const checkInResult = await hrService.checkIn({ checkIn: new Date().toISOString() });
+      console.log('[HR-CHECKIN] response body:', checkInResult);
+      if (checkInResult?.error) {
+        setAttendanceMessage({ type: 'error', text: checkInResult.error || 'فشل تسجيل الحضور' });
+        setTimeout(() => setAttendanceMessage(null), 4000);
+        return;
+      }
+      if (checkInResult?.attendance) {
+        const uid = getCurrentUserId();
+        const rec = {
+          ...checkInResult.attendance,
+          user_id: checkInResult.attendance.user_id ?? uid,
+          status: checkInResult.attendance.status || 'present'
+        };
+        setAttendance(prev => {
+          const without = prev.filter(a => !(String(a.user_id) === String(uid) && String(a.id) === String(rec.id)));
+          return [rec, ...without];
+        });
+      }
+      if (checkInResult?.message === 'Already checked in today') {
+        setAttendanceMessage({ type: 'warning', text: 'تم تسجيل حضورك مسبقاً اليوم' });
+      } else {
+        setAttendanceMessage({ type: 'success', text: 'تم تسجيل الحضور بنجاح' });
+      }
+      setTimeout(() => setAttendanceMessage(null), 4000);
+      await fetchAttendance();
     } catch (error) {
       console.error('Error checking in:', error);
-      alert('Error recording check-in. Please try again.');
+      setAttendanceMessage({ type: 'error', text: 'حدث خطأ في تسجيل الحضور، حاول مرة أخرى' });
+      setTimeout(() => setAttendanceMessage(null), 4000);
     }
   };
 
   const handleCheckOut = async () => {
     try {
-      const todayAttendance = attendance.find(a => a.employeeId === user?._id);
+      const uid = getCurrentUserId();
+      const todayAttendance = attendance.find(a => (a.user_id === uid || a.employeeId === uid));
       if (todayAttendance) {
-        await hrService.checkOut({ checkOut: new Date().toISOString(), attendanceId: todayAttendance._id });
-        alert('Check-out recorded successfully!');
-        fetchAttendance();
+        await hrService.checkOut({ checkOut: new Date().toISOString(), attendanceId: todayAttendance._id || todayAttendance.id });
+        setAttendanceMessage({ type: 'success', text: 'تم تسجيل الانصراف بنجاح' });
+        setTimeout(() => setAttendanceMessage(null), 4000);
+        await fetchAttendance();
+      } else {
+        setAttendanceMessage({ type: 'warning', text: 'لم يتم العثور على سجل حضور اليوم' });
+        setTimeout(() => setAttendanceMessage(null), 4000);
       }
     } catch (error) {
       console.error('Error checking out:', error);
-      alert('Error recording check-out. Please try again.');
+      setAttendanceMessage({ type: 'error', text: 'حدث خطأ في تسجيل الانصراف، حاول مرة أخرى' });
+      setTimeout(() => setAttendanceMessage(null), 4000);
     }
   };
 
@@ -418,6 +572,35 @@ const HR = () => {
     } catch (error) {
       console.error('Error adding employee:', error);
       alert('Error adding employee. Please try again.');
+    }
+  };
+
+  const handleSaveEmployeeEdit = async () => {
+    if (!selectedEmployee?.id) return;
+    setEditEmployeeLoading(true);
+    setEditEmployeeError('');
+    try {
+      const payload = {
+        salary: parseFloat(editEmployeeData.salary) || 0,
+        phone: editEmployeeData.phone,
+        designation: editEmployeeData.title || editEmployeeData.position,
+        department: editEmployeeData.department,
+        status: editEmployeeData.status,
+      };
+      const result = await hrService.updateEmployee(selectedEmployee.id, payload);
+      if (result.error) {
+        setEditEmployeeError(result.error || 'فشل تحديث بيانات الموظف');
+      } else {
+        setIsEditingEmployee(false);
+        setSelectedEmployee(prev => ({ ...prev, ...payload }));
+        fetchEmployees();
+        alert('تم تحديث بيانات الموظف');
+      }
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      setEditEmployeeError('فشل تحديث بيانات الموظف. تأكد من الاتصال بالخادم.');
+    } finally {
+      setEditEmployeeLoading(false);
     }
   };
 
@@ -641,18 +824,7 @@ const HR = () => {
   };
 
   const getDepartmentLabel = (dept) => {
-    const labels = {
-      Management: 'الإدارة',
-      Production: 'الإنتاج',
-      Transport: 'النقل',
-      Finance: 'المالية',
-      Sales: 'المبيعات',
-      Legal: 'الشؤون القانونية',
-      Maintenance: 'الصيانة',
-      Services: 'الخدمات',
-      Warehouse: 'المخازن'
-    };
-    return labels[dept] || dept || '-';
+    return translateDept(dept);
   };
 
   const tabs = [
@@ -691,49 +863,55 @@ const HR = () => {
           </div>
         </div>
 
-        {/* Department Stats Cards */}
-        <div className="dept-grid">
-          {departments.map(dept => {
-            const stats = departmentStats[dept] || { count: 0, active: 0, totalSalary: 0 };
-            const deptStyles = {
-              'management': { bg: 'bg-blue', color: 'text-blue', icon: Shield },
-              'finance': { bg: 'bg-green', color: 'text-green', icon: Wallet },
-              'sales': { bg: 'bg-pink', color: 'text-pink', icon: UsersIcon },
-              'production': { bg: 'bg-amber', color: 'text-amber', icon: Zap },
-              'logistics': { bg: 'bg-orange', color: 'text-orange', icon: MapPin },
-              'operations': { bg: 'bg-purple', color: 'text-purple', icon: Activity },
-              'legal': { bg: 'bg-red', color: 'text-red', icon: Shield },
-              'maintenance': { bg: 'bg-gray', color: 'text-gray', icon: RefreshCw },
-              'inventory': { bg: 'bg-orange', color: 'text-orange', icon: Briefcase },
-              'it': { bg: 'bg-purple', color: 'text-purple', icon: BriefcaseIcon }
-            };
-            const style = deptStyles[dept] || { bg: 'bg-gray', color: 'text-gray', icon: Building };
-            const IconComponent = style.icon;
-            const isActive = departmentFilter === dept;
-            
-            return (
-              <div 
-                key={dept} 
-                onClick={() => setDepartmentFilter(isActive ? '' : dept)}
-                className={`dept-card ${isActive ? 'dept-card-active' : ''}`}
-                data-dept={dept.toLowerCase()}
-              >
-                <div className="dept-header">
-                  <div className={`dept-icon ${style.bg} ${style.color}`}>
-                    <IconComponent size={20} />
-                  </div>
-                  <div className="dept-info">
-                    <div className="dept-name">{getDepartmentLabel(dept)}</div>
-                    <div className="dept-count">{stats.count} موظف</div>
-                  </div>
-                </div>
-                <div className="dept-stats">
-                  <span>{stats.active} {t('hr.active')}</span>
-                  <span>{formatCurrency(stats.totalSalary)}{t('hr.perMonth')}</span>
-                </div>
-              </div>
-            );
-          })}
+        {/* Department Filter — Modern pill design */}
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => setDepartmentFilter('')}
+              style={{
+                padding: '7px 16px', borderRadius: '20px', border: '1.5px solid',
+                borderColor: departmentFilter === '' ? '#3b82f6' : '#e5e7eb',
+                background: departmentFilter === '' ? '#eff6ff' : 'white',
+                color: departmentFilter === '' ? '#1d4ed8' : '#6b7280',
+                fontWeight: departmentFilter === '' ? 600 : 400,
+                cursor: 'pointer', fontSize: '13px', transition: 'all 0.15s'
+              }}
+            >
+              {t('common.all')} ({allEmployees.length})
+            </button>
+            {departments.map(dept => {
+              const stats = departmentStats[dept] || { count: 0 };
+              const isActive = departmentFilter === dept;
+              return (
+                <button
+                  key={dept}
+                  onClick={() => setDepartmentFilter(isActive ? '' : dept)}
+                  style={{
+                    padding: '7px 16px', borderRadius: '20px', border: '1.5px solid',
+                    borderColor: isActive ? '#3b82f6' : '#e5e7eb',
+                    background: isActive ? '#eff6ff' : 'white',
+                    color: isActive ? '#1d4ed8' : '#374151',
+                    fontWeight: isActive ? 600 : 400,
+                    cursor: 'pointer', fontSize: '13px', transition: 'all 0.15s',
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}
+                >
+                  {getDepartmentLabel(dept)}
+                  <span style={{
+                    background: isActive ? '#dbeafe' : '#f3f4f6',
+                    color: isActive ? '#1d4ed8' : '#9ca3af',
+                    borderRadius: '10px', padding: '1px 7px', fontSize: '11px', fontWeight: 600
+                  }}>{stats.count}</span>
+                </button>
+              );
+            })}
+          </div>
+          {departmentFilter && (
+            <div style={{ marginTop: '8px', fontSize: '13px', color: '#6b7280' }}>
+              عرض موظفي قسم: <strong style={{ color: '#1d4ed8' }}>{getDepartmentLabel(departmentFilter)}</strong>
+              <button onClick={() => setDepartmentFilter('')} style={{ marginRight: '8px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}>✕ إلغاء التصفية</button>
+            </div>
+          )}
         </div>
 
         <div className="stats-grid">
@@ -742,7 +920,7 @@ const HR = () => {
               <Users size={24} />
             </div>
             <div className="stat-value">{displayEmployees.length}</div>
-            <div className="stat-label">{t('dashboard.activeEmployees')}</div>
+            <div className="stat-label">{t('hr.totalEmployees')}</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon bg-green text-green">
@@ -802,7 +980,7 @@ const HR = () => {
                         {getDepartmentLabel(emp.department)}
                       </span>
                     </td>
-                    <td>{emp.designation}</td>
+                    <td>{translateDesignation(emp.designation)}</td>
                     <td>
                       <div className="contact-info">
                         <div className="contact-row">
@@ -834,10 +1012,19 @@ const HR = () => {
   };
 
   const renderAttendance = () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('en-CA');
+    const uid = getCurrentUserId();
+    console.log('[HR-RENDER] attendance state length:', attendance.length);
+    console.log('[HR-RENDER] today:', today, 'uid:', uid);
+    console.log('[ATT DEBUG] renderAttendance called, today=', today, 'uid=', uid);
+    console.log('[ATT DEBUG] full attendance array:', JSON.stringify(attendance));
     const displayAttendance = attendance;
-    const todayAttendance = displayAttendance.filter(a => a.date === today);
-    const myAttendance = todayAttendance.find(a => a.employeeId === user?._id);
+    const todayAttendance = displayAttendance.filter(a => new Date(a.date).toLocaleDateString('en-CA') === today);
+    const myAttendance = todayAttendance.find(a =>
+      String(a.user_id) === String(uid) || String(a.employeeId) === String(uid)
+    );
+    console.log('[HR-RENDER] myAttendance:', myAttendance);
+    console.log('[ATT DEBUG] myAttendance result:', JSON.stringify(myAttendance));
     const displayEmployees = employees;
 
     return (
@@ -894,26 +1081,28 @@ const HR = () => {
               <div>
                 <h3>{t('hr.todaysAttendance')}</h3>
                 <p className="attendance-message">
-                  {myAttendance 
-                    ? `Checked in at ${myAttendance.checkIn} - ${myAttendance.checkOut ? `Checked out at ${myAttendance.checkOut}` : 'Not checked out yet'}`
-                    : 'You have not checked in yet'
+                  {myAttendance
+                    ? (myAttendance.check_out || myAttendance.checkOut)
+                      ? `تم تسجيل حضورك: ${formatTime(myAttendance.check_in || myAttendance.checkIn)} — تم الانصراف: ${formatTime(myAttendance.check_out || myAttendance.checkOut)}`
+                      : `تم تسجيل حضورك: ${formatTime(myAttendance.check_in || myAttendance.checkIn)} (لم تسجل الانصراف بعد)`
+                    : 'لم تسجل حضورك بعد'
                   }
                 </p>
               </div>
               <div className="attendance-actions">
                 {!myAttendance && (
                   <button className="btn btn-primary" onClick={handleCheckIn}>
-                    <Fingerprint size={18} /> Check In
+                    <Fingerprint size={18} /> تسجيل حضور
                   </button>
                 )}
-                {myAttendance && !myAttendance.checkOut && (
+                {myAttendance && !(myAttendance.check_out || myAttendance.checkOut) && (
                   <button className="btn btn-secondary" onClick={handleCheckOut}>
-                    <Fingerprint size={18} /> Check Out
+                    <Fingerprint size={18} /> تسجيل انصراف
                   </button>
                 )}
-                {myAttendance && myAttendance.checkOut && (
+                {myAttendance && (myAttendance.check_out || myAttendance.checkOut) && (
                   <span className="badge badge-success attendance-complete">
-                    <CheckCircle size={18} /> Completed
+                    <CheckCircle size={18} /> تم إكمال الدوام
                   </span>
                 )}
               </div>
@@ -921,9 +1110,24 @@ const HR = () => {
           </div>
         )}
 
+        {attendanceMessage && (
+          <div style={{
+            padding: '12px 16px',
+            borderRadius: '8px',
+            marginBottom: '16px',
+            fontWeight: '500',
+            fontSize: '0.95rem',
+            background: attendanceMessage.type === 'success' ? '#f0fdf4' : attendanceMessage.type === 'warning' ? '#fffbeb' : '#fef2f2',
+            border: `1px solid ${attendanceMessage.type === 'success' ? '#bbf7d0' : attendanceMessage.type === 'warning' ? '#fde68a' : '#fecaca'}`,
+            color: attendanceMessage.type === 'success' ? '#15803d' : attendanceMessage.type === 'warning' ? '#92400e' : '#dc2626',
+          }}>
+            {attendanceMessage.text}
+          </div>
+        )}
+
         <div className="card">
           <div className="card-header">
-            <h3 className="card-title">Daily Attendance - {today}</h3>
+            <h3 className="card-title">الحضور اليومي - {today} | {getArabicMonth(selectedMonth)}</h3>
           </div>
           <div className="table-container">
             <table className="table">
@@ -940,19 +1144,21 @@ const HR = () => {
                 {todayAttendance.map(att => (
                   <tr key={att._id}>
                     <td>
-                      <div className="employee-cell">
-                        <div className="avatar avatar-sm">
-                          {att.employee?.avatar || att.employee?.firstName?.[0] || ''}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+                        <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                          {att.user_name || 'موظف غير معروف'}
+                        </span>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--bg-accent, #e0e7ff)', color: 'var(--text-accent, #4338ca)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '600', flexShrink: 0 }}>
+                          {(att.user_name || '').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?'}
                         </div>
-                        <span className="employee-name">{att.employee?.firstName} {att.employee?.lastName}</span>
                       </div>
                     </td>
-                    <td>{att.checkIn || '-'}</td>
-                    <td>{att.checkOut || '-'}</td>
-                    <td>{att.workingHours || 0} hrs</td>
+                    <td>{formatTime(att.check_in || att.checkIn)}</td>
+                    <td>{formatTime(att.check_out || att.checkOut)}</td>
+                    <td>{calcHoursWorked(att.check_in || att.checkIn, att.check_out || att.checkOut)}</td>
                     <td>
                       <span className={`badge badge-${att.status === 'present' ? 'success' : att.status === 'absent' ? 'danger' : 'warning'}`}>
-                        {att.status}
+                        {getStatusLabel(att.status, 'hr')}
                       </span>
                     </td>
                   </tr>
@@ -1083,7 +1289,7 @@ const HR = () => {
                     <td className="text-truncate" style={{ maxWidth: '200px' }}>{leave.reason}</td>
                     <td>
                       <span className={`badge badge-${leave.status === 'approved' ? 'success' : leave.status === 'rejected' ? 'danger' : 'warning'}`}>
-                        {leave.status}
+                        {getStatusLabel(leave.status)}
                       </span>
                     </td>
                   </tr>
@@ -1123,29 +1329,29 @@ const HR = () => {
 
         {/* Status Workflow */}
         <div className="card workflow-card" style={{ marginBottom: '20px' }}>
-          <div className="workflow-steps">
-            <div className="workflow-step">
-              <div className="step-icon"><Clock size={18} /></div>
-              <div className="step-label">{t('common.statuses.draft')}</div>
-              <div className="step-count">{totalDraft}</div>
+          <div className="workflow-steps" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '16px', flexWrap: 'wrap' }}>
+            <div className="workflow-step" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: '80px' }}>
+              <div className="step-icon" style={{ fontSize: '18px' }}><Clock size={18} /></div>
+              <div className="step-label" style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{t('common.statuses.draft')}</div>
+              <div className="step-count" style={{ fontWeight: '600', fontSize: '16px' }}>{totalDraft}</div>
             </div>
-            <div className="workflow-arrow"><ArrowRight size={16} /></div>
-            <div className="workflow-step">
-              <div className="step-icon"><RefreshCw size={18} /></div>
-              <div className="step-label">تمت المعالجة</div>
-              <div className="step-count">{totalProcessed}</div>
+            <div className="workflow-arrow" style={{ color: 'var(--color-text-secondary)' }}><ArrowRight size={16} /></div>
+            <div className="workflow-step" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: '80px' }}>
+              <div className="step-icon" style={{ fontSize: '18px' }}><RefreshCw size={18} /></div>
+              <div className="step-label" style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>تمت المعالجة</div>
+              <div className="step-count" style={{ fontWeight: '600', fontSize: '16px' }}>{totalProcessed}</div>
             </div>
-            <div className="workflow-arrow"><ArrowRight size={16} /></div>
-            <div className="workflow-step">
-              <div className="step-icon"><CheckCircle size={18} /></div>
-              <div className="step-label">مرحل</div>
-              <div className="step-count">{totalPosted}</div>
+            <div className="workflow-arrow" style={{ color: 'var(--color-text-secondary)' }}><ArrowRight size={16} /></div>
+            <div className="workflow-step" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: '80px' }}>
+              <div className="step-icon" style={{ fontSize: '18px' }}><CheckCircle size={18} /></div>
+              <div className="step-label" style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>مرحل</div>
+              <div className="step-count" style={{ fontWeight: '600', fontSize: '16px' }}>{totalPosted}</div>
             </div>
-            <div className="workflow-arrow"><ArrowRight size={16} /></div>
-            <div className="workflow-step">
-              <div className="step-icon"><Check size={18} /></div>
-              <div className="step-label">{t('common.statuses.paid')}</div>
-              <div className="step-count">{totalPaid}</div>
+            <div className="workflow-arrow" style={{ color: 'var(--color-text-secondary)' }}><ArrowRight size={16} /></div>
+            <div className="workflow-step" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: '80px' }}>
+              <div className="step-icon" style={{ fontSize: '18px' }}><Check size={18} /></div>
+              <div className="step-label" style={{ fontSize: '12px', color: 'var(--color-text-secondary)' }}>{t('common.statuses.paid')}</div>
+              <div className="step-count" style={{ fontWeight: '600', fontSize: '16px' }}>{totalPaid}</div>
             </div>
           </div>
         </div>
@@ -1220,7 +1426,7 @@ const HR = () => {
                     <td className="net-salary">{formatCurrency(p.totalNetSalary || 0)}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(p.status)}`}>
-                        {getStatusIcon(p.status)} {p.status}
+                        {getStatusIcon(p.status)} {getStatusLabel(p.status)}
                       </span>
                     </td>
                     <td>
@@ -1274,15 +1480,15 @@ const HR = () => {
           <div className="modal-overlay" onClick={() => setShowPayrollModal(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Create New Payroll Period</h3>
+                <h3>إنشاء فترة رواتب جديدة</h3>
                 <button className="modal-close" onClick={() => setShowPayrollModal(false)}>
                   <X size={20} />
                 </button>
               </div>
               <div className="modal-body">
-                <form onSubmit={handleCreatePayroll}>
+                <div>
                   <div className="form-group">
-                    <label>Month</label>
+                    <label>الشهر</label>
                     <input
                       type="month"
                       className="form-input"
@@ -1292,7 +1498,7 @@ const HR = () => {
                     />
                   </div>
                   <div className="form-group">
-                    <label>Year</label>
+                    <label>السنة</label>
                     <input
                       type="number"
                       className="form-input"
@@ -1315,11 +1521,11 @@ const HR = () => {
                     <button type="button" className="btn btn-secondary" onClick={() => setShowPayrollModal(false)}>
                       إلغاء
                     </button>
-                    <button type="submit" className="btn btn-primary" disabled={payrollLoading}>
+                    <button type="button" onClick={handleCreatePayroll} className="btn btn-primary" disabled={payrollLoading}>
                       {payrollLoading ? 'Creating...' : 'Create Payroll'}
                     </button>
                   </div>
-                </form>
+                </div>
               </div>
             </div>
           </div>
@@ -1339,7 +1545,7 @@ const HR = () => {
                 <div className="post-confirmation">
                   <div className="confirmation-header">
                     <AlertTriangle size={32} className="text-warning" />
-                    <h4>Are you sure you want to post this payroll to Finance?</h4>
+                    <h4>هل أنت متأكد من ترحيل الرواتب للمالية؟</h4>
                   </div>
                   
                   <div className="payroll-summary-box">
@@ -1360,7 +1566,7 @@ const HR = () => {
                   </div>
 
                   <div className="actions-preview">
-                    <h5>This will create:</h5>
+                    <h5>سيتم إنشاء:</h5>
                     <div className="action-item">
                       <CheckCircle size={16} className="text-success" />
                       <span>Expense record in Finance (EXP-SAL-{selectedPayroll.month})</span>
@@ -1371,7 +1577,7 @@ const HR = () => {
                     </div>
                     <div className="action-item">
                       <CheckCircle size={16} className="text-success" />
-                      <span>Due date: {new Date(new Date().setDate(new Date().getDate() + 5)).toLocaleDateString()}</span>
+                      <span>Due date: {formatDate(new Date(new Date().setDate(new Date().getDate() + 5)))}</span>
                     </div>
                   </div>
 
@@ -1479,7 +1685,7 @@ const HR = () => {
                         if (!window.confirm(`Apply ${type === 'fixed' ? '+' : '+'}${val}${type === 'percentage' ? '%' : ' EGP'} to ${field} for all employees?`)) return;
                         try {
                           const token = localStorage.getItem('token');
-                          const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/payroll/${selectedPayroll._id || selectedPayroll.id}/bulk-update`, {
+                          const res = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/payroll/${selectedPayroll._id || selectedPayroll.id}/bulk-update`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                             body: JSON.stringify({ increaseType: type, increaseValue: parseFloat(val), field })
@@ -1510,10 +1716,10 @@ const HR = () => {
                         <tr>
                           <th>{t('hr.employee')}</th>
                           <th>{t('hr.department')}</th>
-                          <th>Basic</th>
+                          <th>الراتب الأساسي</th>
                           <th>{t('payroll.allowances')}</th>
                           <th>{t('hr.deductions')}</th>
-                          <th>Net Salary</th>
+                          <th>صافي الراتب</th>
                           <th>{t('hr.bankAccount')}</th>
                         </tr>
                       </thead>
@@ -1549,15 +1755,15 @@ const HR = () => {
                     <div className="card-body">
                       <div className="finance-info">
                         <div className="info-row">
-                          <span>Expense ID:</span>
+                          <span>رقم المصروف:</span>
                           <span className="font-mono">{selectedPayroll.expenseId || 'EXP-SAL-' + selectedPayroll.month}</span>
                         </div>
                         <div className="info-row">
-                          <span>Payable ID:</span>
+                          <span>رقم المدفوع:</span>
                           <span className="font-mono">{selectedPayroll.payableId || 'PAY-SAL-' + selectedPayroll.month}</span>
                         </div>
                         <div className="info-row">
-                          <span>Posted At:</span>
+                          <span>تاريخ الترحيل:</span>
                           <span>{selectedPayroll.postedAt ? new Date(selectedPayroll.postedAt).toLocaleString() : 'N/A'}</span>
                         </div>
                       </div>
@@ -1629,7 +1835,7 @@ const HR = () => {
       if (score >= 70) return 'Good';
       if (score >= 60) return 'Average';
       if (score >= 50) return 'Below Average';
-      if (score >= 40) return 'Needs Improvement';
+      if (score >= 40) return 'يحتاج تحسين';
       return 'Poor';
     };
     
@@ -1819,8 +2025,8 @@ const HR = () => {
       <div className="leaderboard-container">
         <div className="leaderboard-header">
           <Trophy size={32} className="trophy-icon" />
-          <h3>Sales Team Leaderboard</h3>
-          <p>Top performers based on overall score</p>
+          <h3>لوحة متصدري فريق المبيعات</h3>
+          <p>الأفضل أداءً بناءً على النتيجة الكلية</p>
         </div>
         
         <div className="leaderboard-podium">
@@ -1851,10 +2057,10 @@ const HR = () => {
           <table className="leaderboard-table">
             <thead>
               <tr>
-                <th>Rank</th>
+                <th>الترتيب</th>
                 <th>{t('hr.employee')}</th>
                 <th>{t('hr.department')}</th>
-                <th>Score</th>
+                <th>النتيجة</th>
                 <th>{t('hr.grade')}</th>
               </tr>
             </thead>
@@ -1990,7 +2196,7 @@ const HR = () => {
               <X size={20} />
             </button>
           </div>
-          <form onSubmit={handleSaveRating} className="modal-body">
+          <div className="modal-body">
             <div className="form-row">
               <div className="form-group">
                 <label>الفترة</label>
@@ -2003,14 +2209,14 @@ const HR = () => {
                 />
               </div>
               <div className="form-group">
-                <label>Period Type</label>
+                <label>نوع الفترة</label>
                 <select 
                   className="form-input" 
                   value={ratingForm.periodType}
                   onChange={(e) => setRatingForm({...ratingForm, periodType: e.target.value})}
                 >
-                  <option value="monthly">Monthly</option>
-                  <option value="quarterly">Quarterly</option>
+                  <option value="monthly">شهري</option>
+                  <option value="quarterly">ربع سنوي</option>
                   <option value="annual">{t('hr.annual')}</option>
                 </select>
               </div>
@@ -2021,7 +2227,7 @@ const HR = () => {
               <h4><TrendingUp size={18} /> Sales Metrics</h4>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Orders Created</label>
+                  <label>الطلبات المنشأة</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2030,7 +2236,7 @@ const HR = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Orders Approved</label>
+                  <label>الطلبات المعتمدة</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2039,7 +2245,7 @@ const HR = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Sales Value</label>
+                  <label>قيمة المبيعات</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2050,7 +2256,7 @@ const HR = () => {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Target Achievement %</label>
+                  <label>نسبة تحقيق الهدف %</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2059,7 +2265,7 @@ const HR = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>New Clients</label>
+                  <label>عملاء جدد</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2068,7 +2274,7 @@ const HR = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Retention Rate %</label>
+                  <label>نسبة الاستبقاء %</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2084,7 +2290,7 @@ const HR = () => {
               <h4><Activity size={18} /> General Metrics</h4>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Attendance Rate %</label>
+                  <label>نسبة الحضور %</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2178,7 +2384,7 @@ const HR = () => {
               <h4><Target size={18} /> Targets vs Achievements</h4>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Target Leads</label>
+                  <label>العملاء المستهدفون</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2198,7 +2404,7 @@ const HR = () => {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Target Sales</label>
+                  <label>المبيعات المستهدفة</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2218,7 +2424,7 @@ const HR = () => {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Target Revenue</label>
+                  <label>الإيرادات المستهدفة</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2242,11 +2448,11 @@ const HR = () => {
               <button type="button" className="btn btn-outline" onClick={() => setShowRatingModal(false)}>
                 إلغاء
               </button>
-              <button type="submit" className="btn btn-primary">
+              <button type="button" onClick={handleSaveRating} className="btn btn-primary">
                 <Save size={18} /> Save Rating
               </button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     );
@@ -2255,8 +2461,8 @@ const HR = () => {
       <div className="tab-content">
         <div className="page-header">
           <div>
-            <h2>Employee Performance & Ratings</h2>
-            <p className="page-subtitle">Comprehensive employee rating system with sales metrics</p>
+            <h2>{t('hr.performanceTitle')}</h2>
+            <p className="page-subtitle">{t('hr.performanceSubtitle')}</p>
           </div>
           <div className="header-actions">
             {canViewPerformance && (
@@ -2309,7 +2515,7 @@ const HR = () => {
               </div>
               <div className="summary-info">
                 <div className="summary-value">{displayRatings.filter(r => r.grade === 'A' || r.grade === 'A+').length}</div>
-                <div className="summary-label">Top Performers</div>
+                <div className="summary-label">الأفضل أداءً</div>
               </div>
             </div>
             <div className="summary-card">
@@ -2329,7 +2535,7 @@ const HR = () => {
               </div>
               <div className="summary-info">
                 <div className="summary-value">{displayRatings.filter(r => r.grade === 'C' || r.grade === 'D').length}</div>
-                <div className="summary-label">Needs Improvement</div>
+                <div className="summary-label">يحتاج تحسين</div>
               </div>
             </div>
           </div>
@@ -2394,25 +2600,25 @@ const HR = () => {
               <h2 className="modal-title">{t('hr.addNewEmployee')}</h2>
               <button className="modal-close" onClick={() => setShowEmployeeModal(false)}>✕</button>
             </div>
-            <form onSubmit={handleAddEmployee} className="modal-body">
+            <div className="modal-body">
               {/* Personal Information */}
               <div className="form-section" style={{ marginBottom: '20px' }}>
                 <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>المعلومات الشخصية</h4>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">First Name *</label>
+                    <label className="form-label">{t('common.firstName')} *</label>
                     <input type="text" className="form-input" required value={newEmployee.firstName} onChange={(e) => setNewEmployee({...newEmployee, firstName: e.target.value})} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Last Name *</label>
+                    <label className="form-label">{t('common.lastName')} *</label>
                     <input type="text" className="form-input" required value={newEmployee.lastName} onChange={(e) => setNewEmployee({...newEmployee, lastName: e.target.value})} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Email *</label>
+                    <label className="form-label">{t('common.email')} *</label>
                     <input type="email" className="form-input" required value={newEmployee.email} onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Phone *</label>
+                    <label className="form-label">{t('common.phone')} *</label>
                     <input type="tel" className="form-input" required value={newEmployee.phone} onChange={(e) => setNewEmployee({...newEmployee, phone: e.target.value})} />
                   </div>
                   <div className="form-group">
@@ -2420,12 +2626,12 @@ const HR = () => {
                     <input type="date" className="form-input" value={newEmployee.dateOfBirth} onChange={(e) => setNewEmployee({...newEmployee, dateOfBirth: e.target.value})} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Nationality</label>
-                    <input type="text" className="form-input" value={newEmployee.nationality} onChange={(e) => setNewEmployee({...newEmployee, nationality: e.target.value})} placeholder="e.g., Egyptian" />
+                    <label className="form-label">{t('hr.nationality')}</label>
+                    <input type="text" className="form-input" value={newEmployee.nationality} onChange={(e) => setNewEmployee({...newEmployee, nationality: e.target.value})} placeholder={t('hr.nationalityPlaceholder')} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">{t('common.address')}</label>
-                    <input type="text" className="form-input" value={newEmployee.address} onChange={(e) => setNewEmployee({...newEmployee, address: e.target.value})} placeholder="Street address" />
+                    <input type="text" className="form-input" value={newEmployee.address} onChange={(e) => setNewEmployee({...newEmployee, address: e.target.value})} placeholder={t('common.address')} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">{t('common.city')}</label>
@@ -2433,36 +2639,36 @@ const HR = () => {
                   </div>
                   <div className="form-group">
                     <label className="form-label">{t('common.country')}</label>
-                    <input type="text" className="form-input" value={newEmployee.country} onChange={(e) => setNewEmployee({...newEmployee, country: e.target.value})} placeholder="Country" />
+                    <input type="text" className="form-input" value={newEmployee.country} onChange={(e) => setNewEmployee({...newEmployee, country: e.target.value})} placeholder={t('common.country')} />
                   </div>
                 </div>
               </div>
 
               {/* Employment Details */}
               <div className="form-section" style={{ marginBottom: '20px' }}>
-                <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>Employment Details</h4>
+                <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>{t('hr.employmentDetails')}</h4>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">Department *</label>
+                    <label className="form-label">{t('hr.department')} *</label>
                     <select className="form-select" required value={newEmployee.department} onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}>
-                      <option value="">Select Department</option>
+                      <option value="">{t('hr.selectDepartment')}</option>
                       {departments.map(d => <option key={d} value={d}>{getDepartmentLabel(d)}</option>)}
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Designation *</label>
+                    <label className="form-label">{t('hr.designation')} *</label>
                     <select className="form-select" required value={newEmployee.designation} onChange={(e) => setNewEmployee({...newEmployee, designation: e.target.value})}>
-                      <option value="">Select Designation</option>
+                      <option value="">{t('hr.selectDesignation')}</option>
                       {designations.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Join Date *</label>
+                    <label className="form-label">{t('hr.joinDate')} *</label>
                     <input type="date" className="form-input" required value={newEmployee.joinDate} onChange={(e) => setNewEmployee({...newEmployee, joinDate: e.target.value})} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Salary (EGP) *</label>
-                    <input type="number" className="form-input" required value={newEmployee.salary} onChange={(e) => setNewEmployee({...newEmployee, salary: e.target.value})} placeholder="Monthly salary" />
+                    <label className="form-label">{t('hr.salaryEgp')}</label>
+                    <input type="number" className="form-input" required value={newEmployee.salary} onChange={(e) => setNewEmployee({...newEmployee, salary: e.target.value})} placeholder={t('hr.monthlySalary')} />
                   </div>
                 </div>
               </div>
@@ -2473,11 +2679,11 @@ const HR = () => {
                 <div className="form-grid">
                   <div className="form-group">
                     <label className="form-label">{t('hr.bankName')}</label>
-                    <input type="text" className="form-input" value={newEmployee.bankName} onChange={(e) => setNewEmployee({...newEmployee, bankName: e.target.value})} placeholder="e.g., CBE" />
+                    <input type="text" className="form-input" value={newEmployee.bankName} onChange={(e) => setNewEmployee({...newEmployee, bankName: e.target.value})} placeholder={t('hr.bankNamePlaceholder')} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">{t('hr.accountNumber')}</label>
-                    <input type="text" className="form-input" value={newEmployee.bankAccount} onChange={(e) => setNewEmployee({...newEmployee, bankAccount: e.target.value})} placeholder="Bank account number" />
+                    <input type="text" className="form-input" value={newEmployee.bankAccount} onChange={(e) => setNewEmployee({...newEmployee, bankAccount: e.target.value})} placeholder={t('hr.bankAccountPlaceholder')} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">IBAN</label>
@@ -2491,25 +2697,25 @@ const HR = () => {
                 <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>{t('hr.emergencyContact')}</h4>
                 <div className="form-grid">
                   <div className="form-group">
-                    <label className="form-label">Contact Name</label>
-                    <input type="text" className="form-input" value={newEmployee.emergencyContactName} onChange={(e) => setNewEmployee({...newEmployee, emergencyContactName: e.target.value})} placeholder="Emergency contact name" />
+                    <label className="form-label">{t('hr.emergencyContactName')}</label>
+                    <input type="text" className="form-input" value={newEmployee.emergencyContactName} onChange={(e) => setNewEmployee({...newEmployee, emergencyContactName: e.target.value})} placeholder={t('hr.emergencyContactNamePlaceholder')} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Contact Phone</label>
-                    <input type="tel" className="form-input" value={newEmployee.emergencyContactPhone} onChange={(e) => setNewEmployee({...newEmployee, emergencyContactPhone: e.target.value})} placeholder="Emergency contact phone" />
+                    <label className="form-label">{t('hr.emergencyContactPhone')}</label>
+                    <input type="tel" className="form-input" value={newEmployee.emergencyContactPhone} onChange={(e) => setNewEmployee({...newEmployee, emergencyContactPhone: e.target.value})} placeholder={t('hr.emergencyContactPhonePlaceholder')} />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Relationship</label>
-                    <input type="text" className="form-input" value={newEmployee.emergencyContactRelation} onChange={(e) => setNewEmployee({...newEmployee, emergencyContactRelation: e.target.value})} placeholder="e.g., Spouse, Parent" />
+                    <label className="form-label">{t('hr.relationship')}</label>
+                    <input type="text" className="form-input" value={newEmployee.emergencyContactRelation} onChange={(e) => setNewEmployee({...newEmployee, emergencyContactRelation: e.target.value})} placeholder={t('hr.relationshipPlaceholder')} />
                   </div>
                 </div>
               </div>
 
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setShowEmployeeModal(false)}>{t('common.cancel')}</button>
-                <button type="submit" className="btn btn-primary">{t('hr.addEmployee')}</button>
+                <button type="button" onClick={handleAddEmployee} className="btn btn-primary">{t('hr.addEmployee')}</button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -2519,34 +2725,34 @@ const HR = () => {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2 className="modal-title">Request Leave</h2>
+              <h2 className="modal-title">{t('hr.requestLeaveTitle')}</h2>
               <button className="modal-close" onClick={() => setShowLeaveModal(false)}>✕</button>
             </div>
-            <form onSubmit={handleApplyLeave} className="modal-body">
+            <div className="modal-body">
               <div className="form-group">
-                <label className="form-label">Employee *</label>
+                <label className="form-label">{t('hr.employee')} *</label>
                 <select className="form-select" required value={newLeave.employeeId} onChange={(e) => setNewLeave({...newLeave, employeeId: e.target.value})}>
-                  <option value="">Select Employee</option>
+                  <option value="">{t('hr.selectEmployee')}</option>
                   {employees.map(emp => (
                     <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Leave Type *</label>
+                <label className="form-label">{t('hr.leaveType')} *</label>
                 <select className="form-select" required value={newLeave.leaveType} onChange={(e) => setNewLeave({...newLeave, leaveType: e.target.value})}>
                   <option value="annual">{t('hr.annualLeave')}</option>
-                  <option value="sick">Sick Leave</option>
-                  <option value="unpaid">Unpaid Leave</option>
+                  <option value="sick">{t('hr.sickLeave')}</option>
+                  <option value="unpaid">{t('hr.unpaidLeave')}</option>
                 </select>
               </div>
               <div className="form-grid">
                 <div className="form-group">
-                  <label className="form-label">Start Date *</label>
+                  <label className="form-label">{t('common.startDate')} *</label>
                   <input type="date" className="form-input" required value={newLeave.startDate} onChange={(e) => setNewLeave({...newLeave, startDate: e.target.value})} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">End Date *</label>
+                  <label className="form-label">{t('common.endDate')} *</label>
                   <input type="date" className="form-input" required value={newLeave.endDate} onChange={(e) => setNewLeave({...newLeave, endDate: e.target.value})} />
                 </div>
               </div>
@@ -2556,9 +2762,9 @@ const HR = () => {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setShowLeaveModal(false)}>{t('common.cancel')}</button>
-                <button type="submit" className="btn btn-primary">Submit Request</button>
+                <button type="button" onClick={handleApplyLeave} className="btn btn-primary">{t('common.submitRequest')}</button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -2568,24 +2774,24 @@ const HR = () => {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2 className="modal-title">Upload Document for {selectedEmployee.name || selectedEmployee.firstName + ' ' + selectedEmployee.lastName}</h2>
+              <h2 className="modal-title">{t('hr.uploadDocumentFor')} {selectedEmployee.name || selectedEmployee.firstName + ' ' + selectedEmployee.lastName}</h2>
               <button className="modal-close" onClick={() => { setShowDocModal(false); setNewDoc({ name: '', type: 'other', fileName: '', fileUrl: '', expiryDate: '', notes: '' }); }}>✕</button>
             </div>
-            <form onSubmit={handleUploadDocument} className="modal-body">
+            <div className="modal-body">
               <div className="form-group">
-                <label className="form-label">Upload File *</label>
+                <label className="form-label">{t('hr.uploadFile')}</label>
                 <input type="file" className="form-input" onChange={(e) => {
                   const file = e.target.files[0];
                   if (file) setNewDoc(prev => ({ ...prev, _uploadFile: file, fileName: file.name }));
                 }} />
-                <small className="form-help">Upload contract, ID, or any employee document (PDF, image, etc.)</small>
+                <small className="form-help">{t('hr.uploadFileHelp')}</small>
               </div>
               <div className="form-group">
-                <label className="form-label">Document Name *</label>
-                <input type="text" className="form-input" required value={newDoc.name} onChange={(e) => setNewDoc({...newDoc, name: e.target.value})} placeholder="e.g., Employment Contract, ID Card" />
+                <label className="form-label">{t('hr.documentName')} *</label>
+                <input type="text" className="form-input" required value={newDoc.name} onChange={(e) => setNewDoc({...newDoc, name: e.target.value})} placeholder={t('hr.documentNamePlaceholder')} />
               </div>
               <div className="form-group">
-                <label className="form-label">Document Type *</label>
+                <label className="form-label">{t('hr.documentType')} *</label>
                 <select className="form-select" required value={newDoc.type} onChange={(e) => setNewDoc({...newDoc, type: e.target.value})}>
                   <option value="contract">Contract / عقد عمل</option>
                   <option value="id">ID Card / بطاقة شخصية</option>
@@ -2601,15 +2807,15 @@ const HR = () => {
               </div>
               <div className="form-group">
                 <label className="form-label">{t('common.notes')}</label>
-                <textarea className="form-input" rows="2" value={newDoc.notes} onChange={(e) => setNewDoc({...newDoc, notes: e.target.value})} placeholder="Optional notes..." />
+                <textarea className="form-input" rows="2" value={newDoc.notes} onChange={(e) => setNewDoc({...newDoc, notes: e.target.value})} placeholder={t('hr.optionalNotesPlaceholder')} />
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => { setShowDocModal(false); setNewDoc({ name: '', type: 'other', fileName: '', fileUrl: '', expiryDate: '', notes: '' }); }}>{t('common.cancel')}</button>
-                <button type="submit" className="btn btn-primary">
-                  {newDoc._uploadFile ? 'Upload File' : 'Save Document'}
+                <button type="button" onClick={handleUploadDocument} className="btn btn-primary">
+                  {newDoc._uploadFile ? t('hr.uploadFileBtn') : t('hr.saveDocument')}
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -2619,8 +2825,10 @@ const HR = () => {
         <div className="modal-overlay">
           <div className="modal">
             <div className="modal-header">
-              <h2 className="modal-title">{t('hr.employeeDetails')}</h2>
-              <button className="modal-close" onClick={() => setSelectedEmployee(null)}>✕</button>
+              <h2 className="modal-title">
+                {isEditingEmployee ? 'تعديل بيانات الموظف' : t('hr.employeeDetails')}
+              </h2>
+              <button className="modal-close" onClick={() => { setSelectedEmployee(null); setIsEditingEmployee(false); }}>✕</button>
             </div>
             <div className="modal-body">
               <div className="employee-profile-header">
@@ -2629,10 +2837,29 @@ const HR = () => {
                 </div>
                 <div className="employee-profile-info">
                   <div className="employee-name">{selectedEmployee.firstName} {selectedEmployee.lastName}</div>
-                  <div className="employee-designation">{selectedEmployee.designation}</div>
+                  {isEditingEmployee ? (
+                    <div className="form-group" style={{ marginTop: '8px', marginBottom: 0 }}>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={editEmployeeData.title}
+                        onChange={(e) => setEditEmployeeData(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="المسمى الوظيفي"
+                        style={{ fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="employee-designation">{selectedEmployee.designation}</div>
+                  )}
                   <div className="employee-department">{getDepartmentLabel(selectedEmployee.department)}</div>
                 </div>
               </div>
+
+              {editEmployeeError && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px', marginBottom: '16px', color: '#dc2626', fontSize: '14px' }}>
+                  {editEmployeeError}
+                </div>
+              )}
 
               <div className="form-grid">
                 <div className="form-group">
@@ -2641,27 +2868,88 @@ const HR = () => {
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('common.phone')}</label>
-                  <div>{selectedEmployee.phone}</div>
+                  {isEditingEmployee ? (
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={editEmployeeData.phone}
+                      onChange={(e) => setEditEmployeeData(prev => ({ ...prev, phone: e.target.value }))}
+                    />
+                  ) : (
+                    <div>{selectedEmployee.phone}</div>
+                  )}
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Join Date</label>
-                  <div>{selectedEmployee.joinDate}</div>
+                  <label className="form-label">{t('hr.joinDate')}</label>
+                  <div>{selectedEmployee.joinDate || '-'}</div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('hr.salary')}</label>
-                  <div>{formatCurrency(selectedEmployee.salary)}</div>
+                  {isEditingEmployee ? (
+                    <input
+                      type="number"
+                      className="form-input"
+                      step="500"
+                      min="0"
+                      value={editEmployeeData.salary}
+                      onChange={(e) => setEditEmployeeData(prev => ({ ...prev, salary: e.target.value }))}
+                    />
+                  ) : (
+                    <div>{formatCurrency(selectedEmployee.salary)}</div>
+                  )}
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('common.status')}</label>
-                  <div>
-                    <span className={`badge badge-${selectedEmployee.status === 'active' ? 'success' : 'danger'}`}>
-                      {selectedEmployee.status}
-                    </span>
-                  </div>
+                  {isEditingEmployee ? (
+                    <select
+                      className="form-select"
+                      value={editEmployeeData.status}
+                      onChange={(e) => setEditEmployeeData(prev => ({ ...prev, status: e.target.value }))}
+                    >
+                      <option value="active">نشط</option>
+                      <option value="inactive">inactive</option>
+                      <option value="on_leave">إجازة</option>
+                    </select>
+                  ) : (
+                    <div>
+                      <span className={`badge badge-${selectedEmployee.status === 'active' ? 'success' : selectedEmployee.status === 'on_leave' ? 'warning' : 'danger'}`}>
+                        {getStatusLabel(selectedEmployee.status)}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Leave Balance</label>
-                  <div>Annual: {selectedEmployee.leaveBalance?.annual || 0} days</div>
+                  <label className="form-label">{t('hr.leaveBalance')}</label>
+                  <div>{t('hr.annualLabel')}: {selectedEmployee.leaveBalance?.annual || 0} {t('common.days')}</div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">{t('hr.department')}</label>
+                  {isEditingEmployee ? (
+                    <select
+                      className="form-select"
+                      value={editEmployeeData.department}
+                      onChange={(e) => setEditEmployeeData(prev => ({ ...prev, department: e.target.value }))}
+                    >
+                      <option value="">اختر القسم</option>
+                      {departments.map(d => <option key={d} value={d}>{getDepartmentLabel(d)}</option>)}
+                    </select>
+                  ) : (
+                    <div>{getDepartmentLabel(selectedEmployee.department)}</div>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">ملاحظات</label>
+                  {isEditingEmployee ? (
+                    <textarea
+                      className="form-textarea"
+                      rows="2"
+                      value={editEmployeeData.notes}
+                      onChange={(e) => setEditEmployeeData(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="ملاحظات عن الموظف..."
+                    />
+                  ) : (
+                    <div>{selectedEmployee.notes || '-'}</div>
+                  )}
                 </div>
               </div>
 
@@ -2669,9 +2957,9 @@ const HR = () => {
                 <div className="bank-details">
                   <div className="section-title">{t('hr.bankDetails')}</div>
                   <div className="bank-info">
-                    <div>Bank: {selectedEmployee.bankName}</div>
-                    <div>Account: {selectedEmployee.bankAccount}</div>
-                    <div>IBAN: {selectedEmployee.iban}</div>
+                    <div>البنك: {selectedEmployee.bankName}</div>
+                    <div>الحساب: {selectedEmployee.bankAccount}</div>
+                    <div>رقم IBAN: {selectedEmployee.iban}</div>
                   </div>
                 </div>
               )}
@@ -2725,7 +3013,44 @@ const HR = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-outline" onClick={() => setSelectedEmployee(null)}>{t('common.close')}</button>
+              {isEditingEmployee ? (
+                <>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => {
+                      setIsEditingEmployee(false);
+                      setEditEmployeeData({
+                        salary: selectedEmployee.salary || 0,
+                        phone: selectedEmployee.phone || '',
+                        title: selectedEmployee.title || selectedEmployee.designation || '',
+                        position: selectedEmployee.position || selectedEmployee.designation || '',
+                        department: selectedEmployee.department || '',
+                        status: selectedEmployee.status || 'active',
+                        notes: selectedEmployee.notes || ''
+                      });
+                      setEditEmployeeError('');
+                    }}
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    className="btn btn-success"
+                    onClick={handleSaveEmployeeEdit}
+                    disabled={editEmployeeLoading}
+                  >
+                    {editEmployeeLoading ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn btn-outline" onClick={() => setSelectedEmployee(null)}>{t('common.close')}</button>
+                  {canManageEmployees && (
+                    <button className="btn btn-primary" onClick={() => setIsEditingEmployee(true)}>
+                      <Edit size={16} /> تعديل
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -3798,7 +4123,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency, getDepartmentLabel,
     setSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/payroll/${payrollId}/employees/${ep._id || ep.id}`, {
+      const res = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/payroll/${payrollId}/employees/${ep._id || ep.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ basicSalary: basic, additions: allowances, deductions })
@@ -3806,7 +4131,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency, getDepartmentLabel,
       const data = await res.json();
       if (data.success) {
         // Then recalculate totals
-        await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/payroll/${payrollId}/recalculate`, {
+        await fetch(`${process.env.REACT_APP_API_URL || '/api'}/payroll/${payrollId}/recalculate`, {
           method: 'PUT',
           headers: { 'Authorization': `Bearer ${token}` }
         });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency, formatDate, formatNumber, getStatusLabel } from '../utils/formatters';
 import { t } from '../utils/i18n';
 import { 
   DollarSign, FileText, CreditCard, TrendingUp, 
@@ -213,17 +213,33 @@ export default function Finance() {
     const days = item.days;
     const phone = item.phone || '';
 
-    const message = `Dear ${client},\n\nThis is a friendly reminder regarding your account with us.\n\nOUTSTANDING BALANCE: EGP ${Number(amount || 0).toLocaleString()}\nDAYS OVERDUE: ${days} {t('common.days')}\n\nPlease arrange payment at your earliest convenience to avoid any disruption in service.\n\nFor any questions, please contact our accounts department.\n\nThank you for your business.`;
+    const message = `Dear ${client},\n\nThis is a friendly reminder regarding your account with us.\n\nOUTSTANDING BALANCE: EGP ${formatNumber(Number(amount || 0))}\nDAYS OVERDUE: ${days} {t('common.days')}\n\nPlease arrange payment at your earliest convenience to avoid any disruption in service.\n\nFor any questions, please contact our accounts department.\n\nThank you for your business.`;
 
     if (phone) {
       const cleanPhone = phone.replace(/\D/g, '');
       const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
       window.open(url, '_blank');
     } else {
-      const subject = encodeURIComponent(`Payment Reminder - Outstanding Balance: EGP ${Number(amount || 0).toLocaleString()}`);
+      const subject = encodeURIComponent(`Payment Reminder - Outstanding Balance: EGP ${formatNumber(Number(amount || 0))}`);
       const body = encodeURIComponent(message);
       window.open(`mailto:?subject=${subject}&body=${body}`);
     }
+  };
+
+  const paymentMethodAr = {
+    'cash': 'نقدي', 'Cash': 'نقدي',
+    'bank_transfer': 'تحويل بنكي', 'Bank_transfer': 'تحويل بنكي',
+    'check': 'شيك', 'Check': 'شيك'
+  };
+
+  const categoryAr = {
+    'Fuel': 'وقود', 'fuel': 'وقود',
+    'Maintenance': 'صيانة', 'maintenance': 'صيانة',
+    'Salaries': 'رواتب', 'salaries': 'رواتب',
+    'Utilities': 'مرافق', 'utilities': 'مرافق',
+    'Transport': 'نقل', 'transport': 'نقل',
+    'Marketing': 'تسويق', 'marketing': 'تسويق',
+    'Other': 'أخرى', 'other': 'أخرى'
   };
 
   const getStatusBadge = (status) => {
@@ -232,7 +248,10 @@ export default function Finance() {
       pending: { color: 'warning', label: t('common.statuses.pending') },
       partial: { color: 'info', label: t('finance.partial') },
       overdue: { color: 'danger', label: t('common.statuses.overdue') },
-      completed: { color: 'success', label: t('common.statuses.completed') }
+      completed: { color: 'success', label: t('common.statuses.completed') },
+      active: { color: 'success', label: 'نشط' },
+      inactive: { color: 'secondary', label: 'غير نشط' },
+      suspended: { color: 'danger', label: 'موقوف' }
     };
     const statusInfo = statusMap[status] || { color: 'secondary', label: status };
     return <span className={`badge badge-${statusInfo.color}`}>{statusInfo.label}</span>;
@@ -447,10 +466,10 @@ export default function Finance() {
                           </td>
                           <td>{exp.description || 'N/A'}</td>
                           <td style={{ fontWeight: 600, color: '#dc2626' }}>{formatCurrency(Number(exp.amount))}</td>
-                          <td>{new Date(exp.date).toLocaleDateString()}</td>
+                          <td>{formatDate(exp.date)}</td>
                           <td>
                             <span className={`badge badge-${exp.status === 'approved' ? 'success' : 'warning'}`}>
-                              {exp.status}
+                              {getStatusLabel(exp.status)}
                             </span>
                           </td>
                         </tr>
@@ -491,7 +510,7 @@ export default function Finance() {
                           <td>{expense.description}</td>
                           <td>
                             <span className="badge badge-info">
-                              <Briefcase size={12} /> {expense.category}
+                              <Briefcase size={12} /> {categoryAr[expense.category] || expense.category}
                             </span>
                           </td>
                           <td style={{ fontWeight: 600, color: '#dc2626' }}>
@@ -499,7 +518,7 @@ export default function Finance() {
                           </td>
                           <td>
                             <span className={`badge badge-${expense.status === 'approved' ? 'success' : expense.status === 'paid' ? 'success' : 'warning'}`}>
-                              {expense.status}
+                              {getStatusLabel(expense.status)}
                             </span>
                           </td>
                         </tr>
@@ -616,7 +635,7 @@ export default function Finance() {
                       <td style={{ fontWeight: 600, color: inv.remainingAmount > 0 ? '#dc2626' : '#059669' }}>
                         {formatCurrency(Number(inv.remainingAmount || 0))}
                       </td>
-                      <td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : '-'}</td>
+                      <td>{inv.dueDate ? formatDate(inv.dueDate) : '-'}</td>
                       <td>{getStatusBadge(inv.status)}</td>
                       <td>
                         {inv.status !== 'paid' && (
@@ -625,7 +644,7 @@ export default function Finance() {
                             onClick={() => openPaymentModal(inv)}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                           >
-                            <CreditCard size={16} /> Record Payment
+                            <CreditCard size={16} /> تسجيل دفعة
                           </button>
                         )}
                         {inv.status === 'paid' && (
@@ -648,7 +667,7 @@ export default function Finance() {
                 <Search size={18} color="#64748b" />
                 <input
                   type="text"
-                  placeholder="Search payments..."
+                  placeholder="بحث في المدفوعات..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="form-input"
@@ -676,9 +695,9 @@ export default function Finance() {
                       <td style={{ fontWeight: 600 }}>{pay.paymentNumber}</td>
                       <td>{pay.client?.name}</td>
                       <td style={{ fontWeight: 600 }}>{formatCurrency(Number(pay.amount || 0))}</td>
-                      <td style={{ textTransform: 'capitalize' }}>{pay.paymentMethod}</td>
+                      <td>{paymentMethodAr[pay.paymentMethod] || pay.paymentMethod}</td>
                       <td style={{ fontFamily: 'monospace', color: '#64748b' }}>{pay.reference}</td>
-                      <td>{new Date(pay.paymentDate).toLocaleDateString()}</td>
+                      <td>{formatDate(pay.paymentDate)}</td>
                       <td>{getStatusBadge(pay.status)}</td>
                     </tr>
                   ))}
@@ -739,7 +758,7 @@ export default function Finance() {
               <div className="card-header">
                 <h3 className="card-title">{t('finance.receivablesAging')}</h3>
                 <span style={{ fontWeight: 600, color: '#dc2626', fontSize: '16px' }}>
-                  {t('common.total')}: {t('common.currency')} {Number(receivables.totals?.total || 0).toLocaleString()}
+                  {t('common.total')}: {formatCurrency(Number(receivables.totals?.total || 0))}
                 </span>
               </div>
               <div className="table-container">
@@ -763,7 +782,7 @@ export default function Finance() {
                             className={`badge ${item.days > 60 ? 'badge-danger' : item.days > 30 ? 'badge-warning' : 'badge-success'}`}
                             style={{ fontSize: '11px' }}
                           >
-                            {item.days} days
+                            {item.days} {t('common.days')}
                           </span>
                         </td>
                         <td>{getStatusBadge(item.days > 90 ? 'overdue' : item.days > 30 ? 'pending' : 'pending')}</td>
@@ -801,197 +820,127 @@ export default function Finance() {
 
       {/* Payment Modal */}
       {showPaymentModal && (
-        <div className="modal-overlay" style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 2000
-        }}>
-          <div className="modal-content" style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            width: '100%',
-            maxWidth: '500px',
-            maxHeight: '90vh',
-            overflow: 'auto',
-            padding: '24px'
-          }}>
-            <div className="modal-header" style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '20px'
-            }}>
-              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 600 }}>
-                تسجيل دفعة
-              </h3>
-              <button 
-                onClick={closePaymentModal}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#64748b'
-                }}
-              >
-                ×
-              </button>
+        <div className="modal-overlay" onClick={closePaymentModal}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', borderRadius: '12px', width: '100%', maxWidth: '520px', direction: 'rtl', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
+            {/* Dark navy header */}
+            <div style={{ background: '#1a2332', padding: '18px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: 'white', margin: 0, fontSize: '16px', fontWeight: 700 }}>تسجيل دفعة</h3>
+              <button onClick={closePaymentModal} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '6px', color: 'white', width: '28px', height: '28px', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
             </div>
 
-            {selectedInvoiceForPayment && (
-              <div style={{
-                backgroundColor: '#f1f5f9',
-                padding: '12px',
-                borderRadius: '6px',
-                marginBottom: '20px'
-              }}>
-                <p style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#64748b' }}>
-                  Invoice: <strong>{selectedInvoiceForPayment.invoiceNumber}</strong>
-                </p>
-                <p style={{ margin: '0 0 4px 0', fontSize: '14px', color: '#64748b' }}>
-                  Client: <strong>{selectedInvoiceForPayment.client?.name}</strong>
-                </p>
-                <p style={{ margin: 0, fontSize: '14px', color: '#64748b' }}>
-                  Remaining Balance: 
-                  <strong style={{ color: '#dc2626' }}>
-                    {formatCurrency(Number(selectedInvoiceForPayment.remainingAmount || 0))}
-                  </strong>
-                </p>
-              </div>
-            )}
+            <form onSubmit={submitPayment} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Info card */}
+              {selectedInvoiceForPayment && (
+                <div style={{ background: '#f8f9fa', borderRadius: '8px', padding: '14px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 4px' }}>الفاتورة</p>
+                    <p style={{ fontWeight: 600, color: '#1e293b', margin: 0, fontSize: '14px' }}>{selectedInvoiceForPayment.invoiceNumber}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 4px' }}>العميل</p>
+                    <p style={{ fontWeight: 600, color: '#1e293b', margin: 0, fontSize: '14px' }}>{selectedInvoiceForPayment.client?.name}</p>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '12px', color: '#6b7280', margin: '0 0 4px' }}>الرصيد المتبقي</p>
+                    <p style={{ fontWeight: 700, color: '#10b981', margin: 0, fontSize: '15px' }}>{formatCurrency(Number(selectedInvoiceForPayment.remainingAmount || 0))}</p>
+                  </div>
+                </div>
+              )}
 
-            <form onSubmit={submitPayment}>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '6px', 
-                  fontSize: '14px', 
-                  fontWeight: 500,
-                  color: '#374151'
-                }}>
-                  Payment Amount ({t('common.currency')}) *
+              {/* Amount */}
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, color: '#374151', fontSize: '14px', marginBottom: '6px' }}>
+                  المبلغ المدفوع <span style={{ color: '#ef4444' }}>*</span>
                 </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-                  className="form-input"
-                  placeholder="Enter amount"
-                  required
-                  style={{ width: '100%' }}
-                />
+                <div style={{ display: 'flex', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', height: '44px' }}
+                  onFocusCapture={(e) => e.currentTarget.style.borderColor = '#10b981'}
+                  onBlurCapture={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}>
+                  <span style={{ background: '#f1f5f9', padding: '0 14px', display: 'flex', alignItems: 'center', color: '#64748b', fontWeight: 600, fontSize: '13px', borderLeft: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>EGP</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={paymentForm.amount}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+                    required
+                    style={{ flex: 1, border: 'none', outline: 'none', padding: '0 12px', fontSize: '15px', fontWeight: 500, direction: 'ltr', textAlign: 'right', background: 'transparent' }}
+                  />
+                </div>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '6px', 
-                  fontSize: '14px', 
-                  fontWeight: 500,
-                  color: '#374151'
-                }}>
-                  Payment Method *
+              {/* Method */}
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, color: '#374151', fontSize: '14px', marginBottom: '6px' }}>
+                  طريقة الدفع <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <select
                   value={paymentForm.paymentMethod}
                   onChange={(e) => setPaymentForm({ ...paymentForm, paymentMethod: e.target.value })}
-                  className="form-input"
                   required
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', height: '44px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 14px', fontSize: '14px', color: '#1e293b', background: 'white', direction: 'rtl', outline: 'none', boxSizing: 'border-box' }}
+                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
+                  onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
                 >
-                  <option value="cash">{t('common.cash')}</option>
-                  <option value="bank_transfer">{t('common.bankTransfer')}</option>
-                  <option value="cheque">{t('common.cheque')}</option>
+                  <option value="cash">نقدي</option>
+                  <option value="bank_transfer">تحويل بنكي</option>
+                  <option value="cheque">شيك</option>
+                  <option value="credit_card">بطاقة ائتمان</option>
                 </select>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '6px', 
-                  fontSize: '14px', 
-                  fontWeight: 500,
-                  color: '#374151'
-                }}>
-                  Reference Number
-                </label>
+              {/* Reference */}
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, color: '#374151', fontSize: '14px', marginBottom: '6px' }}>الرقم المرجعي</label>
                 <input
                   type="text"
                   value={paymentForm.reference}
                   onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
-                  className="form-input"
-                  placeholder="e.g., TRF-001, CHQ-123"
-                  style={{ width: '100%' }}
+                  placeholder="رقم العملية / رقم الشيك"
+                  style={{ width: '100%', height: '44px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 14px', fontSize: '14px', color: '#1e293b', outline: 'none', boxSizing: 'border-box', direction: 'rtl' }}
+                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
+                  onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
                 />
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '6px', 
-                  fontSize: '14px', 
-                  fontWeight: 500,
-                  color: '#374151'
-                }}>
-                  Payment Date *
+              {/* Date */}
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, color: '#374151', fontSize: '14px', marginBottom: '6px' }}>
+                  تاريخ الدفع <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <input
                   type="date"
                   value={paymentForm.paymentDate}
                   onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
-                  className="form-input"
                   required
-                  style={{ width: '100%' }}
+                  style={{ width: '100%', height: '44px', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '0 12px', fontSize: '14px', color: '#1e293b', outline: 'none', boxSizing: 'border-box', direction: 'ltr' }}
+                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
+                  onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
                 />
               </div>
 
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '6px', 
-                  fontSize: '14px', 
-                  fontWeight: 500,
-                  color: '#374151'
-                }}>
-                  Notes
-                </label>
+              {/* Notes */}
+              <div>
+                <label style={{ display: 'block', fontWeight: 600, color: '#374151', fontSize: '14px', marginBottom: '6px' }}>ملاحظات</label>
                 <textarea
                   value={paymentForm.notes}
                   onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-                  className="form-input"
-                  placeholder="Additional notes about this payment..."
                   rows="3"
-                  style={{ width: '100%', resize: 'vertical' }}
+                  placeholder="ملاحظات اختيارية حول هذه الدفعة..."
+                  style={{ width: '100%', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '10px 14px', fontSize: '14px', color: '#1e293b', outline: 'none', resize: 'vertical', direction: 'rtl', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  onFocus={(e) => e.target.style.borderColor = '#10b981'}
+                  onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
                 />
               </div>
 
-              <div style={{ 
-                display: 'flex', 
-                gap: '12px', 
-                justifyContent: 'flex-end' 
-              }}>
-                <button
-                  type="button"
-                  onClick={closePaymentModal}
-                  className="btn btn-outline"
-                >
+              {/* Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '4px' }}>
+                <button type="button" onClick={closePaymentModal}
+                  style={{ padding: '10px 20px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: 'white', color: '#374151', fontWeight: 500, cursor: 'pointer', fontSize: '14px' }}>
                   إلغاء
                 </button>
-                <button
-                  type="submit"
-                  className="btn btn-success"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  <Check size={16} /> Record Payment
+                <button type="submit"
+                  style={{ padding: '10px 22px', borderRadius: '8px', border: 'none', background: '#10b981', color: 'white', fontWeight: 600, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  ✓ تسجيل دفعة
                 </button>
               </div>
             </form>

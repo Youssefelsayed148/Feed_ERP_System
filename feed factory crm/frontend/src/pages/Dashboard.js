@@ -8,17 +8,27 @@ import {
   Wallet, Receipt, FlaskConical,
   Activity, Clock
 } from 'lucide-react';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatNumber } from '../utils/formatters';
 import { t } from '../utils/i18n';
 import { authService } from '../services/api';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 const getAuthToken = () => localStorage.getItem('token');
 
 const headers = () => ({
   'Content-Type': 'application/json',
   'Authorization': `Bearer ${getAuthToken()}`
 });
+
+const actionAr = {
+  'create': 'إنشاء',
+  'update': 'تعديل',
+  'delete': 'حذف',
+  'approve': 'اعتماد',
+  'reject': 'رفض',
+  'payment': 'دفعة',
+  'checkin': 'حضور'
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -215,14 +225,14 @@ const Dashboard = () => {
           <div className="stat-icon" style={{ background: '#f59e0b20', color: '#f59e0b' }}>
             <Package size={24} />
           </div>
-          <div className="stat-value">{t('common.currency')} {Math.round(rawMaterialValue).toLocaleString()}</div>
+          <div className="stat-value">{formatCurrency(Math.round(rawMaterialValue))}</div>
           <div className="stat-label">{t('dashboard.rawMaterialsValue')}</div>
         </div>
         <div className="stat-card">
           <div className="stat-icon" style={{ background: '#ef444420', color: '#ef4444' }}>
             <DollarSign size={24} />
           </div>
-          <div className="stat-value">{t('common.currency')} {Math.round((stats?.total_revenue || 0) ).toLocaleString()}</div>
+          <div className="stat-value">{formatCurrency(Math.round((stats?.total_revenue || 0) ))}</div>
           <div className="stat-label">{t('dashboard.totalRevenue')}</div>
         </div>
         <div className="stat-card">
@@ -584,7 +594,7 @@ const Dashboard = () => {
                 <tr key={c.id}>
                   <td>{c.name}</td>
                   <td>{c.code}</td>
-                  <td>{t('common.currency')} {Math.round(parseFloat(c.current_balance || 0)).toLocaleString()}</td>
+                  <td>{formatCurrency(Math.round(parseFloat(c.current_balance || 0)))}</td>
                   <td><span className={getStatusBadge(c.status)}>{t('common.statuses.' + c.status)}</span></td>
                 </tr>
               ))}
@@ -619,8 +629,8 @@ const Dashboard = () => {
                 return (
                   <tr key={m.id} style={isLow ? { background: '#fef2f2' } : {}}>
                     <td>{m.name} {isLow && <span style={{ color: '#ef4444', fontSize: '0.8em' }}>⚠️ {t('common.low')}</span>}</td>
-                    <td>{Math.round(stock).toLocaleString()} {t('common.kg')}</td>
-                    <td>{t('common.currency')} {Math.round(value).toLocaleString()}</td>
+                    <td>{formatNumber(Math.round(stock))} {t('common.kg')}</td>
+                    <td>{formatCurrency(Math.round(value))}</td>
                   </tr>
                 );
               })}
@@ -649,7 +659,7 @@ const Dashboard = () => {
               {(stats?.orders || []).map(o => (
                 <tr key={o.id}>
                   <td>{o.order_number}</td>
-                  <td>{t('common.currency')} {Math.round(parseFloat(o.final_amount || 0) ).toLocaleString()}</td>
+                  <td>{formatCurrency(Math.round(parseFloat(o.final_amount || 0) ))}</td>
                   <td><span className={getStatusBadge(o.status)}>{t('common.statuses.' + o.status)}</span></td>
                 </tr>
               ))}
@@ -678,7 +688,7 @@ const Dashboard = () => {
               {(stats?.production || []).map(p => (
                 <tr key={p.id}>
                   <td>{p.order_number}</td>
-                  <td>{Math.round(parseFloat(p.quantity_kg || 0)).toLocaleString()}</td>
+                  <td>{formatNumber(Math.round(parseFloat(p.quantity_kg || 0)))}</td>
                   <td><span className={getStatusBadge(p.status)}>{t('common.statuses.' + p.status)}</span></td>
                 </tr>
               ))}
@@ -711,8 +721,8 @@ const Dashboard = () => {
                 return (
                   <tr key={i.id}>
                     <td>{i.invoice_number}</td>
-                    <td>{t('common.currency')} {Math.round(total).toLocaleString()}</td>
-                    <td>{balance === 0 ? t('common.paid') : `${t('common.currency')} ${Math.round(balance).toLocaleString()}`}</td>
+                    <td>{formatCurrency(Math.round(total))}</td>
+                    <td>{balance === 0 ? t('common.paid') : formatCurrency(Math.round(balance))}</td>
                     <td><span className={getStatusBadge(i.status)}>{t('common.statuses.' + i.status)}</span></td>
                   </tr>
                 );
@@ -823,7 +833,7 @@ const Dashboard = () => {
                       <br />
                       <span style={{ fontSize: '0.8em', color: '#9ca3af' }}>{a.userRole || a.user_role || ''}</span>
                     </td>
-                    <td><span className="badge" style={{ fontSize: '0.85em' }}>{a.action}</span></td>
+                    <td><span className="badge" style={{ fontSize: '0.85em' }}>{actionAr[a.action] || a.action}</span></td>
                     <td style={{ textTransform: 'capitalize', fontSize: '0.9em' }}>{a.module || a.module_name || ''}</td>
                     <td style={{ maxWidth: '250px', fontSize: '0.9em' }}>{a.description || a.description_ar || ''}</td>
                     <td style={{ textAlign: 'right', fontFamily: 'monospace', fontSize: '0.9em' }}>

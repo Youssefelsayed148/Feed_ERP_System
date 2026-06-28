@@ -31,7 +31,7 @@ import {
   RefreshCw,
   X
 } from 'lucide-react';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDate, formatNumber, getStatusLabel } from '../utils/formatters';
 import { salesService, authService } from '../services/api';
 import FloatingActionButton from '../components/FloatingActionButton';
 import PaymentModal from '../components/PaymentModal';
@@ -81,6 +81,7 @@ const Sales = () => {
   const [showClientDetailModal, setShowClientDetailModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientDetailData, setClientDetailData] = useState(null);
+  const [clientModalAllowedTabs, setClientModalAllowedTabs] = useState(null);
 
   // Order Detail State
   const [showOrderDetail, setShowOrderDetail] = useState(false);
@@ -198,6 +199,7 @@ const Sales = () => {
 
   // View client details
   const viewClientDetails = async (client) => {
+    setClientModalAllowedTabs(null);
     setSelectedClient(client);
     setShowClientDetailModal(true);
     
@@ -208,6 +210,30 @@ const Sales = () => {
       }
     } catch (error) {
       console.error('Error fetching client details:', error);
+    }
+  };
+
+  // Open client detail modal from approval card (overview + liabilities tabs only)
+  const openClientDetailModal = async (clientId) => {
+    setClientModalAllowedTabs(['overview', 'invoices']);
+    setClientDetailData(null);
+    try {
+      const res = await fetch(`${API_URL}/clients/${clientId}`, { headers: headers() });
+      const data = await res.json();
+      const clientData = data.client || clients.find(c => String(c.id) === String(clientId) || String(c._id) === String(clientId));
+      if (clientData) {
+        setSelectedClient(clientData);
+        setShowClientDetailModal(true);
+        const result = await salesService.getClientFullDetails(clientId);
+        if (result.success) setClientDetailData(result);
+      }
+    } catch (error) {
+      console.error('Error fetching client for modal:', error);
+      const localClient = clients.find(c => String(c.id) === String(clientId) || String(c._id) === String(clientId));
+      if (localClient) {
+        setSelectedClient(localClient);
+        setShowClientDetailModal(true);
+      }
     }
   };
 
@@ -274,7 +300,7 @@ const Sales = () => {
   });
 
   const pendingOrders = orders.filter(o => o.status === 'pending_approval');
-  const activeOrders = orders.filter(o => ['approved', 'confirmed', 'processing', 'in_transit'].includes(o.status));
+  const activeOrders = orders.filter(o => ['approved', 'confirmed', 'processing', 'ready_for_delivery', 'in_transit'].includes(o.status));
 
   // Render Dashboard Tab
   const renderDashboard = () => (
@@ -464,11 +490,11 @@ const Sales = () => {
             <input type="text" placeholder={t('sales.filterByCity')} value={filterCity} onChange={(e) => setFilterCity(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }} />
           </div>
           <div>
-            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>{t('sales.minDue')} ({t('common.currency')})</label>
+            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>{t('sales.minDue')} (EGP)</label>
             <input type="number" placeholder="0" value={filterMinDue} onChange={(e) => setFilterMinDue(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }} />
           </div>
           <div>
-            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>{t('sales.maxDue')} ({t('common.currency')})</label>
+            <label style={{ fontSize: '12px', color: '#6b7280', display: 'block', marginBottom: '4px' }}>{t('sales.maxDue')} (EGP)</label>
             <input type="number" placeholder={t('common.any')} value={filterMaxDue} onChange={(e) => setFilterMaxDue(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '13px' }} />
           </div>
           <div>
@@ -528,16 +554,17 @@ const Sales = () => {
         </h2>
       </div>
 
-      {/* Pending Approvals Section (Manager Only) */}
+      {/* بانتظار الاعتمادs Section (Manager Only) */}
       {isManager && pendingOrders.length > 0 && (
         <div style={styles.pendingSection}>
           <h3 style={styles.subSectionTitle}>{t('sales.pendingApproval')} ({pendingOrders.length})</h3>
           {pendingOrders.map(order => (
-            <OrderApprovalCard 
-              key={order.id} 
+            <OrderApprovalCard
+              key={order.id}
               order={order}
               onApprove={() => approveOrder(order.id)}
               onReject={(reason) => rejectOrder(order.id, reason)}
+              onViewClient={() => openClientDetailModal(order.client_id || order.clientId)}
             />
           ))}
         </div>
@@ -633,11 +660,11 @@ const Sales = () => {
                           <div>
                             <strong>{inv.client_name}</strong> - {inv.invoice_number}
                             <p style={{ margin: '2px 0', fontSize: '12px', color: '#6b7280' }}>
-                              {formatCurrency(parseFloat(inv.amount || 0))} | Due: {new Date(inv.due_date).toLocaleDateString()} | {inv.days_until_due !== null ? (inv.days_until_due > 0 ? `${inv.days_until_due} days` : inv.days_until_due === 0 ? 'Today' : `${Math.abs(inv.days_until_due)} days overdue`) : ''}
+                              {formatCurrency(parseFloat(inv.amount || 0))} | الاستحقاق: {formatDate(inv.due_date)} | {inv.days_until_due !== null ? (inv.days_until_due > 0 ? `${inv.days_until_due} يوم` : inv.days_until_due === 0 ? 'اليوم' : `${Math.abs(inv.days_until_due)} يوم تأخير`) : ''}
                             </p>
                           </div>
                           <button className="btn btn-sm" onClick={() => {
-                            const msg = `Dear ${inv.client_name}, invoice ${inv.invoice_number} for ${formatCurrency(parseFloat(inv.amount || 0))} is due on ${new Date(inv.due_date).toLocaleDateString()}. Please arrange payment.`;
+                            const msg = `السلام عليكم ${inv.client_name}، فاتورة ${inv.invoice_number} for ${formatCurrency(parseFloat(inv.amount || 0))} تستحق في ${formatDate(inv.due_date)}. نرجو ترتيب السداد.`;
                             window.open(`https://wa.me/${inv.client_phone || ''}?text=${encodeURIComponent(msg)}`, '_blank');
                           }} style={{ background: '#25D366', color: 'white', border: 'none', borderRadius: '4px', padding: '4px 12px', cursor: 'pointer' }}>
                             <MessageCircle size={14} /> WhatsApp
@@ -762,10 +789,12 @@ const Sales = () => {
         <ClientDetailModal
           client={selectedClient}
           detailData={clientDetailData}
+          allowedTabs={clientModalAllowedTabs}
           onClose={() => {
             setShowClientDetailModal(false);
             setSelectedClient(null);
             setClientDetailData(null);
+            setClientModalAllowedTabs(null);
           }}
           onAddOrder={() => navigate('/orders')}
           onAddPayment={() => setShowPaymentModal(true)}
@@ -872,53 +901,101 @@ const OrderCard = ({ order, detailed, onClick }) => (
     </div>
     <div style={styles.orderDetails}>
       <span style={styles.orderAmount}>{formatCurrency(parseFloat(order.final_amount || order.total_amount || 0) )}</span>
-      <span style={styles.orderDate}>{new Date(order.created_at).toLocaleDateString()}</span>
+      <span style={styles.orderDate}>{formatDate(order.created_at)}</span>
     </div>
     {(detailed || order.item_count) && (
-      <div style={styles.orderItems}>{order.item_count || order.items?.length || 0} items</div>
+      <div style={styles.orderItems}>{order.item_count || order.items?.length || 0} عناصر</div>
     )}
   </div>
 );
 
-const OrderApprovalCard = ({ order, onApprove, onReject }) => {
+const OrderApprovalCard = ({ order, onApprove, onReject, onViewClient }) => {
   const [showRejectReason, setShowRejectReason] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+
+  const formatDeliveryDate = (date) => {
+    if (!date) return 'غير محدد';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'غير محدد';
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  };
+
+  const getFeedTypeName = (item) => {
+    return item.feed_type_name || item.feedTypeName || item.feed_type_id || item.feedTypeId || '—';
+  };
+
+  const getBags = (item) => {
+    const qtyKg = parseFloat(item.quantity_tons || item.quantityTons || item.quantity || 0) * 1000;
+    const pkg = parseInt(item.package_size || item.packageSize || 50);
+    if (!qtyKg || !pkg) return 0;
+    return Math.ceil(qtyKg / pkg);
+  };
 
   return (
     <div style={styles.approvalCard}>
       <div style={styles.approvalInfo}>
         <span style={styles.approvalOrder}>{order.order_number}</span>
-        <span style={styles.approvalClient}>{order.client_name}</span>
+        <button
+          onClick={onViewClient}
+          style={{ background: 'none', border: 'none', color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer', fontSize: '14px', padding: 0, flex: 1, textAlign: 'right' }}
+        >
+          {order.client_name}
+        </button>
         <span style={styles.approvalAmount}>{formatCurrency(parseFloat(order.final_amount || order.total_amount || 0) )}</span>
       </div>
-      
+
+      {/* Delivery Date */}
+      <div style={{ marginBottom: '10px', fontSize: '13px', color: '#374151' }}>
+        <span style={{ fontWeight: 600 }}>تاريخ التسليم: </span>
+        <span>{formatDeliveryDate(order.delivery_date || order.deliveryDate)}</span>
+      </div>
+
+      {/* Items List */}
+      {order.items && order.items.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '6px' }}>العناصر المطلوبة:</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {order.items.map((item, idx) => {
+              const qtyTons = parseFloat(item.quantity_tons || item.quantityTons || item.quantity || 0);
+              const pkgSize = parseInt(item.package_size || item.packageSize || 50);
+              const bags = getBags(item);
+              return (
+                <div key={idx} style={{ fontSize: '13px', color: '#4b5563', paddingRight: '12px' }}>
+                  • {getFeedTypeName(item)} — {qtyTons} طن × {pkgSize} كجم = {bags} كيس
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {showRejectReason ? (
         <div style={styles.rejectForm}>
           <input
             type="text"
-            placeholder="Reason for rejection"
+            placeholder="سبب الرفض"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             style={styles.rejectInput}
           />
           <div style={styles.rejectActions}>
             <button onClick={() => setShowRejectReason(false)} style={styles.cancelBtn}>{t('common.cancel')}</button>
-            <button 
+            <button
               onClick={() => { onReject(rejectReason); setShowRejectReason(false); }}
               style={styles.confirmRejectBtn}
               disabled={!rejectReason}
             >
-              Confirm Reject
+              تأكيد الرفض
             </button>
           </div>
         </div>
       ) : (
         <div style={styles.approvalActions}>
           <button onClick={() => setShowRejectReason(true)} style={styles.rejectBtn}>
-            <XCircle size={16} /> Reject
+            <XCircle size={16} /> رفض
           </button>
           <button onClick={onApprove} style={styles.approveBtn}>
-            <CheckCircle size={16} /> Approve
+            <CheckCircle size={16} /> موافقة
           </button>
         </div>
       )}
@@ -937,14 +1014,14 @@ const InvoiceCard = ({ invoice }) => (
       <span style={styles.invoiceAmount}>{formatCurrency(parseFloat(invoice.amount || 0) )}</span>
     </div>
     <div style={styles.invoiceBalance}>
-      Balance Due: <strong>{formatCurrency(parseFloat(invoice.balance_due || 0) )}</strong>
+      الرصيد المستحق: <strong>{formatCurrency(parseFloat(invoice.balance_due || 0) )}</strong>
     </div>
     <div style={{ marginTop: '8px' }}>
       <button className="btn btn-sm" onClick={() => {
-        const msg = `Invoice ${invoice.invoice_number}: ${formatCurrency(parseFloat(invoice.amount || 0))} - Due: ${new Date(invoice.due_date).toLocaleDateString()}`;
+        const msg = `Invoice ${invoice.invoice_number}: ${formatCurrency(parseFloat(invoice.amount || 0))} - Due: ${formatDate(invoice.due_date)}`;
         window.open(`https://wa.me/${invoice.client_phone || ''}?text=${encodeURIComponent(msg)}`, '_blank');
       }} style={{ background: '#25D366', color: 'white', border: 'none', padding: '4px 12px', borderRadius: '4px', cursor: 'pointer' }}>
-        <MessageCircle size={14} style={{ marginRight: '4px' }} /> WhatsApp
+        <MessageCircle size={14} style={{ marginRight: '4px' }} /> واتساب
       </button>
     </div>
   </div>
@@ -960,7 +1037,7 @@ const ReminderCard = ({ reminder, detailed }) => (
     <div style={styles.reminderDetails}>
       <span style={styles.reminderClient}>{reminder.client_name}</span>
       <span style={styles.reminderDate}>
-        {new Date(reminder.reminder_date).toLocaleString()}
+        {formatNumber(new Date(reminder.reminder_date))}
       </span>
     </div>
     {detailed && reminder.message && (
@@ -969,7 +1046,7 @@ const ReminderCard = ({ reminder, detailed }) => (
   </div>
 );
 
-const ClientDetailModal = ({ client, detailData, onClose, onAddOrder, onAddPayment, onAddReminder, onViewOrder, isManager }) => {
+const ClientDetailModal = ({ client, detailData, onClose, onAddOrder, onAddPayment, onAddReminder, onViewOrder, isManager, allowedTabs }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const isLoading = !detailData;
   
@@ -985,7 +1062,7 @@ const ClientDetailModal = ({ client, detailData, onClose, onAddOrder, onAddPayme
         {isLoading && (
           <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
             <RefreshCw size={32} className="spin" />
-            <p style={{ marginTop: '12px' }}>Loading client details...</p>
+            <p style={{ marginTop: '12px' }}>جاري تحميل بيانات العميل...</p>
           </div>
         )}
         
@@ -1005,32 +1082,33 @@ const ClientDetailModal = ({ client, detailData, onClose, onAddOrder, onAddPayme
           </div>
           <div style={styles.summaryItem}>
             <span style={styles.summaryLabel}>{t('common.status')}</span>
-            <span style={{...styles.summaryValue, textTransform: 'capitalize'}}>{client.status}</span>
+            <span style={styles.summaryValue}>{getStatusLabel(client.status)}</span>
           </div>
         </div>
         
         {/* Action Buttons */}
         <div style={styles.clientActions}>
           <button onClick={onAddOrder} style={styles.actionBtn}>
-            <ShoppingCart size={16} /> New Order
+            <ShoppingCart size={16} /> طلب جديد
           </button>
           <button onClick={onAddPayment} style={styles.actionBtn}>
-            <CreditCard size={16} /> Record Payment
+            <CreditCard size={16} /> تسجيل دفعة
           </button>
           <button onClick={onAddReminder} style={styles.actionBtn}>
-            <Bell size={16} /> Add Reminder
+            <Bell size={16} /> إضافة تذكير
           </button>
         </div>
         
         {/* Tabs */}
         <div style={styles.detailTabs}>
-          {['overview', 'orders', 'invoices', 'payments', 'reminders'].map(tab => (
+          {(['overview', 'orders', 'invoices', 'payments', 'reminders']
+            .filter(tab => !allowedTabs || allowedTabs.includes(tab))).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               style={{...styles.detailTab, ...(activeTab === tab ? styles.detailTabActive : {})}}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {({'overview':'نظرة عامة','orders':'الطلبات','invoices':'الخصومات','payments':'المدفوعات','reminders':'التذكيرات'}[tab] || tab)}
             </button>
           ))}
         </div>
@@ -1040,16 +1118,16 @@ const ClientDetailModal = ({ client, detailData, onClose, onAddOrder, onAddPayme
           {activeTab === 'overview' && (
             <div style={styles.overviewTab}>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Code:</span>
+                <span style={styles.infoLabel}>الكود:</span>
                 <span style={styles.infoValue}>{client.code}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Type:</span>
+                <span style={styles.infoLabel}>النوع:</span>
                 <span style={styles.infoValue}>{client.type}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Phone:</span>
-                <span style={styles.infoValue}>{client.phone || 'N/A'}</span>
+                <span style={styles.infoLabel}>الهاتف:</span>
+                <span style={styles.infoValue}>{client.phone || 'غير متاح'}</span>
                 {client.phone && (
                   <button
                     onClick={() => {
@@ -1064,24 +1142,24 @@ const ClientDetailModal = ({ client, detailData, onClose, onAddOrder, onAddPayme
                 )}
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Email:</span>
-                <span style={styles.infoValue}>{client.email || 'N/A'}</span>
+                <span style={styles.infoLabel}>البريد الإلكتروني:</span>
+                <span style={styles.infoValue}>{client.email || 'غير متاح'}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Address:</span>
-                <span style={styles.infoValue}>{client.address || 'N/A'}</span>
+                <span style={styles.infoLabel}>العنوان:</span>
+                <span style={styles.infoValue}>{client.address || 'غير متاح'}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Credit Limit:</span>
+                <span style={styles.infoLabel}>حد الائتمان:</span>
                 <span style={styles.infoValue}>{formatCurrency(parseFloat(client.credit_limit || 0) )}</span>
               </div>
               <div style={styles.infoRow}>
-                <span style={styles.infoLabel}>Payment Terms:</span>
-                <span style={styles.infoValue}>{client.payment_terms || 'N/A'}</span>
+                <span style={styles.infoLabel}>شروط الدفع:</span>
+                <span style={styles.infoValue}>{client.payment_terms || 'غير متاح'}</span>
               </div>
               {client.assigned_to_name && (
                 <div style={styles.infoRow}>
-                  <span style={styles.infoLabel}>Assigned To:</span>
+                  <span style={styles.infoLabel}>مسند إلى:</span>
                   <span style={styles.infoValue}>{client.assigned_to_name}</span>
                 </div>
               )}
@@ -1108,7 +1186,7 @@ const ClientDetailModal = ({ client, detailData, onClose, onAddOrder, onAddPayme
             <div style={styles.listTab}>
               {detailData?.payments?.map(payment => (
                   <div key={payment.id} style={styles.paymentRow}>
-                    <span>{new Date(payment.date).toLocaleDateString()}</span>
+                    <span>{formatDate(payment.date)}</span>
                     <span>{formatCurrency(parseFloat(payment.amount) )}</span>
                   <span style={{textTransform: 'capitalize'}}>{payment.method}</span>
                 </div>
@@ -1137,15 +1215,27 @@ const OrderStatusBadge = ({ status }) => {
     approved: '#3b82f6',
     confirmed: '#10b981',
     processing: '#8b5cf6',
+    ready_for_delivery: '#0ea5e9',
     in_transit: '#6366f1',
     delivered: '#10b981',
     rejected: '#ef4444',
     cancelled: '#6b7280'
   };
-  
+  const labels = {
+    pending_approval: t('common.statuses.pending_approval'),
+    approved: t('common.statuses.approved'),
+    confirmed: t('common.statuses.confirmed'),
+    processing: t('common.statuses.processing'),
+    ready_for_delivery: t('orders.readyForDelivery'),
+    in_transit: t('common.statuses.in_progress'),
+    delivered: t('common.statuses.delivered'),
+    rejected: t('common.statuses.cancelled'),
+    cancelled: t('common.statuses.cancelled')
+  };
+
   return (
     <span style={{...styles.statusBadge, backgroundColor: `${colors[status] || '#6b7280'}20`, color: colors[status] || '#6b7280'}}>
-      {status?.replace('_', ' ')}
+      {labels[status] || status}
     </span>
   );
 };
@@ -1161,7 +1251,7 @@ const InvoiceStatusBadge = ({ status }) => {
   
   return (
     <span style={{...styles.statusBadge, backgroundColor: `${colors[status] || '#6b7280'}20`, color: colors[status] || '#6b7280'}}>
-      {status}
+      {getStatusLabel(status)}
     </span>
   );
 };
@@ -1177,7 +1267,7 @@ const PaymentStatusBadge = ({ status }) => {
   
   return (
     <span style={{...styles.statusBadge, backgroundColor: `${colors[status] || '#6b7280'}20`, color: colors[status] || '#6b7280'}}>
-      {status}
+      {getStatusLabel(status)}
     </span>
   );
 };
@@ -1192,7 +1282,7 @@ const ReminderStatusBadge = ({ status }) => {
   
   return (
     <span style={{...styles.statusBadge, backgroundColor: `${colors[status] || '#6b7280'}20`, color: colors[status] || '#6b7280'}}>
-      {status}
+      {getStatusLabel(status)}
     </span>
   );
 };

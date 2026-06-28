@@ -3,6 +3,37 @@ const router = express.Router();
 const { query, transaction } = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 
+// Ensure UTF-8 encoding for this module's queries
+query("SET client_encoding = 'UTF8'").catch(() => {});
+
+// GET /chart-of-accounts — returns all active accounts with current balances
+router.get('/chart-of-accounts', authenticate, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT
+        a.id,
+        a.name,
+        a.type,
+        COALESCE(SUM(jel.debit), 0) as total_debit,
+        COALESCE(SUM(jel.credit), 0) as total_credit,
+        CASE
+          WHEN a.type IN ('asset', 'expense') THEN COALESCE(SUM(jel.debit), 0) - COALESCE(SUM(jel.credit), 0)
+          WHEN a.type IN ('liability', 'equity', 'revenue') THEN COALESCE(SUM(jel.credit), 0) - COALESCE(SUM(jel.debit), 0)
+          ELSE 0
+        END as balance
+      FROM accounts a
+      LEFT JOIN journal_entry_lines jel ON a.id = jel.account_id
+      WHERE a.is_active = true
+      GROUP BY a.id, a.name, a.type
+      ORDER BY a.id
+    `);
+    res.json({ success: true, accounts: result.rows });
+  } catch (error) {
+    console.error('Error fetching chart of accounts:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/journal-entries', authenticate, async (req, res) => {
   try {
     const entries = await query(`

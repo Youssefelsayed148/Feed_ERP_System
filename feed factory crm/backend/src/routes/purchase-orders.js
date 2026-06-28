@@ -5,6 +5,16 @@ const { authenticate: auth, authorize } = require('../middleware/auth');
 const { notifyRole, notifyUser } = require('../utils/notify');
 const { logActivity } = require('../utils/activity');
 
+const generateCode = async (prefix, tableName, codeColumn) => {
+  const year = new Date().getFullYear();
+  const result = await query(
+    `SELECT COUNT(*) as count FROM ${tableName} WHERE ${codeColumn} LIKE $1`,
+    [`${prefix}-${year}-%`]
+  );
+  const count = parseInt(result.rows[0].count) + 1;
+  return `${prefix}-${year}-${String(count).padStart(4, '0')}`;
+};
+
 // GET /api/purchase-orders - List all purchase orders
 router.get('/', auth, async (req, res) => {
   try {
@@ -89,7 +99,8 @@ router.get('/:id', auth, async (req, res) => {
     }
 
     const itemsResult = await query(`
-      SELECT poi.*, r.name_arabic as raw_material_name, r.code as raw_material_code
+      SELECT poi.*, r.name_arabic as raw_material_name, r.code as raw_material_code,
+             COALESCE(poi.unit, r.unit, 'kg') as unit
       FROM purchase_order_items poi
       LEFT JOIN raw_materials r ON poi.raw_material_id = r.id
       WHERE poi.purchase_order_id = $1
@@ -108,7 +119,8 @@ router.get('/:id', auth, async (req, res) => {
 // POST /api/purchase-orders - Create PO
 router.post('/', auth, async (req, res) => {
   try {
-    // Ensure vat_amount column exists
+    // Ensure unit column exists on purchase_order_items
+    await query(`ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(10) DEFAULT 'kg'`);
     await query(`ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS vat_amount NUMERIC(12,2) DEFAULT 0`);
 
     const { supplierId, supplier_id, deliveryDate, delivery_date, subtotal, vatAmount, vat_amount, total, notes, status, items } = req.body;
@@ -116,8 +128,8 @@ router.post('/', auth, async (req, res) => {
     const supId = supplierId || supplier_id;
     const delDate = deliveryDate || delivery_date;
 
-    // Generate PO number if not provided
-    const poNumber = `PO-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+    // Generate PO number
+    const poNumber = await generateCode('PO', 'purchase_orders', 'po_number');
 
     // Calculate totals from items if not provided
     const itemList = items || [];
@@ -137,12 +149,13 @@ router.post('/', auth, async (req, res) => {
       if (itemList.length > 0) {
         for (const item of itemList) {
           await client.query(`
-            INSERT INTO purchase_order_items (purchase_order_id, raw_material_id, quantity, unit_price, total_price, unit_cost, total_cost)
-            VALUES ($1, $2, $3, $4, $5, $4, $5)
+            INSERT INTO purchase_order_items (purchase_order_id, raw_material_id, quantity, unit, unit_price, total_price, unit_cost, total_cost)
+            VALUES ($1, $2, $3, $4, $5, $6, $5, $6)
           `, [
             po.id,
             item.material || item.raw_material_id,
             item.quantity || 0,
+            item.unit || 'kg',
             item.unitPrice || item.unit_cost || 0,
             item.total || item.total_cost || 0
           ]);
@@ -154,6 +167,18 @@ router.post('/', auth, async (req, res) => {
 
     res.status(201).json({ success: true, data: result });
 
+    // If created directly as pending_approval, insert approval request immediately
+    if ((status || 'draft') === 'pending_approval') {
+      try {
+        await query(
+          `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes, stage, status) VALUES ($1, $2, $3, $4, $5, 'owner_review', 'pending') ON CONFLICT DO NOTHING`,
+          ['purchase_orders', 'purchase_order', result.id, createdBy, `PO ${poNumber} - Total: ${finalSubtotal} EGP`]
+        );
+      } catch (e) {
+        console.error('Error creating approval request for new PO:', e.message);
+      }
+    }
+
     logActivity({
       userId: createdBy, action: 'create', module: 'purchase',
       description: `Created purchase order ${poNumber}`,
@@ -161,7 +186,7 @@ router.post('/', auth, async (req, res) => {
       amount: finalTotal
     });
 
-    notifyRole('purchase_officer', {
+    notifyRole('purchasing_mgr', {
       module: 'procurement', type: 'po_created',
       title: `New Purchase Order ${poNumber}`,
       message: `PO ${poNumber} created for ${finalTotal} EGP`,
@@ -217,12 +242,13 @@ router.put('/:id', auth, async (req, res) => {
           const itemTotal = parseFloat(item.total_cost || item.total || 0);
           newTotal += itemTotal;
           await client.query(`
-            INSERT INTO purchase_order_items (purchase_order_id, raw_material_id, quantity, unit_price, total_price, unit_cost, total_cost)
-            VALUES ($1, $2, $3, $4, $5, $4, $5)
+            INSERT INTO purchase_order_items (purchase_order_id, raw_material_id, quantity, unit, unit_price, total_price, unit_cost, total_cost)
+            VALUES ($1, $2, $3, $4, $5, $6, $5, $6)
           `, [
             id,
             item.raw_material_id,
             item.quantity || 0,
+            item.unit || 'kg',
             item.unit_cost || 0,
             itemTotal
           ]);
@@ -245,7 +271,10 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // PUT /api/purchase-orders/:id/approve - Approve PO
-router.put('/:id/approve', auth, async (req, res) => {
+// Per access doc: purchasing_mgr explicitly has "No approval rights" on POs —
+// approval goes to Admin/IT or Owner only (segregation of duties: the person
+// who creates/submits a PO is not the one who approves it).
+router.put('/:id/approve', auth, authorize('admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(`
@@ -271,13 +300,13 @@ router.put('/:id/approve', auth, async (req, res) => {
       );
     } catch (e) {}
 
-    notifyRole('purchase_officer', {
+    notifyRole('purchasing_mgr', {
       module: 'procurement', type: 'po_approved',
       title: `PO ${po.po_number} Approved`,
       message: `Purchase order ${po.po_number} has been approved — pending inventory receipt`,
       referenceId: po.id, referenceType: 'purchase_order'
     });
-    notifyRole('production_manager', {
+    notifyRole('production_mgr', {
       module: 'production', type: 'po_approved',
       title: `PO ${po.po_number} Approved — Incoming Stock`,
       message: `Purchase order ${po.po_number} approved, materials inbound`,
@@ -290,7 +319,7 @@ router.put('/:id/approve', auth, async (req, res) => {
 });
 
 // PUT /api/purchase-orders/:id/reject - Reject PO (inventory team)
-router.put('/:id/reject', authorize(['admin', 'manager', 'warehouse']), async (req, res) => {
+router.put('/:id/reject', auth, authorize('admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(`
@@ -350,8 +379,8 @@ router.put('/:id/submit', auth, async (req, res) => {
     try {
       const { query: dbQuery } = require('../config/database');
       await dbQuery(
-        `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes)
-         VALUES ($1, $2, $3, $4, $5)`,
+        `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes, stage, status)
+         VALUES ($1, $2, $3, $4, $5, 'owner_review', 'pending')`,
         ['purchase_orders', 'purchase_order', po.id, req.user.id, `PO ${po.po_number} - Total: ${po.total_amount}`]
       );
     } catch (e) {

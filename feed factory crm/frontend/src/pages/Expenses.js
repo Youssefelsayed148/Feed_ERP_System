@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate, getStatusLabel } from '../utils/formatters';
 import { t } from '../utils/i18n';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -27,6 +27,7 @@ const Expenses = () => {
   const [formErrors, setFormErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
   const [editingExpense, setEditingExpense] = useState(null);
+  const [approvingId, setApprovingId] = useState(null);
 
   const [formData, setFormData] = useState({
     category: 'utilities',
@@ -51,6 +52,13 @@ const Expenses = () => {
     { value: 'other', label: t('expenses.catOther'), color: '#95a5a6' }
   ];
 
+  const paymentMethodLabels = {
+    cash: 'نقدي',
+    bank: 'تحويل بنكي',
+    bank_transfer: 'تحويل بنكي',
+    cheque: 'شيك',
+    credit_card: 'بطاقة ائتمان'
+  };
   const paymentMethods = ['cash', 'bank', 'cheque', 'credit_card'];
 
   useEffect(() => {
@@ -128,11 +136,12 @@ const Expenses = () => {
 
   const validateForm = () => {
     const errors = {};
-    if (!formData.description.trim()) errors.description = 'Description is required';
-    if (!formData.amount || parseFloat(formData.amount) <= 0) errors.amount = 'Amount must be greater than 0';
-    if (!formData.date) errors.date = 'Date is required';
+    if (!formData.category) errors.category = 'الفئة مطلوبة';
+    if (!formData.description.trim()) errors.description = 'الوصف مطلوب';
+    if (!formData.amount || parseFloat(formData.amount) <= 0) errors.amount = 'المبلغ يجب أن يكون أكبر من صفر';
+    if (!formData.date) errors.date = 'التاريخ مطلوب';
     if (formData.receipt && formData.receipt.size > 5 * 1024 * 1024) {
-      errors.receipt = 'File size must be less than 5MB';
+      errors.receipt = 'حجم الملف يجب أن يكون أقل من 5 ميجابايت';
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -150,7 +159,7 @@ const Expenses = () => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        setFormErrors({ ...formErrors, receipt: 'File size must be less than 5MB' });
+        setFormErrors({ ...formErrors, receipt: 'حجم الملف يجب أن يكون أقل من 5 ميجابايت' });
         return;
       }
       setIsUploading(true);
@@ -194,11 +203,11 @@ const Expenses = () => {
         });
         
         if (response.ok) {
-          setSuccessMessage('Expense updated successfully!');
+          setSuccessMessage('تم تحديث المصروف بنجاح!');
           fetchExpenses();
         } else {
           const error = await response.json();
-          alert(error.message || 'Failed to update expense');
+          alert(error.message || 'فشل تحديث المصروف');
         }
         setEditingExpense(null);
       } else {
@@ -209,16 +218,16 @@ const Expenses = () => {
         });
         
         if (response.ok) {
-          setSuccessMessage('Expense created successfully!');
+          setSuccessMessage('تم إنشاء المصروف بنجاح!');
           fetchExpenses();
         } else {
           const error = await response.json();
-          alert(error.message || 'Failed to create expense');
+          alert(error.message || 'فشل إنشاء المصروف');
         }
       }
     } catch (error) {
       console.error('Error saving expense:', error);
-      alert('Failed to save expense. Please try again.');
+      alert('فشل حفظ المصروف. يرجى المحاولة مرة أخرى.');
     }
 
     setShowForm(false);
@@ -236,25 +245,29 @@ const Expenses = () => {
   };
 
   const handleApprove = async (id) => {
+    if (approvingId === id) return;
+    setApprovingId(id);
     try {
       const response = await fetch(`${API_URL}/expenses/${id}/approve`, {
         method: 'PUT',
         headers: headers()
       });
-      
+
       if (response.ok) {
-        setSuccessMessage('Expense approved successfully!');
+        setSuccessMessage('تم اعتماد المصروف بنجاح!');
         fetchExpenses();
         if (selectedExpense && (selectedExpense._id === id || selectedExpense.id === id)) {
           setSelectedExpense({ ...selectedExpense, status: 'approved', approvedBy: 'Current User' });
         }
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to approve expense');
+        alert(error.message || 'فشل اعتماد المصروف');
       }
     } catch (error) {
       console.error('Error approving expense:', error);
-      alert('Failed to approve expense. Please try again.');
+      alert('فشل اعتماد المصروف. يرجى المحاولة مرة أخرى.');
+    } finally {
+      setApprovingId(null);
     }
   };
 
@@ -276,18 +289,18 @@ const Expenses = () => {
       });
       
       if (response.ok) {
-        setSuccessMessage('Expense rejected successfully!');
+        setSuccessMessage('تم رفض المصروف بنجاح!');
         fetchExpenses();
         if (selectedExpense && (selectedExpense._id === rejectingExpenseId || selectedExpense.id === rejectingExpenseId)) {
           setSelectedExpense({ ...selectedExpense, status: 'rejected', rejectReason, approvedBy: null });
         }
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to reject expense');
+        alert(error.message || 'فشل رفض المصروف');
       }
     } catch (error) {
       console.error('Error rejecting expense:', error);
-      alert('Failed to reject expense. Please try again.');
+      alert('فشل رفض المصروف. يرجى المحاولة مرة أخرى.');
     }
     setShowRejectModal(false);
     setRejectingExpenseId(null);
@@ -353,7 +366,7 @@ const Expenses = () => {
       fetchExpenses();
     } catch (error) {
       console.error('Error bulk approving:', error);
-      alert('Failed to approve some expenses. Please try again.');
+      alert('فشل اعتماد بعض المصروفات. يرجى المحاولة مرة أخرى.');
     }
     setSelectedExpenses([]);
   };
@@ -380,7 +393,7 @@ const Expenses = () => {
       fetchExpenses();
     } catch (error) {
       console.error('Error bulk rejecting:', error);
-      alert('Failed to reject some expenses. Please try again.');
+      alert('فشل رفض بعض المصروفات. يرجى المحاولة مرة أخرى.');
     }
     setSelectedExpenses([]);
   };
@@ -428,7 +441,7 @@ const Expenses = () => {
           </style>
         </head>
         <body>
-          <h1>Expense Report - ${new Date().toLocaleDateString()}</h1>
+          <h1>Expense Report - ${new Date().toLocaleDateString('en-GB')}</h1>
           <p>Total Expenses: ${filteredExpenses.length}</p>
           <p>Total Amount: ${formatCurrency(filteredExpenses.reduce((sum, e) => sum + e.amount, 0))}</p>
           <table>
@@ -611,8 +624,8 @@ const Expenses = () => {
               </button>
             </div>
           </div>
-          <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); setEditingExpense(null); }}>
-            {showForm ? t('common.cancel') : t('expenses.addExpense')}
+          <button className="btn btn-primary" onClick={() => { setFormErrors({}); setEditingExpense(null); setShowForm(true); }}>
+            {t('expenses.addExpense')}
           </button>
         </div>
       </div>
@@ -683,134 +696,139 @@ const Expenses = () => {
             <div key={cat.value} className="stat-card" style={{ borderLeft: `4px solid ${cat.color}`, padding: '15px', backgroundColor: 'white', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
               <div className="stat-label" style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase' }}>{stat.label}</div>
               <div className="stat-value" style={{ fontSize: '20px', fontWeight: 'bold', marginTop: '5px' }}>{formatCurrency(stat.amount)}</div>
-              <div style={{ fontSize: '12px', color: '#999', marginTop: '5px' }}>{stat.count} {t('expenses.entries', {n: stat.count})}</div>
+              <div style={{ fontSize: '12px', color: '#999', marginTop: '5px' }}>{stat.count} {stat.count === 1 ? 'سجل' : 'سجلات'}</div>
             </div>
           );
         })}
       </div>
 
       {showForm && (
-        <div className="section-card form-card" style={{ marginBottom: '20px' }}>
-          <h2>{editingExpense ? 'Edit Expense' : 'New Expense'}</h2>
-          <form onSubmit={handleSubmit} className="expense-form">
-            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
-              <div className="form-group">
-                <label>Category *</label>
-                <select name="category" value={formData.category} onChange={handleInputChange} required style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
-                  {categories.map(cat => (
-                    <option key={cat.value} value={cat.value}>{cat.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>{t("common.currency")} *</label>
-                <input
-                  type="number"
-                  name="amount"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  placeholder="0.00"
-                  required
-                  step="0.01"
-                  min="0.01"
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: formErrors.amount ? '1px solid #e74c3c' : '1px solid #ddd' }}
-                />
-                {formErrors.amount && <small style={{ color: '#e74c3c', fontSize: '12px' }}>{formErrors.amount}</small>}
-              </div>
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }} onClick={() => { setShowForm(false); setEditingExpense(null); setFormErrors({}); }}>
+          <div className="modal" style={{ background: 'white', borderRadius: '12px', width: '100%', maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px', borderBottom: '1px solid #e0e0e0' }}>
+              <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700 }}>{editingExpense ? 'تعديل مصروف' : 'مصروف جديد'}</h2>
+              <button style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b' }} onClick={() => { setShowForm(false); setEditingExpense(null); setFormErrors({}); }}>×</button>
             </div>
-            <div className="form-group" style={{ marginTop: '15px' }}>
-              <label>Description *</label>
-              <input
-                type="text"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                placeholder="Enter expense description"
-                required
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: formErrors.description ? '1px solid #e74c3c' : '1px solid #ddd' }}
-              />
-              {formErrors.description && <small style={{ color: '#e74c3c', fontSize: '12px' }}>{formErrors.description}</small>}
-            </div>
-            <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginTop: '15px' }}>
-              <div className="form-group">
-                <label>Date *</label>
-                <input
-                  type="date"
-                  name="date"
-                  value={formData.date}
-                  onChange={handleInputChange}
-                  required
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: formErrors.date ? '1px solid #e74c3c' : '1px solid #ddd' }}
-                />
-                {formErrors.date && <small style={{ color: '#e74c3c', fontSize: '12px' }}>{formErrors.date}</small>}
-              </div>
-              <div className="form-group">
-                <label>Payment Method *</label>
-                <select name="paymentMethod" value={formData.paymentMethod} onChange={handleInputChange} required style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
-                  {paymentMethods.map(method => (
-                    <option key={method} value={method}>
-                      {method.replace('_', ' ').toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="form-group" style={{ marginTop: '15px' }}>
-              <label>رفع إيصال</label>
-              <input 
-                type="file" 
-                name="receipt" 
-                onChange={handleFileChange} 
-                accept=".pdf,.jpg,.jpeg,.png" 
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
-              />
-              <small className="form-hint" style={{ color: '#666', fontSize: '12px' }}>Accepted formats: PDF, JPG, PNG (max 5MB)</small>
-              {formErrors.receipt && <small style={{ color: '#e74c3c', fontSize: '12px', display: 'block' }}>{formErrors.receipt}</small>}
-              {isUploading && (
-                <div style={{ marginTop: '10px' }}>
-                  <div style={{ 
-                    width: '100%', 
-                    height: '8px', 
-                    backgroundColor: '#e0e0e0', 
-                    borderRadius: '4px',
-                    overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      width: `${uploadProgress}%`,
-                      height: '100%',
-                      backgroundColor: '#3498db',
-                      transition: 'width 0.1s ease'
-                    }}></div>
+            <form onSubmit={handleSubmit}>
+              <div className="modal-body" style={{ padding: '20px' }}>
+                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
+                  <div className="form-group">
+                    <label>الفئة <span style={{ color: '#ef4444' }}>*</span></label>
+                    <select name="category" value={formData.category} onChange={handleInputChange} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: formErrors.category ? '1px solid #ef4444' : '1px solid #ddd' }}>
+                      {categories.map(cat => (
+                        <option key={cat.value} value={cat.value}>{cat.label}</option>
+                      ))}
+                    </select>
+                    {formErrors.category && <small style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.category}</small>}
                   </div>
-                  <small style={{ color: '#666', fontSize: '11px' }}>{uploadProgress}% uploaded</small>
+                  <div className="form-group">
+                    <label>{t("common.currency")} <span style={{ color: '#ef4444' }}>*</span></label>
+                    <input
+                      type="number"
+                      name="amount"
+                      value={formData.amount}
+                      onChange={handleInputChange}
+                      placeholder="0.00"
+                      step="0.01"
+                      min="0.01"
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: formErrors.amount ? '1px solid #ef4444' : '1px solid #ddd' }}
+                    />
+                    {formErrors.amount && <small style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.amount}</small>}
+                  </div>
                 </div>
-              )}
-              {formData.receipt && !isUploading && (
-                <div style={{ marginTop: '5px', fontSize: '12px', color: '#27ae60' }}>
-                  Selected: {formData.receipt.name}
+                <div className="form-group" style={{ marginTop: '15px' }}>
+                  <label>الوصف <span style={{ color: '#ef4444' }}>*</span></label>
+                  <input
+                    type="text"
+                    name="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    placeholder="أدخل وصف المصروف"
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: formErrors.description ? '1px solid #ef4444' : '1px solid #ddd' }}
+                  />
+                  {formErrors.description && <small style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.description}</small>}
                 </div>
-              )}
-            </div>
-            <div className="form-group" style={{ marginTop: '15px' }}>
-              <label>{t('common.notes')}</label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleInputChange}
-                rows="3"
-                placeholder="Additional notes..."
-                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', resize: 'vertical' }}
-              />
-            </div>
-            <div className="form-actions" style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-secondary" onClick={() => { setShowForm(false); setEditingExpense(null); setFormErrors({}); }}>
-                إلغاء
-              </button>
-              <button type="submit" className="btn btn-primary">
-                {editingExpense ? 'Update Expense' : 'Submit Expense'}
-              </button>
-            </div>
-          </form>
+                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px', marginTop: '15px' }}>
+                  <div className="form-group">
+                    <label>التاريخ <span style={{ color: '#ef4444' }}>*</span></label>
+                    <input
+                      type="date"
+                      name="date"
+                      value={formData.date}
+                      onChange={handleInputChange}
+                      style={{ width: '100%', padding: '8px', borderRadius: '4px', border: formErrors.date ? '1px solid #ef4444' : '1px solid #ddd' }}
+                    />
+                    {formErrors.date && <small style={{ color: '#ef4444', fontSize: '12px' }}>{formErrors.date}</small>}
+                  </div>
+                  <div className="form-group">
+                    <label>طريقة الدفع</label>
+                    <select name="paymentMethod" value={formData.paymentMethod} onChange={handleInputChange} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                      {paymentMethods.map(method => (
+                        <option key={method} value={method}>
+                          {paymentMethodLabels[method] || method}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group" style={{ marginTop: '15px' }}>
+                  <label>رفع إيصال</label>
+                  <input 
+                    type="file" 
+                    name="receipt" 
+                    onChange={handleFileChange} 
+                    accept=".pdf,.jpg,.jpeg,.png" 
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd' }}
+                  />
+                  <small className="form-hint" style={{ color: '#666', fontSize: '12px' }}>الصيغ المقبولة: PDF، JPG، PNG (الحد الأقصى 5MB)</small>
+                  {formErrors.receipt && <small style={{ color: '#ef4444', fontSize: '12px', display: 'block' }}>{formErrors.receipt}</small>}
+                  {isUploading && (
+                    <div style={{ marginTop: '10px' }}>
+                      <div style={{ 
+                        width: '100%', 
+                        height: '8px', 
+                        backgroundColor: '#e0e0e0', 
+                        borderRadius: '4px',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{
+                          width: `${uploadProgress}%`,
+                          height: '100%',
+                          backgroundColor: '#3498db',
+                          transition: 'width 0.1s ease'
+                        }}></div>
+                      </div>
+                      <small style={{ color: '#666', fontSize: '11px' }}>{uploadProgress}% تم الرفع</small>
+                    </div>
+                  )}
+                  {formData.receipt && !isUploading && (
+                    <div style={{ marginTop: '5px', fontSize: '12px', color: '#27ae60' }}>
+                      الملف المحدد: {formData.receipt.name}
+                    </div>
+                  )}
+                </div>
+                <div className="form-group" style={{ marginTop: '15px' }}>
+                  <label>{t('common.notes')}</label>
+                  <textarea
+                    name="notes"
+                    value={formData.notes}
+                    onChange={handleInputChange}
+                    rows="3"
+                    placeholder="ملاحظات إضافية..."
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ddd', resize: 'vertical' }}
+                  />
+                </div>
+              </div>
+              <div className="modal-footer" style={{ padding: '16px 20px', borderTop: '1px solid #e0e0e0', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowForm(false); setEditingExpense(null); setFormErrors({}); }}>
+                  إلغاء
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  {editingExpense ? 'تحديث المصروف' : 'حفظ المصروف'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -922,7 +940,7 @@ const Expenses = () => {
                   </td>
                   <td style={{ padding: '12px' }}>{expense.description}</td>
                   <td style={{ padding: '12px', textAlign: 'right', fontWeight: 'bold' }}>{formatCurrency(expense.amount)}</td>
-                  <td style={{ padding: '12px', textTransform: 'capitalize' }}>{(expense.paymentMethod || 'cash').replace('_', ' ')}</td>
+                  <td style={{ padding: '12px' }}>{paymentMethodLabels[expense.paymentMethod] || expense.paymentMethod || 'نقدي'}</td>
                   <td style={{ padding: '12px' }}>
                     <span className={`badge ${getStatusBadgeClass(expense.status)}`} style={{
                       padding: '4px 8px',
@@ -932,7 +950,7 @@ const Expenses = () => {
                       backgroundColor: expense.status === 'approved' ? '#27ae60' : expense.status === 'rejected' ? '#e74c3c' : '#f39c12',
                       color: 'white'
                     }}>
-                      {expense.status}
+                      {getStatusLabel(expense.status)}
                     </span>
                   </td>
                   <td style={{ padding: '12px', textAlign: 'center' }}>
@@ -960,9 +978,10 @@ const Expenses = () => {
                           <button
                             className="btn btn-success btn-sm"
                             onClick={() => handleApprove(expenseId)}
-                            style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                            disabled={approvingId === expenseId}
+                            style={{ padding: '4px 8px', fontSize: '12px', backgroundColor: approvingId === expenseId ? '#95a5a6' : '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: approvingId === expenseId ? 'not-allowed' : 'pointer' }}
                           >
-                            موافقة
+                            {approvingId === expenseId ? 'جاري الاعتماد...' : 'موافقة'}
                           </button>
                           <button
                             className="btn btn-danger btn-sm"
@@ -1067,8 +1086,8 @@ const Expenses = () => {
                 </div>
                 <div>
                   <label style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase' }}>طريقة الدفع</label>
-                  <div style={{ marginTop: '5px', fontSize: '16px', textTransform: 'capitalize' }}>
-                    {selectedExpense.paymentMethod?.replace('_', ' ') || 'N/A'}
+                  <div style={{ marginTop: '5px', fontSize: '16px' }}>
+                    {paymentMethodLabels[selectedExpense.paymentMethod] || selectedExpense.paymentMethod || 'نقدي'}
                   </div>
                 </div>
               </div>
@@ -1101,7 +1120,7 @@ const Expenses = () => {
                       backgroundColor: selectedExpense.status === 'approved' ? '#27ae60' : selectedExpense.status === 'rejected' ? '#e74c3c' : '#f39c12',
                       color: 'white'
                     }}>
-                      {selectedExpense.status}
+                      {getStatusLabel(selectedExpense.status)}
                     </span>
                   </div>
                 </div>
@@ -1200,18 +1219,19 @@ const Expenses = () => {
               </button>
               {selectedExpense.status === 'pending' && (
                 <>
-                  <button 
+                  <button
                     onClick={() => { handleApprove(selectedExpense._id || selectedExpense.id); handleCloseModal(); }}
+                    disabled={approvingId === (selectedExpense._id || selectedExpense.id)}
                     style={{
                       padding: '10px 20px',
-                      backgroundColor: '#27ae60',
+                      backgroundColor: approvingId === (selectedExpense._id || selectedExpense.id) ? '#95a5a6' : '#27ae60',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
-                      cursor: 'pointer'
+                      cursor: approvingId === (selectedExpense._id || selectedExpense.id) ? 'not-allowed' : 'pointer'
                     }}
                   >
-                    موافقة
+                    {approvingId === (selectedExpense._id || selectedExpense.id) ? 'جاري الاعتماد...' : 'موافقة'}
                   </button>
                   <button 
                     onClick={() => { handleRejectClick(selectedExpense._id || selectedExpense.id); handleCloseModal(); }}
@@ -1261,7 +1281,7 @@ const Expenses = () => {
               <h3 style={{ margin: 0, color: '#e74c3c' }}>رفض المصروف</h3>
             </div>
             <div className="modal-body" style={{ padding: '20px' }}>
-              <p style={{ marginBottom: '15px' }}>Please provide a reason for rejecting this expense:</p>
+              <p style={{ marginBottom: '15px' }}>يرجى تقديم سبب رفض هذا المصروف:</p>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}

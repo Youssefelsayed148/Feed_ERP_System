@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency, formatDate, formatNumber, getStatusLabel } from '../utils/formatters';
 import { t } from '../utils/i18n';
 import { 
   Package, Plus, Search, AlertTriangle, TrendingDown, 
   TrendingUp, Clock, Check, X, Play, Pause,
   ChevronDown, Truck, Box, Factory, ChefHat,
   ArrowLeftRight, PlusCircle, History, Filter, User,
-  ArrowRight, Warehouse, DollarSign, FileText, Send
+  ArrowRight, Warehouse, DollarSign, FileText, Send, Eye
 } from 'lucide-react';
 import { requisitionService, purchaseOrdersService } from '../services/api';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const API_URL = `${API_BASE_URL}/inventory`;
 const PRODUCTION_API_URL = `${API_BASE_URL}/production`;
+const FEED_RECIPES_API_URL = `${API_BASE_URL}/feed-recipes`;
+const SUPPLIERS_API_URL = `${API_BASE_URL}/suppliers`;
 const getAuthToken = () => localStorage.getItem('token');
 
 const headers = () => ({
@@ -47,6 +49,8 @@ export default function Inventory() {
   const [previewItems, setPreviewItems] = useState([]);
   const [previewBySupplier, setPreviewBySupplier] = useState([]);
   const [previewTotalCost, setPreviewTotalCost] = useState(0);
+  const [lowStockItems, setLowStockItems] = useState([]);
+  const [reqDetailData, setReqDetailData] = useState(null);
   
   // Filters for stock movements
   const [movementFilters, setMovementFilters] = useState({
@@ -94,10 +98,12 @@ export default function Inventory() {
           status: m.stock_status || (m.is_active ? 'active' : 'inactive')
         }));
         setRawMaterials(mappedMaterials);
+        // Compute total quantity from mapped materials (dashboard API doesn't return it)
+        const totalQty = mappedMaterials.reduce((sum, m) => sum + (parseFloat(m.quantity) || 0), 0);
         setStats({
           total: parseInt(statsData.total_materials) || 0,
           totalValue: parseFloat(statsData.total_inventory_value) || 0,
-          totalQuantity: 0,
+          totalQuantity: totalQty,
           lowStockCount: parseInt(statsData.low_stock_count) || 0,
           byCategory: {}
         });
@@ -110,7 +116,8 @@ export default function Inventory() {
         const prod = await prodRes.json();
         const statsData = await statsRes.json();
         // PostgreSQL returns { orders: [], total, page, pages }
-        const prodData = prod.orders || prod.productionOrders || prod || [];
+        const prodRaw = prod.orders || prod.productionOrders || prod;
+        const prodData = Array.isArray(prodRaw) ? prodRaw : [];
         const mappedProd = prodData.map(o => ({
           _id: o.id,
           id: o.id,
@@ -135,7 +142,7 @@ export default function Inventory() {
         });
       } else if (activeTab === 'recipes') {
         // Fetch recipes from PostgreSQL via FeedRecipes page API
-        const recipesRes = await fetch(`${API_URL.replace('/inventory', '/feed-recipes')}/recipes`, { headers: headers() });
+        const recipesRes = await fetch(`${FEED_RECIPES_API_URL}/recipes`, { headers: headers() });
         const recipesData = await recipesRes.json();
         const recData = Array.isArray(recipesData) ? recipesData : recipesData?.data || [];
         const mappedRecipes = recData.map(r => ({
@@ -157,7 +164,7 @@ export default function Inventory() {
         } : {});
       } else if (activeTab === 'finished') {
         // Fetch finished goods inventory
-        const finishedRes = await fetch(`${API_BASE_URL}/production/finished-goods`, { headers: headers() });
+        const finishedRes = await fetch(`${API_URL}/finished-goods`, { headers: headers() });
         const finishedData = await finishedRes.json();
         const goods = finishedData.finishedGoods || [];
         const mappedGoods = goods.map(g => ({
@@ -198,29 +205,57 @@ export default function Inventory() {
         });
       } else if (activeTab === 'movements') {
         // Fetch inventory transactions from the dedicated movements endpoint
-        const movementsRes = await fetch(`${API_BASE_URL}/inventory/movements?limit=100`, { headers: headers() });
+        const movementsRes = await fetch(`${API_URL}/movements?limit=100`, { headers: headers() });
         const movementsData = movementsRes.ok ? await movementsRes.json() : { movements: [] };
         // Map API format to frontend format
         const mapped = (movementsData.movements || []).map(m => ({
           _id: m.id,
           id: m.id,
           materialId: m.raw_material_id,
-          materialName: m.material_name || m.material_name_ar || 'Unknown',
+          materialName: m.material_name || m.material_name_ar || 'مادة خام',
           materialCode: m.material_code || '',
           movementType: m.transaction_type || 'adjustment',
           quantity: parseFloat(m.quantity) || 0,
           unitCost: parseFloat(m.unit_price) || 0,
           totalValue: parseFloat(m.total_cost) || 0,
-          reference: m.reference_type ? `${m.reference_type} #${m.reference_id || ''}` : m.notes || '',
+          reference: m.reference_type
+            ? `${m.reference_type}${m.reference_id ? ' #' + m.reference_id : ''}`
+            : (m.notes || ''),
           notes: m.notes || '',
           timestamp: m.created_at,
-          unit: m.unit || 'kg'
+          unit: m.unit || 'كجم',
+          performedBy: m.user_name || m.performed_by || m.created_by_name || '',
+          supplier: m.supplier_name || ''
         }));
         setStockMovements(mapped);
       } else if (activeTab === 'requisitions') {
         const reqRes = await requisitionService.getAll();
         if (reqRes.success) {
           setRequisitions(reqRes.requisitions || []);
+        }
+        // Fetch raw-materials directly to get min_stock_level for red/orange color coding
+        try {
+          const matRes = await fetch(`${API_URL}/raw-materials`, { headers: headers() });
+          const matData = await matRes.json();
+          const mats = Array.isArray(matData) ? matData : (matData.materials || []);
+          const lowStock = mats
+            .filter(m => {
+              const current = parseFloat(m.current_stock || 0);
+              const reorder = parseFloat(m.reorder_level || 0);
+              return reorder > 0 && current <= reorder && m.is_active !== false;
+            })
+            .map(m => ({
+              id: m.id,
+              material_code: m.code,
+              material_name: m.name_arabic || m.name_english || '',
+              current_stock: parseFloat(m.current_stock || 0),
+              reorder_level: parseFloat(m.reorder_level || 0),
+              min_stock_level: parseFloat(m.min_stock_level || 0),
+              unit: m.unit || 'kg',
+            }));
+          setLowStockItems(lowStock);
+        } catch (e) {
+          setLowStockItems([]);
         }
       } else if (activeTab === 'purchase-orders') {
         const poRes = await purchaseOrdersService.getPurchaseOrders();
@@ -231,7 +266,7 @@ export default function Inventory() {
       
       // Fetch suppliers for Add Stock modal (using legacy endpoint)
       try {
-        const suppliersRes = await fetch(`${API_URL.replace('/api/inventory', '/api/suppliers')}`, { headers: headers() });
+        const suppliersRes = await fetch(`${SUPPLIERS_API_URL}`, { headers: headers() });
         const suppliersData = await suppliersRes.json();
         setSuppliers(suppliersData.data || suppliersData || []);
       } catch (e) {
@@ -352,18 +387,34 @@ export default function Inventory() {
 
   const getMovementTypeBadge = (type) => {
     const badges = {
-      PURCHASE: 'badge-success',
-      TRANSFER: 'badge-info',
-      RECEIPT: 'badge-primary',
-      PRODUCTION: 'badge-warning',
-      ADJUSTMENT: 'badge-danger',
-      NEW_MATERIAL: 'badge-success'
+      purchase:   'badge-success',
+      sale:       'badge-warning',
+      adjustment: 'badge-danger',
+      production: 'badge-info',
+      transfer:   'badge-info',
+      return:     'badge-primary',
+      opening:    'badge-secondary',
     };
-    return badges[type] || 'badge-info';
+    return badges[(type || '').toLowerCase()] || 'badge-info';
   };
 
-  const formatMovementType = (type) => {
-    return type.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ');
+  const transactionTypeAr = {
+    purchase:   'شراء',
+    sale:       'بيع',
+    adjustment: 'تسوية',
+    production: 'إنتاج',
+    transfer:   'تحويل',
+    return:     'مرتجع',
+    opening:    'رصيد افتتاحي',
+  };
+
+  const formatMovementType = (type) => transactionTypeAr[(type || '').toLowerCase()] || type;
+
+  const displayQty = (quantity, unit) => {
+    if (unit === 'ton' || unit === 'طن') {
+      return `${(quantity / 1000).toFixed(3)} طن`;
+    }
+    return `${quantity} ${unit || 'كجم'}`;
   };
 
   // ADD STOCK MODAL COMPONENT
@@ -384,9 +435,20 @@ export default function Inventory() {
       notes: ''
     });
     const [submitting, setSubmitting] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
 
     const handleSubmit = async (e) => {
       e.preventDefault();
+      const errors = {};
+      if (formData.isNewMaterial) {
+        if (!formData.newMaterialName.trim()) errors.material = 'اختر الخامة أو أدخل اسمها';
+      } else {
+        if (!formData.materialId) errors.material = 'اختر الخامة أو أدخل اسمها';
+      }
+      if (!formData.quantity || parseFloat(formData.quantity) <= 0) errors.quantity = 'الكمية يجب أن تكون أكبر من صفر';
+      if (!formData.costPerUnit || parseFloat(formData.costPerUnit) <= 0) errors.costPerUnit = 'تكلفة الوحدة مطلوبة';
+      if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
+      setFormErrors({});
       setSubmitting(true);
       
       try {
@@ -540,18 +602,19 @@ export default function Inventory() {
         <div className="modal modal-large">
           <div className="modal-header">
             <h2 className="modal-title">{t('inventory.addRawMaterial')}</h2>
-            <button className="modal-close" onClick={() => setShowAddStockModal(false)}>
+            <button className="modal-close" onClick={() => { setFormErrors({}); setShowAddStockModal(false); }}>
               <X className="w-6 h-6" />
             </button>
           </div>
           
           <form onSubmit={handleSubmit}>
-            <div className="modal-body">
+            <div className="modal-body" style={{ overflowY: 'auto', maxHeight: '60vh' }}>
               {/* Material Selection */}
               <div className="form-group">
-                <label className="form-label">Material *</label>
+                <label className="form-label">الخامة <span style={{ color: '#ef4444' }}>*</span></label>
                 <select 
                   className="form-select"
+                  style={{ border: formErrors.material ? '1px solid #ef4444' : undefined }}
                   value={formData.isNewMaterial ? 'new' : formData.materialId}
                   onChange={(e) => {
                     if (e.target.value === 'new') {
@@ -559,48 +622,46 @@ export default function Inventory() {
                     } else {
                       setFormData({ ...formData, isNewMaterial: false, materialId: e.target.value });
                     }
+                    if (formErrors.material) setFormErrors({ ...formErrors, material: undefined });
                   }}
-                  required
                 >
                   <option value="">اختر الخامة</option>
                   {rawMaterials.map(m => (
                     <option key={m._id} value={m._id}>{m.name} ({m.code}) - Current: {m.quantity} {m.unit}</option>
                   ))}
-                  <option value="new">+ Create New Material</option>
+                  <option value="new">+ إنشاء خامة جديدة</option>
                 </select>
+                {formErrors.material && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{formErrors.material}</small>}
               </div>
               
               {/* New Material Fields */}
               {formData.isNewMaterial && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                   <div className="form-group">
-                    <label className="form-label">Material Name *</label>
+                    <label className="form-label">اسم الخامة <span style={{ color: '#ef4444' }}>*</span></label>
                     <input
                       type="text"
                       className="form-input"
                       value={formData.newMaterialName}
                       onChange={(e) => setFormData({ ...formData, newMaterialName: e.target.value })}
-                      required
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Material Code *</label>
+                    <label className="form-label">كود الخامة <span style={{ color: '#ef4444' }}>*</span></label>
                     <input
                       type="text"
                       className="form-input"
                       value={formData.newMaterialCode}
                       onChange={(e) => setFormData({ ...formData, newMaterialCode: e.target.value })}
-                      placeholder="e.g., RM-CORN-002"
-                      required
+                      placeholder="مثال: RM-CORN-002"
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Category *</label>
+                    <label className="form-label">الفئة <span style={{ color: '#ef4444' }}>*</span></label>
                     <select
                       className="form-select"
                       value={formData.newMaterialCategory}
                       onChange={(e) => setFormData({ ...formData, newMaterialCategory: e.target.value })}
-                      required
                     >
                       <option value="grain">{t('inventory.grain')}</option>
                       <option value="protein">{t('inventory.protein')}</option>
@@ -617,23 +678,26 @@ export default function Inventory() {
               {/* Quantity and Unit */}
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
                 <div className="form-group">
-                  <label className="form-label">{t('common.quantity')} *</label>
+                  <label className="form-label">{t('common.quantity')} <span style={{ color: '#ef4444' }}>*</span></label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="1"
                     className="form-input"
+                    style={{ border: formErrors.quantity ? '1px solid #ef4444' : undefined }}
                     value={formData.quantity}
-                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                    required
+                    onChange={(e) => {
+                      setFormData({ ...formData, quantity: e.target.value });
+                      if (formErrors.quantity) setFormErrors({ ...formErrors, quantity: undefined });
+                    }}
                   />
+                  {formErrors.quantity && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{formErrors.quantity}</small>}
                 </div>
                 <div className="form-group">
-                  <label className="form-label">{t('common.unit')} *</label>
+                  <label className="form-label">{t('common.unit')}</label>
                   <select
                     className="form-select"
                     value={formData.unit}
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                    required
                   >
                     <option value="kg">{t('common.kg')}</option>
                     <option value="ton">{t('common.tons')}</option>
@@ -643,17 +707,21 @@ export default function Inventory() {
               
               {/* Unit Cost */}
               <div className="form-group">
-                <label className="form-label">{t('inventory.unitCostPerKg')} *</label>
+                <label className="form-label">{t('inventory.unitCostPerKg')} <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
                   type="number"
                   step="0.01"
                   className="form-input"
+                  style={{ border: formErrors.costPerUnit ? '1px solid #ef4444' : undefined }}
                   value={formData.costPerUnit}
-                  onChange={(e) => setFormData({ ...formData, costPerUnit: e.target.value })}
-                  placeholder="Price per kg - affects inventory valuation"
-                  required
+                  onChange={(e) => {
+                    setFormData({ ...formData, costPerUnit: e.target.value });
+                    if (formErrors.costPerUnit) setFormErrors({ ...formErrors, costPerUnit: undefined });
+                  }}
+                  placeholder="سعر الوحدة - يؤثر على تقييم المخزون"
                 />
-                <small className="form-help">This affects inventory valuation using weighted average cost method</small>
+                {formErrors.costPerUnit && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{formErrors.costPerUnit}</small>}
+                <small className="form-help">يؤثر على تقييم المخزون باستخدام طريقة متوسط التكلفة المرجح</small>
               </div>
               
               {/* Supplier */}
@@ -671,9 +739,9 @@ export default function Inventory() {
                     });
                   }}
                 >
-                  <option value="">اختر المورد</option>
+                  <option key="placeholder-supplier" value="">اختر المورد</option>
                   {suppliers.map(s => (
-                    <option key={s._id} value={s._id}>{s.name}</option>
+                    <option key={s._id || s.id || s.code || s.name} value={s._id}>{s.name}</option>
                   ))}
                 </select>
               </div>
@@ -715,7 +783,7 @@ export default function Inventory() {
             </div>
             
             <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowAddStockModal(false)}>
+              <button type="button" className="btn btn-secondary" onClick={() => { setFormErrors({}); setShowAddStockModal(false); }}>
                 {t('common.cancel')}
               </button>
               <button type="submit" className="btn btn-success" disabled={submitting}>
@@ -876,7 +944,7 @@ export default function Inventory() {
           </div>
           
           <form onSubmit={handleSubmit}>
-            <div className="modal-body">
+            <div className="modal-body" style={{ overflowY: 'auto', maxHeight: '60vh' }}>
               {/* Material Selection */}
               <div className="form-group">
                 <label className="form-label">Material *</label>
@@ -895,7 +963,7 @@ export default function Inventory() {
                 </select>
                 {selectedMaterial && (
                   <small style={{ color: '#6b7280', fontSize: '0.75rem' }}>
-                    {t('inventory.currentStock')}: {selectedMaterial.quantity} {selectedMaterial.unit} @ {selectedMaterial.costPerUnit?.toFixed(2)} {t('common.currency')}/{t('common.kg')}
+                    {t('inventory.currentStock')}: {selectedMaterial.quantity} {selectedMaterial.unit} @ {formatCurrency(selectedMaterial.costPerUnit)}/{t('common.kg')}
                   </small>
                 )}
               </div>
@@ -938,7 +1006,7 @@ export default function Inventory() {
                 <label className="form-label">Quantity to Transfer *</label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="1"
                   className="form-input"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
@@ -1187,7 +1255,7 @@ export default function Inventory() {
               </div>
               <div className="stat-card">
                 <p className="stat-label">{t('common.totalQuantity')}</p>
-                <p className="stat-value">{(stats.totalQuantity || 0).toLocaleString()} kg</p>
+                <p className="stat-value">{formatNumber((stats.totalQuantity || 0))} kg</p>
               </div>
               <div className="stat-card">
                 <p className="stat-label">{t('inventory.lowStock')}</p>
@@ -1352,7 +1420,7 @@ export default function Inventory() {
                   </td>
                   <td>
                     <p className="font-medium">{good.quantityTons} {t('common.tons')}</p>
-                    <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{good.quantityKg.toLocaleString()} {t('common.kg')}</p>
+                    <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{formatNumber(good.quantityKg)} {t('common.kg')}</p>
                   </td>
                   <td>
                     <p>{good.batchNumber}</p>
@@ -1362,7 +1430,7 @@ export default function Inventory() {
                   </td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(good.status)}`}>
-                      {good.status}
+                      {getStatusLabel(good.status)}
                     </span>
                   </td>
                 </tr>
@@ -1397,11 +1465,11 @@ export default function Inventory() {
                   </td>
                   <td>
                     <span className={`badge ${getStatusBadgeClass(prod.status)}`}>
-                      {prod.status}
+                      {getStatusLabel(prod.status)}
                     </span>
                   </td>
                   <td>
-                    {prod.createdAt ? new Date(prod.createdAt).toLocaleDateString() : '-'}
+                    {prod.createdAt ? formatDate(prod.createdAt) : '-'}
                   </td>
                   <td>
                     <div className="flex gap-2">
@@ -1473,7 +1541,7 @@ export default function Inventory() {
                     <td>{formatCurrency(parseFloat(p.sell_per_ton || 0))}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(recipe.status)}`}>
-                        {recipe.status}
+                        {getStatusLabel(recipe.status)}
                       </span>
                     </td>
                     <td>{recipe.usageCount || 0} times</td>
@@ -1483,217 +1551,327 @@ export default function Inventory() {
           </table>
         ) : activeTab === 'requisitions' ? (
           // Requisitions Tab
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0 }}>Purchase Requisitions</h3>
-              <button
-                onClick={async () => {
-                  setLoading(true);
-                  const result = await requisitionService.preview();
-                  setLoading(false);
-                  if (result.success) {
-                    if (result.items && result.items.length > 0) {
-                      setPreviewItems(result.items);
-                      setPreviewBySupplier(result.bySupplier || []);
-                      setPreviewTotalCost(result.totalCost || 0);
-                      setShowPreviewModal(true);
-                    } else {
-                      alert(result.message || 'No materials below reorder level');
-                    }
-                  } else {
-                    alert(result.error || 'Failed to preview low stock items');
-                  }
-                }}
-                className="btn btn-primary"
-                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Plus className="w-4 h-4" /> Generate from Low Stock
-              </button>
-            </div>
-            {requisitions.length === 0 ? (
-              <div className="text-center" style={{ padding: '40px', color: '#9ca3af' }}>
-                <FileText size={48} style={{ marginBottom: '12px', opacity: 0.3 }} />
-                <p>No requisitions yet. Click "Generate from Low Stock" to see a preview and create one.</p>
+          (() => {
+            const statusMap = {
+              'draft':     { label: 'مسودة',           color: '#f59e0b', bg: '#fef3c7' },
+              'sent':      { label: 'مرسل للموردين',   color: '#3b82f6', bg: '#dbeafe' },
+              'completed': { label: 'مكتمل',           color: '#10b981', bg: '#d1fae5' },
+              'cancelled': { label: 'ملغي',            color: '#ef4444', bg: '#fee2e2' },
+            };
+            const openPreview = async () => {
+              setLoading(true);
+              const result = await requisitionService.preview();
+              setLoading(false);
+              if (result.success && result.items && result.items.length > 0) {
+                setPreviewItems(result.items);
+                setPreviewBySupplier(result.bySupplier || []);
+                setPreviewTotalCost(result.totalCost || 0);
+                setShowPreviewModal(true);
+              } else {
+                alert(result.message || 'لا توجد مواد أقل من مستوى إعادة الطلب');
+              }
+            };
+            return (
+            <div>
+              {/* Header row — button always at top right */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0 }}>طلبات الاحتياج</h3>
+                <button onClick={openPreview} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Plus className="w-4 h-4" /> إنشاء من المخزون المنخفض
+                </button>
               </div>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Req #</th>
-                    <th>{t('common.status')}</th>
-                    <th>{t('common.items')}</th>
-                    <th>التكلفة الإجمالية</th>
-                    <th>Created</th>
-                    <th>{t('common.actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {requisitions.map((req) => (
-                    <tr key={req.id}>
-                      <td className="font-medium">{req.requisition_number}</td>
-                      <td>
-                        <span className={`badge ${req.status === 'draft' ? 'badge-warning' : req.status === 'sent' ? 'badge-primary' : req.status === 'completed' ? 'badge-success' : 'badge-secondary'}`}>
-                          {req.status}
-                        </span>
-                      </td>
-                      <td>{req.item_count || req.total_items || 0}</td>
-                      <td>{formatCurrency(parseFloat(req.total_cost || 0))}</td>
-                      <td>{new Date(req.created_at).toLocaleDateString()}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          {req.status === 'draft' && (
-                            <button
-                              onClick={async () => {
-                                if (!window.confirm('Send this requisition to suppliers? This will create purchase orders.')) return;
-                                setLoading(true);
-                                try {
-                                  const result = await requisitionService.sendToSuppliers(req.id);
-                                  if (result.success) {
-                                    fetchData();
-                                    alert(result.message || 'Requisition sent to suppliers successfully!');
-                                  } else {
-                                    alert(result.error || 'Failed to send requisition');
-                                  }
-                                } catch (e) {
-                                  alert('Network error: ' + (e.message || 'Could not reach server'));
-                                }
-                                setLoading(false);
-                              }}
-                              className="btn btn-sm btn-primary"
-                              style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              <Send className="w-3 h-3" /> Send
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
 
-            {/* Preview Modal */}
-            {showPreviewModal && (
-              <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={() => setShowPreviewModal(false)}>
-                <div className="modal modal-large" style={{ maxWidth: '900px', maxHeight: '90vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
-                  <div className="modal-header">
-                    <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <AlertTriangle size={24} color="#f59e0b" />
-                      Low Stock Preview / معاينة المخزون المنخفض
-                    </h3>
-                    <button className="modal-close" onClick={() => setShowPreviewModal(false)}>
-                      <X size={20} />
-                    </button>
+              {/* Section 1 — Low stock alert */}
+              {lowStockItems.length > 0 && (
+                <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', fontWeight: 700, color: '#9a3412', fontSize: '15px' }}>
+                    <AlertTriangle size={20} color="#f97316" />
+                    المواد المنخفضة في المخزون ({lowStockItems.length})
                   </div>
-                  <div className="modal-body">
-                    <div style={{ background: '#fefce8', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #facc15' }}>
-                      <div style={{ fontWeight: 600, color: '#854d0e', marginBottom: '4px' }}>
-                        {previewItems.length} material(s) below reorder level
-                      </div>
-                      <div style={{ color: '#a16207', fontSize: '14px' }}>
-                        Total estimated cost: <strong>{formatCurrency(previewTotalCost)}</strong>
-                      </div>
-                    </div>
-
-                    {previewBySupplier.map((group, gIdx) => (
-                      <div key={gIdx} style={{ marginBottom: '24px' }}>
-                        <h4 style={{ margin: '0 0 12px 0', padding: '8px 12px', background: '#f1f5f9', borderRadius: '6px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Truck size={16} color="#3b82f6" />
-                          {group.supplier_name || 'No preferred supplier'}
-                          {group.supplier_id && (
-                            <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 400 }}>
-                              ({group.items.length} item(s))
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {lowStockItems.map((item, idx) => {
+                      const isCritical = item.current_stock <= (item.min_stock_level || 0) && item.min_stock_level > 0;
+                      return (
+                        <div key={idx} style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          background: isCritical ? '#fef2f2' : '#fffbeb',
+                          borderRadius: '8px', padding: '10px 16px',
+                          border: `1px solid ${isCritical ? '#fca5a5' : '#fde68a'}`,
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: isCritical ? '#dc2626' : '#f97316', flexShrink: 0 }} />
+                            <span style={{
+                              background: isCritical ? '#fee2e2' : '#fef3c7',
+                              color: isCritical ? '#991b1b' : '#92400e',
+                              padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, fontFamily: 'monospace'
+                            }}>
+                              {item.material_code || '—'}
                             </span>
-                          )}
-                        </h4>
-                        <table className="table" style={{ marginBottom: '0' }}>
-                          <thead>
-                            <tr>
-                              <th>{t('common.material')}</th>
-                              <th>المخزون الحالي</th>
-                              <th>Reorder Level</th>
-                              <th>Suggested Qty</th>
-                              <th>سعر الوحدة</th>
-                              <th>{t('common.total')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {group.items.map((item, iIdx) => (
-                              <tr key={iIdx}>
-                                <td>
-                                  <div style={{ fontWeight: 500 }}>{item.material_name}</div>
-                                  <div style={{ fontSize: '12px', color: '#6b7280' }}>{item.material_code}</div>
-                                </td>
-                                <td>{item.current_stock.toLocaleString()} {item.unit}</td>
-                                <td>{item.reorder_level.toLocaleString()} {item.unit}</td>
-                                <td style={{ fontWeight: 600, color: '#2563eb' }}>{item.suggested_quantity.toLocaleString()} {item.unit}</td>
-                                <td>{formatCurrency(item.unit_price)}</td>
-                                <td style={{ fontWeight: 600 }}>{formatCurrency(item.total_cost)}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', padding: '16px 24px', borderTop: '1px solid #e5e7eb' }}>
-                    <button className="btn btn-secondary" onClick={() => setShowPreviewModal(false)}>
-                      إلغاء
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      onClick={async () => {
-                        setShowPreviewModal(false);
-                        setLoading(true);
-                        const result = await requisitionService.generate();
-                        setLoading(false);
-                        if (result.success) {
-                          fetchData();
-                          alert('Requisition created successfully!');
-                        } else {
-                          alert(result.error || 'Failed to generate requisition');
-                        }
-                      }}
-                    >
-                      <Check className="w-4 h-4" style={{ marginRight: '6px', display: 'inline' }} />
-                      Confirm & Create Requisition
-                    </button>
+                            <span style={{ fontWeight: 600, color: '#1e293b' }}>{item.material_name}</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '20px', fontSize: '13px' }}>
+                            <span style={{ color: '#64748b' }}>الحالي: <strong style={{ color: isCritical ? '#dc2626' : '#ea580c' }}>{item.current_stock} {item.unit}</strong></span>
+                            <span style={{ color: '#64748b' }}>حد الطلب: <strong style={{ color: '#d97706' }}>{item.reorder_level} {item.unit}</strong></span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+
+              {/* Section 2 — Requisitions list */}
+              {requisitions.length === 0 ? (
+                <div style={{ padding: '52px', textAlign: 'center', color: '#9ca3af' }}>
+                  <FileText size={48} style={{ marginBottom: '12px', opacity: 0.25 }} />
+                  <p style={{ fontSize: '15px', fontWeight: 500, margin: 0 }}>لا توجد طلبات احتياج بعد</p>
+                </div>
+              ) : (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>رقم الطلب</th>
+                      <th>التاريخ</th>
+                      <th>عدد العناصر</th>
+                      <th>إجمالي التكلفة</th>
+                      <th>الحالة</th>
+                      <th>الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {requisitions.map((req) => {
+                      const st = statusMap[req.status] || { label: req.status, color: '#6b7280', bg: '#f3f4f6' };
+                      return (
+                        <tr key={req.id}>
+                          <td style={{ fontWeight: 600 }}>{req.requisition_number}</td>
+                          <td>{formatDate(req.created_at)}</td>
+                          <td>{req.item_count || req.total_items || 0}</td>
+                          <td>{formatCurrency(parseFloat(req.total_cost || 0))}</td>
+                          <td>
+                            <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: '10px', fontSize: '12px', fontWeight: 600 }}>
+                              {st.label}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const res = await fetch(`${API_BASE_URL}/requisitions/${req.id}`, { headers: headers() });
+                                    const data = await res.json();
+                                    if (data.success) setReqDetailData(data);
+                                  } catch (e) {
+                                    alert('تعذر تحميل التفاصيل');
+                                  }
+                                }}
+                                className="btn btn-sm btn-secondary"
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                              >
+                                <Eye className="w-3 h-3" /> عرض
+                              </button>
+                              {req.status === 'draft' && (
+                                <button
+                                  onClick={async () => {
+                                    if (!window.confirm('إرسال الطلب للموردين؟ سيتم إنشاء أوامر شراء تلقائياً.')) return;
+                                    setLoading(true);
+                                    try {
+                                      const result = await requisitionService.sendToSuppliers(req.id);
+                                      if (result.success) {
+                                        fetchData();
+                                        alert(result.message || 'تم إرسال الطلب للموردين بنجاح!');
+                                      } else {
+                                        alert(result.error || 'فشل إرسال الطلب');
+                                      }
+                                    } catch (e) {
+                                      alert('خطأ في الشبكة: ' + (e.message || 'تعذر الوصول للخادم'));
+                                    }
+                                    setLoading(false);
+                                  }}
+                                  className="btn btn-sm btn-primary"
+                                  style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  <Send className="w-3 h-3" /> إرسال لأوامر الشراء
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Detail modal */}
+              {reqDetailData && (
+                <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={() => setReqDetailData(null)}>
+                  <div className="modal modal-large" style={{ maxWidth: '720px', maxHeight: '85vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+                    <div className="modal-header">
+                      <h3 style={{ margin: 0 }}>تفاصيل الطلب — {reqDetailData.requisition?.requisition_number}</h3>
+                      <button className="modal-close" onClick={() => setReqDetailData(null)}><X size={20} /></button>
+                    </div>
+                    <div className="modal-body">
+                      {(() => {
+                        const st = statusMap[reqDetailData.requisition?.status] || { label: reqDetailData.requisition?.status, color: '#6b7280', bg: '#f3f4f6' };
+                        return (
+                          <div style={{ marginBottom: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span style={{ background: st.bg, color: st.color, padding: '3px 10px', borderRadius: '10px', fontSize: '13px', fontWeight: 600 }}>{st.label}</span>
+                            <span style={{ fontSize: '13px', color: '#6b7280' }}>{formatDate(reqDetailData.requisition?.created_at)}</span>
+                            {reqDetailData.requisition?.notes && (
+                              <span style={{ fontSize: '13px', color: '#64748b', fontStyle: 'italic' }}>{reqDetailData.requisition.notes}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      <table className="table">
+                        <thead>
+                          <tr>
+                            <th>اسم المادة</th>
+                            <th>الكمية المطلوبة</th>
+                            <th>الوحدة</th>
+                            <th>التكلفة التقديرية</th>
+                            <th>المورد المفضل</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(reqDetailData.items || []).map((item, i) => (
+                            <tr key={i}>
+                              <td style={{ fontWeight: 500 }}>{item.name_arabic || item.material_name || item.raw_material_id}</td>
+                              <td style={{ fontWeight: 600 }}>{item.suggested_quantity}</td>
+                              <td>{item.unit || 'kg'}</td>
+                              <td>{formatCurrency(item.total_cost)}</td>
+                              <td>{item.supplier_name || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', padding: '16px 24px', borderTop: '1px solid #e5e7eb' }}>
+                      <button className="btn btn-secondary" onClick={() => setReqDetailData(null)}>إغلاق</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Preview Modal */}
+              {showPreviewModal && (
+                <div className="modal-overlay" style={{ zIndex: 2000 }} onClick={() => setShowPreviewModal(false)}>
+                  <div className="modal modal-large" style={{ maxWidth: '900px', maxHeight: '90vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+                    <div className="modal-header">
+                      <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <AlertTriangle size={24} color="#f59e0b" />
+                        معاينة المخزون المنخفض
+                      </h3>
+                      <button className="modal-close" onClick={() => setShowPreviewModal(false)}>
+                        <X size={20} />
+                      </button>
+                    </div>
+                    <div className="modal-body">
+                      <div style={{ background: '#fefce8', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #facc15' }}>
+                        <div style={{ fontWeight: 600, color: '#854d0e', marginBottom: '4px' }}>
+                          {previewItems.length} مادة أقل من مستوى إعادة الطلب
+                        </div>
+                        <div style={{ color: '#a16207', fontSize: '14px' }}>
+                          التكلفة الإجمالية التقديرية: <strong>{formatCurrency(previewTotalCost)}</strong>
+                        </div>
+                      </div>
+                      {previewBySupplier.map((group, gIdx) => (
+                        <div key={gIdx} style={{ marginBottom: '24px' }}>
+                          <h4 style={{ margin: '0 0 12px 0', padding: '8px 12px', background: '#f1f5f9', borderRadius: '6px', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Truck size={16} color="#3b82f6" />
+                            {group.supplier_name || 'لا يوجد مورد مفضل'}
+                            {group.supplier_id && (
+                              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 400 }}>({group.items.length} عنصر)</span>
+                            )}
+                          </h4>
+                          <table className="table" style={{ marginBottom: '0' }}>
+                            <thead>
+                              <tr>
+                                <th>المادة</th>
+                                <th>المخزون الحالي</th>
+                                <th>مستوى إعادة الطلب</th>
+                                <th>الكمية المقترحة</th>
+                                <th>سعر الوحدة</th>
+                                <th>الإجمالي</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {group.items.map((item, iIdx) => (
+                                <tr key={iIdx}>
+                                  <td>
+                                    <div style={{ fontWeight: 500 }}>{item.material_name}</div>
+                                    <div style={{ fontSize: '12px', color: '#6b7280' }}>{item.material_code}</div>
+                                  </td>
+                                  <td>{formatNumber(item.current_stock)} {item.unit}</td>
+                                  <td>{formatNumber(item.reorder_level)} {item.unit}</td>
+                                  <td style={{ fontWeight: 600, color: '#2563eb' }}>{formatNumber(item.suggested_quantity)} {item.unit}</td>
+                                  <td>{formatCurrency(item.unit_price)}</td>
+                                  <td style={{ fontWeight: 600 }}>{formatCurrency(item.total_cost)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', padding: '16px 24px', borderTop: '1px solid #e5e7eb' }}>
+                      <button className="btn btn-secondary" onClick={() => setShowPreviewModal(false)}>إلغاء</button>
+                      <button
+                        className="btn btn-primary"
+                        onClick={async () => {
+                          setShowPreviewModal(false);
+                          setLoading(true);
+                          const result = await requisitionService.generate();
+                          setLoading(false);
+                          if (result.success) {
+                            fetchData();
+                            alert('تم إنشاء الطلب بنجاح!');
+                          } else {
+                            alert(result.error || 'فشل إنشاء طلب الاحتياج');
+                          }
+                        }}
+                      >
+                        <Check className="w-4 h-4" style={{ marginRight: '6px', display: 'inline' }} />
+                        تأكيد وإنشاء الطلب
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            );
+          })()
         ) : activeTab === 'purchase-orders' ? (
           // Purchase Orders Tab
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0 }}>Incoming Purchase Orders</h3>
+              <h3 style={{ margin: 0 }}>أوامر الشراء الواردة</h3>
               <button
                 className="btn btn-primary"
                 onClick={fetchData}
                 disabled={loading}
               >
-                {loading ? 'Refreshing...' : 'Refresh'}
+                {loading ? 'جارٍ التحديث...' : 'تحديث'}
               </button>
             </div>
 
             {purchaseOrders.length === 0 ? (
               <div className="empty-state">
                 <Package className="w-12 h-12" style={{ color: '#9ca3af', marginBottom: '12px' }} />
-                <p className="empty-state-title">No Purchase Orders</p>
-                <p>No purchase orders found. Create one from the Purchase Orders page or send a requisition.</p>
+                <p className="empty-state-title">لا توجد أوامر شراء</p>
+                <p>لم يتم العثور على أوامر شراء. أنشئ أمراً من صفحة أوامر الشراء أو أرسل طلب احتياج.</p>
               </div>
             ) : (
               <table className="table">
                 <thead>
                   <tr>
-                    <th>PO Number</th>
+                    <th>رقم أمر الشراء</th>
                     <th>{t('common.supplier')}</th>
                     <th>{t('common.items')}</th>
                     <th>{t('common.total')}</th>
                     <th>{t('common.status')}</th>
-                    <th>Expected Date</th>
+                    <th>التاريخ المتوقع</th>
                     <th>{t('common.actions')}</th>
                   </tr>
                 </thead>
@@ -1717,20 +1895,20 @@ export default function Inventory() {
                               <button
                                 className="btn btn-sm btn-success"
                                 onClick={async () => {
-                                  if (!window.confirm(`Approve PO ${po.po_number}?`)) return;
+                                  if (!window.confirm(`اعتماد أمر الشراء ${po.po_number}؟`)) return;
                                   setLoading(true);
                                   try {
                                     const result = await purchaseOrdersService.approve(po.id);
                                     setLoading(false);
                                     if (result && !result.error) {
-                                      alert('Purchase order approved successfully');
+                                      alert('تم اعتماد أمر الشراء بنجاح');
                                       fetchData();
                                     } else {
-                                      alert(result?.error || 'Failed to approve purchase order');
+                                      alert(result?.error || 'فشل اعتماد أمر الشراء');
                                     }
                                   } catch (err) {
                                     setLoading(false);
-                                    alert('Error: ' + err.message);
+                                    alert('خطأ: ' + err.message);
                                   }
                                 }}
                               >
@@ -1740,20 +1918,20 @@ export default function Inventory() {
                               <button
                                 className="btn btn-sm btn-danger"
                                 onClick={async () => {
-                                  if (!window.confirm(`Reject PO ${po.po_number}?`)) return;
+                                  if (!window.confirm(`رفض أمر الشراء ${po.po_number}؟`)) return;
                                   setLoading(true);
                                   try {
                                     const result = await purchaseOrdersService.reject(po.id);
                                     setLoading(false);
                                     if (result && !result.error) {
-                                      alert('Purchase order rejected');
+                                      alert('تم رفض أمر الشراء');
                                       fetchData();
                                     } else {
-                                      alert(result?.error || 'Failed to reject purchase order');
+                                      alert(result?.error || 'فشل رفض أمر الشراء');
                                     }
                                   } catch (err) {
                                     setLoading(false);
-                                    alert('Error: ' + err.message);
+                                    alert('خطأ: ' + err.message);
                                   }
                                 }}
                               >
@@ -1777,22 +1955,22 @@ export default function Inventory() {
             <div style={{ padding: '16px', borderBottom: '1px solid #e5e7eb', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Filter className="w-4 h-4" style={{ color: '#64748b' }} />
-                <span style={{ fontSize: '14px', fontWeight: 500 }}>Filters:</span>
+                <span style={{ fontSize: '14px', fontWeight: 500 }}>تصفية:</span>
               </div>
               <input
                 type="date"
                 className="form-input"
                 style={{ width: '150px' }}
-                placeholder="From Date"
+                placeholder="من تاريخ"
                 value={movementFilters.startDate}
                 onChange={(e) => setMovementFilters({ ...movementFilters, startDate: e.target.value })}
               />
-              <span style={{ color: '#64748b' }}>to</span>
+              <span style={{ color: '#64748b' }}>إلى</span>
               <input
                 type="date"
                 className="form-input"
                 style={{ width: '150px' }}
-                placeholder="To Date"
+                placeholder="إلى تاريخ"
                 value={movementFilters.endDate}
                 onChange={(e) => setMovementFilters({ ...movementFilters, endDate: e.target.value })}
               />
@@ -1813,12 +1991,14 @@ export default function Inventory() {
                 value={movementFilters.movementType}
                 onChange={(e) => setMovementFilters({ ...movementFilters, movementType: e.target.value })}
               >
-                <option value="">{t('inventory.allTypes')}</option>
-                <option value="PURCHASE">{t('inventory.purchase')}</option>
-                <option value="TRANSFER">{t('inventory.transfer')}</option>
-                <option value="RECEIPT">{t('inventory.receipt')}</option>
-                <option value="PRODUCTION">{t('nav.production')}</option>
-                <option value="ADJUSTMENT">{t('inventory.adjustment')}</option>
+                <option value="">الكل</option>
+                <option value="purchase">شراء</option>
+                <option value="sale">بيع</option>
+                <option value="production">إنتاج</option>
+                <option value="transfer">تحويل</option>
+                <option value="adjustment">تسوية</option>
+                <option value="return">مرتجع</option>
+                <option value="opening">رصيد افتتاحي</option>
               </select>
             </div>
             
@@ -1849,7 +2029,7 @@ export default function Inventory() {
                   .map((movement) => (
                   <tr key={movement._id}>
                     <td>
-                      {movement.timestamp ? new Date(movement.timestamp).toLocaleDateString() : '-'}
+                      {movement.timestamp ? formatDate(movement.timestamp) : '-'}
                       <p style={{ fontSize: '0.75rem', color: '#64748b' }}>
                         {movement.timestamp ? new Date(movement.timestamp).toLocaleTimeString() : ''}
                       </p>
@@ -1867,7 +2047,7 @@ export default function Inventory() {
                       color: movement.quantity > 0 ? '#10b981' : movement.quantity < 0 ? '#ef4444' : '#374151',
                       fontWeight: 500
                     }}>
-                      {movement.quantity > 0 ? '+' : ''}{formatNumber(movement.quantity)} kg
+                      {movement.quantity > 0 ? '+' : ''}{displayQty(Math.abs(movement.quantity), movement.unit)}
                     </td>
                     <td>{movement.unitCost ? formatCurrency(movement.unitCost) : '-'}</td>
                     <td>{formatCurrency(Math.abs(movement.totalValue || 0))}</td>
@@ -1925,7 +2105,7 @@ export default function Inventory() {
                   <tbody>
                     {materialMovements.map((m, i) => (
                       <tr key={m.id || i}>
-                        <td>{new Date(m.created_at).toLocaleDateString()}</td>
+                        <td>{formatDate(m.created_at)}</td>
                         <td><span className={`badge ${m.transaction_type === 'production' ? 'badge-info' : m.transaction_type === 'purchase' ? 'badge-success' : 'badge-warning'}`}>{m.transaction_type}</span></td>
                         <td style={{ color: m.quantity < 0 ? '#ef4444' : '#10b981', fontWeight: 600 }}>{m.quantity}</td>
                         <td>{m.reference_id ? `#${m.reference_id}` : '-'}</td>

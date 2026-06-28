@@ -354,12 +354,13 @@ router.post('/recipes', async (req, res) => {
         throw new Error('No valid ingredients provided');
       }
 
-      // Get next version for this feed type
+      // Always use DB-calculated next version to avoid unique constraint violations
+      // (frontend always sends version=1 which conflicts with existing recipes)
       const versionRes = await client.query(
         'SELECT COALESCE(MAX(version), 0) + 1 as next_ver FROM feed_recipes WHERE feed_type_id = $1',
         [feedTypeId]
       );
-      const nextVersion = version || versionRes.rows[0].next_ver;
+      const nextVersion = versionRes.rows[0].next_ver;
 
       // Create recipe
       const recipeRes = await client.query(`

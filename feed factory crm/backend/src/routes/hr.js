@@ -26,29 +26,56 @@ const storage = multer.diskStorage({
   }
 });
 
-module.exports = router;
 const upload = multer({ storage });
 
 router.get('/employees', authenticate, async (req, res) => {
   try {
-    const result = await query(`
-      SELECT e.*, u.name as user_name, u.role as user_role
-      FROM employees e
-      LEFT JOIN users u ON e.id = u.id OR e.email = u.email
-      WHERE e.status = 'active'
-      ORDER BY e.name
-    `);
+    const { department, status } = req.query;
+    let sql = `
+      SELECT
+        u.id, u.name, u.email, u.role, u.phone, u.department,
+        u.module_permissions, u.is_active,
+        e.id as employee_id, e.salary, e.title, e.position,
+        e.status, e.hire_date as "joinDate", e.notes, e.documents,
+        NULL::text AS "bankName",
+        NULL::text AS "bankAccount",
+        NULL::text AS iban,
+        NULL::text AS avatar
+      FROM users u
+      LEFT JOIN employees e ON e.user_id = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+    if (department) {
+      params.push(department);
+      sql += ` AND u.department = $${params.length}`;
+    }
+    if (status === 'inactive') {
+      sql += ` AND u.is_active = false`;
+    } else {
+      sql += ` AND u.is_active = true`;
+    }
+    sql += ` ORDER BY u.name`;
+
+    const result = await query(sql, params);
     res.json({ employees: result.rows, total: result.rowCount });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-module.exports = router;
 
 router.get('/employees/:id', authenticate, async (req, res) => {
   try {
-    const result = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    const result = await query(`
+      SELECT
+        u.*,
+        e.id as employee_id, e.salary, e.title, e.position,
+        e.status as emp_status, e.hire_date as "joinDate", e.notes, e.documents
+      FROM users u
+      LEFT JOIN employees e ON e.user_id = u.id
+      WHERE u.id = $1
+    `, [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
     res.json(result.rows[0]);
   } catch (error) {
@@ -56,7 +83,6 @@ router.get('/employees/:id', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
 
 router.post('/employees', authenticate, async (req, res) => {
   try {
@@ -73,35 +99,58 @@ router.post('/employees', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
 
 router.put('/employees/:id', authenticate, async (req, res) => {
   try {
-    const allowed = ['name', 'email', 'phone', 'department', 'designation', 'salary', 'joinDate', 'bankName', 'bankAccount', 'iban', 'emergencyContact'];
-    const updates = {};
-    Object.keys(req.body).forEach(k => { if (allowed.includes(k)) updates[k] = req.body[k]; });
+    const { id } = req.params;
 
-    const columns = Object.keys(updates);
-    if (columns.length === 0) {
-      const existing = await query('SELECT * FROM users WHERE id = $1', [req.params.id]);
-      if (existing.rowCount === 0) return res.status(404).json({ error: 'Not found' });
-      return res.json(existing.rows[0]);
+    // id is users.id — lookup the employees row by user_id
+    const empResult = await query('SELECT id FROM employees WHERE user_id = $1', [id]);
+    if (empResult.rowCount === 0) return res.status(404).json({ error: 'Employee not found' });
+    const employeeId = empResult.rows[0].id;
+
+    // Build users table updates
+    const usersAllowed = ['name', 'email', 'phone', 'department'];
+    const usersUpdates = {};
+    Object.keys(req.body).forEach(k => { if (usersAllowed.includes(k)) usersUpdates[k] = req.body[k]; });
+
+    // Build employees table updates
+    const empAllowed = ['salary', 'department', 'status', 'notes'];
+    const empUpdates = {};
+    Object.keys(req.body).forEach(k => { if (empAllowed.includes(k)) empUpdates[k] = req.body[k]; });
+    if (req.body.designation !== undefined) {
+      empUpdates.title = req.body.designation;
+      empUpdates.position = req.body.designation;
+    }
+    if (req.body.position !== undefined) empUpdates.position = req.body.position;
+    if (req.body.title !== undefined) empUpdates.title = req.body.title;
+    if (req.body.joinDate !== undefined) empUpdates.hire_date = req.body.joinDate;
+
+    // Update users table (id is users.id)
+    const userCols = Object.keys(usersUpdates);
+    if (userCols.length > 0) {
+      const userSet = userCols.map((col, i) => `${col} = $${i + 1}`).join(', ');
+      const userVals = userCols.map(k => usersUpdates[k]);
+      await query(`UPDATE users SET ${userSet} WHERE id = $${userCols.length + 1}`, [...userVals, id]);
     }
 
-    const setClause = columns.map((col, i) => `${col} = $${i + 1}`).join(', ');
-    const values = columns.map(k => updates[k]);
-    const result = await query(
-      `UPDATE users SET ${setClause} WHERE id = $${columns.length + 1} RETURNING *`,
-      [...values, req.params.id]
-    );
-    if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
-    res.json(result.rows[0]);
+    // Update employees table (use employeeId from lookup)
+    const empCols = Object.keys(empUpdates);
+    if (empCols.length > 0) {
+      const empSet = empCols.map((col, i) => `${col} = $${i + 1}`).join(', ');
+      const empVals = empCols.map(k => empUpdates[k]);
+      await query(`UPDATE employees SET ${empSet}, updated_at = NOW() WHERE id = $${empCols.length + 1}`, [...empVals, employeeId]);
+    }
+
+    // Return updated data
+    const updatedUser = await query('SELECT * FROM users WHERE id = $1', [id]);
+    const updatedEmp = await query('SELECT * FROM employees WHERE id = $1', [employeeId]);
+    res.json({ success: true, user: updatedUser.rows[0] || null, employee: updatedEmp.rows[0] || null });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-module.exports = router;
 
 // Upload document file for an employee (multipart)
 router.post('/employees/:id/documents/upload', authenticate, upload.single('file'), async (req, res) => {
@@ -138,7 +187,6 @@ router.post('/employees/:id/documents/upload', authenticate, upload.single('file
   }
 });
 
-module.exports = router;
 
 // Create document metadata (JSON-based, for manual entries)
 router.post('/employees/:id/documents', authenticate, async (req, res) => {
@@ -158,7 +206,6 @@ router.post('/employees/:id/documents', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
 
 router.get('/employees/:id/documents', authenticate, async (req, res) => {
   try {
@@ -174,7 +221,6 @@ router.get('/employees/:id/documents', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
 
 // Download employee document file
 router.get('/employees/:id/documents/:docId/download', authenticate, async (req, res) => {
@@ -197,7 +243,6 @@ router.get('/employees/:id/documents/:docId/download', authenticate, async (req,
   }
 });
 
-module.exports = router;
 
 router.delete('/employees/:id/documents/:docId', authenticate, async (req, res) => {
   try {
@@ -211,7 +256,6 @@ router.delete('/employees/:id/documents/:docId', authenticate, async (req, res) 
   }
 });
 
-module.exports = router;
 
 router.put('/employees/:id/documents/:docId/verify', authenticate, async (req, res) => {
   try {
@@ -231,29 +275,84 @@ router.put('/employees/:id/documents/:docId/verify', authenticate, async (req, r
   }
 });
 
-module.exports = router;
 
-router.get('/attendance', authenticate, async (req, res) => {
-  try {
-    const result = await query('SELECT * FROM attendance_records');
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Simple /attendance removed — full-featured handler below handles all attendance queries
 
-module.exports = router;
 
 router.get('/leaves', authenticate, async (req, res) => {
   try {
-    const result = await query('SELECT * FROM leave_requests');
-    res.json(result.rows);
+    const result = await query(`
+      SELECT lr.*, u.name as user_name
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.user_id = u.id
+      ORDER BY lr.created_at DESC
+    `);
+    const leaves = result.rows.map(r => {
+      const nameParts = (r.user_name || '').split(' ');
+      return {
+        ...r,
+        _id: r.id,
+        leaveType: r.type,
+        startDate: r.start_date,
+        endDate: r.end_date,
+        employee: {
+          firstName: nameParts[0] || '',
+          lastName: nameParts.slice(1).join(' ') || ''
+        }
+      };
+    });
+    res.json({ leaves });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-module.exports = router;
+// POST /leaves - Create leave request
+router.post('/leaves', authenticate, async (req, res) => {
+  try {
+    const { employeeId, leaveType, startDate, endDate, reason } = req.body;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const daysCount = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+    const result = await query(
+      `INSERT INTO leave_requests (user_id, type, start_date, end_date, days_count, reason, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW()) RETURNING *`,
+      [employeeId || req.user.id, leaveType || 'annual', startDate, endDate, daysCount, reason || null]
+    );
+    res.status(201).json({ success: true, leave: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /leaves/:id/approve - Approve leave request
+router.put('/leaves/:id/approve', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      `UPDATE leave_requests SET status = 'approved', approved_by = $2, approved_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [req.params.id, req.user.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Leave request not found' });
+    res.json({ success: true, leave: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /leaves/:id/reject - Reject leave request
+router.put('/leaves/:id/reject', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      `UPDATE leave_requests SET status = 'rejected', approved_by = $2, approved_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [req.params.id, req.user.id]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: 'Leave request not found' });
+    res.json({ success: true, leave: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 router.get('/payroll', authenticate, async (req, res) => {
   try {
@@ -264,7 +363,6 @@ router.get('/payroll', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
 
 router.get('/performance', authenticate, async (req, res) => {
   try {
@@ -274,16 +372,15 @@ router.get('/performance', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
 
 // ============================================================
 // ATTENDANCE & CHECK-IN/OUT
 // ============================================================
 
-// POST /attendance/check-in - Record employee check-in with location
-router.post('/attendance/check-in', authenticate, async (req, res) => {
+// POST /attendance - Record employee check-in
+router.post('/attendance', authenticate, async (req, res) => {
   try {
-    const { latitude, longitude, locationName, notes } = req.body;
+    const { notes } = req.body;
     const userId = req.user.id;
     const today = new Date().toISOString().split('T')[0];
     const existing = await query(
@@ -293,35 +390,31 @@ router.post('/attendance/check-in', authenticate, async (req, res) => {
     if (existing.rows.length > 0) {
       const rec = existing.rows[0];
       if (rec.check_in && !rec.check_out) {
-        return res.status(400).json({ error: 'Already checked in today. Check out first.' });
+        return res.json({ success: true, attendance: rec, message: 'Already checked in today' });
       }
-      const location = (latitude && longitude) ? `(${latitude},${longitude})` : null;
       const result = await query(`
         UPDATE attendance_records SET check_in = NOW(), check_out = NULL,
-          check_in_location = $1, check_in_location_name = $2, notes = $3,
-          status = 'present', work_duration = NULL, updated_at = NOW()
-        WHERE id = $4 RETURNING *
-      `, [location, locationName || null, notes || null, rec.id]);
+          status = 'present', notes = $1
+        WHERE id = $2 RETURNING *
+      `, [notes || null, rec.id]);
       return res.json({ success: true, attendance: result.rows[0], message: 'Check-in recorded (new shift)' });
     }
-    const location = (latitude && longitude) ? `(${latitude},${longitude})` : null;
     const result = await query(`
-      INSERT INTO attendance_records (user_id, date, check_in, check_in_location, check_in_location_name, status, notes)
-      VALUES ($1, $2, NOW(), $3, $4, 'present', $5) RETURNING *
-    `, [userId, today, location, locationName || null, notes || null]);
+      INSERT INTO attendance_records (user_id, date, check_in, status, notes)
+      VALUES ($1, $2, NOW(), 'present', $3) RETURNING *
+    `, [userId, today, notes || null]);
     res.status(201).json({ success: true, attendance: result.rows[0], message: 'Check-in recorded' });
   } catch (error) {
     console.error('Error recording check-in:', error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
-module.exports = router;
 
-// POST /attendance/check-out - Record employee check-out with location
+// POST /attendance/check-out - Record employee check-out
 router.post('/attendance/check-out', authenticate, async (req, res) => {
   try {
-    const { latitude, longitude, locationName, notes } = req.body;
+    const { notes } = req.body;
     const userId = req.user.id;
     const today = new Date().toISOString().split('T')[0];
     const existing = await query(
@@ -331,30 +424,26 @@ router.post('/attendance/check-out', authenticate, async (req, res) => {
     if (existing.rows.length === 0) {
       return res.status(400).json({ error: 'No active check-in found for today. Check in first.' });
     }
-    const location = (latitude && longitude) ? `(${latitude},${longitude})` : null;
     const rec = existing.rows[0];
     const result = await query(`
-      UPDATE attendance_records SET check_out = NOW(),
-        check_out_location = $1, check_out_location_name = $2,
-        work_duration = NOW() - check_in,
-        notes = CASE WHEN $3 IS NOT NULL THEN COALESCE(notes, '') || ' | ' || $3 ELSE notes END,
-        updated_at = NOW()
-      WHERE id = $4 RETURNING *
-    `, [location, locationName || null, notes || null, rec.id]);
+      UPDATE attendance_records SET check_out = NOW(), notes = $1
+      WHERE id = $2 RETURNING *
+    `, [notes || rec.notes, rec.id]);
     const att = result.rows[0];
     let hoursWorked = '0h 0m';
-    if (att.work_duration) {
-      const parts = String(att.work_duration).split(':');
-      if (parts.length >= 2) hoursWorked = `${parseInt(parts[0])}h ${parseInt(parts[1])}m`;
+    if (att.check_in && att.check_out) {
+      const ms = new Date(att.check_out) - new Date(att.check_in);
+      const hrs = Math.floor(ms / 3600000);
+      const mins = Math.floor((ms % 3600000) / 60000);
+      hoursWorked = `${hrs}h ${mins}m`;
     }
     res.json({ success: true, attendance: result.rows[0], hoursWorked, message: 'Check-out recorded' });
   } catch (error) {
     console.error('Error recording check-out:', error);
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: error.message });
   }
 });
 
-module.exports = router;
 
 // GET /attendance/today - Get today's attendance (with locations)
 router.get('/attendance/today', authenticate, async (req, res) => {
@@ -362,7 +451,7 @@ router.get('/attendance/today', authenticate, async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     const result = await query(`
       SELECT ar.*, u.name as user_name, u.department, u.role,
-        EXTRACT(EPOCH FROM ar.work_duration)/3600 as hours_worked
+        CASE WHEN ar.check_out IS NOT NULL THEN EXTRACT(EPOCH FROM (ar.check_out - ar.check_in))/3600 ELSE 0 END AS hours_worked
       FROM attendance_records ar
       JOIN users u ON ar.user_id = u.id
       WHERE ar.date = $1
@@ -374,7 +463,6 @@ router.get('/attendance/today', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
 
 // GET /attendance - List all attendance records
 router.get('/attendance', authenticate, async (req, res) => {
@@ -382,7 +470,7 @@ router.get('/attendance', authenticate, async (req, res) => {
     const { startDate, endDate, userId, status, page = 1, limit = 50 } = req.query;
     let sql = `
       SELECT ar.*, u.name as user_name, u.department, u.role,
-        EXTRACT(EPOCH FROM ar.work_duration)/3600 as hours_worked
+        CASE WHEN ar.check_out IS NOT NULL THEN EXTRACT(EPOCH FROM (ar.check_out - ar.check_in))/3600 ELSE 0 END AS hours_worked
       FROM attendance_records ar
       JOIN users u ON ar.user_id = u.id
       WHERE 1=1
@@ -401,5 +489,33 @@ router.get('/attendance', authenticate, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Startup migration: translate English department names to Arabic
+(async function migrateDepartments() {
+  try {
+    const { query } = require('../config/database');
+    const deptMappings = [
+      { ar: 'الإدارة العامة', en: ['General Management', 'Management'] },
+      { ar: 'المالية', en: ['Finance', 'Finance/HR'] },
+      { ar: 'المبيعات', en: ['Sales'] },
+      { ar: 'الإنتاج', en: ['Production'] },
+      { ar: 'اللوجستيات', en: ['Logistics'] },
+      { ar: 'الصيانة', en: ['Maintenance'] },
+      { ar: 'القسم القانوني', en: ['Legal'] },
+      { ar: 'المشتريات', en: ['Purchasing', 'Procurement'] },
+      { ar: 'تقنية المعلومات', en: ['Information Technology', 'IT'] },
+      { ar: 'الموارد البشرية', en: ['HR', 'Human Resources'] }
+    ];
+    for (const mapping of deptMappings) {
+      for (const enVal of mapping.en) {
+        await query(`UPDATE employees SET department = $1 WHERE department = $2 AND department <> $1`, [mapping.ar, enVal]);
+        await query(`UPDATE users SET department = $1 WHERE department = $2 AND department <> $1`, [mapping.ar, enVal]);
+      }
+    }
+    console.log('[HR] Department name migration completed');
+  } catch (err) {
+    console.error('[HR] Department migration error:', err.message);
+  }
+})();
 
 module.exports = router;

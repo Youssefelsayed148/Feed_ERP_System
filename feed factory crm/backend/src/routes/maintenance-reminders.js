@@ -3,16 +3,38 @@ const router = express.Router();
 const { query } = require('../config/database');
 const { authenticate: auth } = require('../middleware/auth');
 
+// POST /api/maintenance-reminders/reminders - Create a new maintenance reminder
+router.post('/reminders', auth, async (req, res) => {
+  try {
+    const { machine_id, vehicle_id, type, title, description, due_date, cost, notes } = req.body;
+    const targetId = machine_id || vehicle_id;
+    if (!targetId) {
+      return res.status(400).json({ error: 'machine_id or vehicle_id is required' });
+    }
+
+    const result = await query(`
+      INSERT INTO maintenance_reminders (machine_id, type, description, due_date, status, notes, cost)
+      VALUES ($1, $2, $3, $4, 'scheduled', $5, $6) RETURNING *
+    `, [targetId, type || 'preventive', title || description || 'صيانة مجدولة', due_date, notes || null, cost || 0]);
+
+    res.status(201).json({ success: true, reminder: result.rows[0] });
+  } catch (error) {
+    console.error('Error creating maintenance reminder:', error);
+    res.status(500).json({ error: 'Failed to create maintenance reminder' });
+  }
+});
+
 // GET /api/maintenance/reminders - List all maintenance reminders
 router.get('/reminders', auth, async (req, res) => {
   try {
     const { status, machine_id } = req.query;
 
     let sql = `
-      SELECT 
-        ms.*,
+      SELECT
+        ms.id, ms.machine_id, ms.type, ms.description, ms.due_date,
+        ms.status, ms.notes, ms.completed_at, ms.cost,
         m.code as machine_code,
-        m.name as machine_name
+        COALESCE(NULLIF(m.name_arabic, ''), m.name_english) as machine_name
       FROM maintenance_reminders ms
       LEFT JOIN machines m ON m.id = ms.machine_id
       WHERE 1=1
@@ -35,7 +57,22 @@ router.get('/reminders', auth, async (req, res) => {
     sql += ` ORDER BY ms.due_date ASC`;
 
     const result = await query(sql, params);
-    res.json({ reminders: result.rows });
+    const reminders = result.rows.map(r => ({
+      _id: r.id,
+      recordNumber: `MR-${r.id}`,
+      title: r.description || r.type,
+      asset: { name: r.machine_name, code: r.machine_code },
+      maintenanceType: r.type,
+      scheduledDate: r.due_date,
+      priority: 'medium',
+      status: r.status,
+      assignedTechnician: (r.notes || '').match(/نفذ بواسطة:\s*([^|]+)/)?.[1]?.trim() || '',
+      totalCost: r.cost,
+      description: r.description,
+      notes: r.notes,
+      completedAt: r.completed_at
+    }));
+    res.json({ success: true, reminders });
   } catch (error) {
     console.error('Error fetching reminders:', error);
     res.status(500).json({ error: 'Failed to fetch reminders' });
@@ -46,18 +83,34 @@ router.get('/reminders', auth, async (req, res) => {
 router.get('/reminders/due', auth, async (req, res) => {
   try {
     const result = await query(`
-      SELECT 
-        ms.*,
+      SELECT
+        mr.id, mr.machine_id, mr.type, mr.description, mr.due_date,
+        mr.status, mr.notes, mr.completed_at, mr.cost,
         COALESCE(NULLIF(m.name_arabic, ''), m.name_english) as machine_name,
         m.code as machine_code
-      FROM maintenance_schedules ms
-      LEFT JOIN machines m ON m.id = ms.machine_id
-      WHERE ms.scheduled_date <= NOW() + INTERVAL '7 days'
-        AND ms.status = 'scheduled'
-      ORDER BY ms.scheduled_date ASC
+      FROM maintenance_reminders mr
+      LEFT JOIN machines m ON m.id = mr.machine_id
+      WHERE mr.due_date <= NOW() + INTERVAL '7 days'
+        AND mr.status IN ('scheduled', 'pending')
+      ORDER BY mr.due_date ASC
     `);
 
-    res.json({ reminders: result.rows });
+    const reminders = result.rows.map(r => ({
+      _id: r.id,
+      recordNumber: `MR-${r.id}`,
+      title: r.description || r.type,
+      asset: { name: r.machine_name, code: r.machine_code },
+      maintenanceType: r.type,
+      scheduledDate: r.due_date,
+      priority: 'medium',
+      status: r.status,
+      assignedTechnician: (r.notes || '').match(/نفذ بواسطة:\s*([^|]+)/)?.[1]?.trim() || '',
+      totalCost: r.cost,
+      description: r.description,
+      notes: r.notes,
+      completedAt: r.completed_at
+    }));
+    res.json({ success: true, reminders });
   } catch (error) {
     console.error('Error fetching due reminders:', error);
     res.status(500).json({ error: 'Failed to fetch due reminders' });
@@ -69,7 +122,7 @@ router.get('/machines/:id/reminders', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(`
-      SELECT ms.*, m.code as machine_code, m.name as machine_name
+      SELECT ms.*, m.code as machine_code, COALESCE(NULLIF(m.name_arabic, ''), m.name_english) AS machine_name
       FROM maintenance_reminders ms
       LEFT JOIN machines m ON m.id = ms.machine_id
       WHERE ms.machine_id = $1
@@ -87,14 +140,53 @@ router.get('/machines/:id/reminders', auth, async (req, res) => {
 router.post('/machines/:id/schedule-maintenance', auth, async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, due_date, notes } = req.body;
+    const { type, intervalValue, intervalUnit, lastMaintenanceDate, lastMaintenanceHours, reminderDaysBefore, notes } = req.body;
 
-    const result = await query(`
+    // Compute next due date from interval
+    let nextDueDate = lastMaintenanceDate;
+    if (intervalValue && intervalUnit && !lastMaintenanceDate) {
+      const unitMap = { hours: 'hours', days: 'days', weeks: 'weeks', months: 'months' };
+      const unit = unitMap[intervalUnit] || 'months';
+      nextDueDate = new Date();
+      if (unit === 'hours') nextDueDate.setHours(nextDueDate.getHours() + parseInt(intervalValue));
+      else if (unit === 'days') nextDueDate.setDate(nextDueDate.getDate() + parseInt(intervalValue));
+      else if (unit === 'weeks') nextDueDate.setDate(nextDueDate.getDate() + parseInt(intervalValue) * 7);
+      else if (unit === 'months') nextDueDate.setMonth(nextDueDate.getMonth() + parseInt(intervalValue));
+      nextDueDate = nextDueDate.toISOString().split('T')[0];
+    }
+
+    const scheduleNotes = [
+      notes || '',
+      intervalValue ? `فترة: ${intervalValue} ${intervalUnit}` : '',
+      lastMaintenanceHours ? `ساعات التشغيل: ${lastMaintenanceHours}` : '',
+      reminderDaysBefore ? `تذكير قبل: ${reminderDaysBefore} يوم` : ''
+    ].filter(Boolean).join(' | ') || null;
+
+    // Insert into maintenance_schedules
+    const scheduleResult = await query(`
+      INSERT INTO maintenance_schedules
+        (machine_id, scheduled_date, type, description, status, notes, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, 'scheduled', $5, NOW(), NOW())
+      RETURNING *
+    `, [id, nextDueDate || new Date().toISOString().split('T')[0], type || 'preventive', 'صيانة مجدولة', scheduleNotes]);
+
+    // Also insert into maintenance_reminders
+    const reminderResult = await query(`
       INSERT INTO maintenance_reminders (machine_id, type, description, due_date, status, notes)
-      VALUES ($1, $2, $3, $4, 'scheduled', $5) RETURNING *
-    `, [id, title || 'routine', description || null, due_date, notes || null]);
+      VALUES ($1, $2, $3, $4, 'pending', $5) RETURNING *
+    `, [id, type || 'preventive', 'صيانة مجدولة', nextDueDate || new Date().toISOString().split('T')[0], scheduleNotes]);
 
-    res.status(201).json({ success: true, reminder: result.rows[0] });
+    // Create approval request → maintenance_mgr Stage 1 → owner Stage 2
+    try {
+      await query(
+        `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes, stage, status)
+         VALUES ($1, $2, $3, $4, $5, 'manager_review', 'pending') ON CONFLICT DO NOTHING`,
+        ['maintenance', 'maintenance_reminder', reminderResult.rows[0].id, req.user.id,
+         `Maintenance: ${reminderResult.rows[0].description || reminderResult.rows[0].type} - Due: ${reminderResult.rows[0].due_date}`]
+      );
+    } catch (e) { console.error('Error creating maintenance approval request:', e.message); }
+
+    res.status(201).json({ success: true, schedule: scheduleResult.rows[0], reminder: reminderResult.rows[0] });
   } catch (error) {
     console.error('Error scheduling maintenance:', error);
     res.status(500).json({ error: 'Failed to schedule maintenance' });

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { t } from '../utils/i18n';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, formatDate } from '../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, Plus, Search, Filter, Phone, Mail, MapPin, 
@@ -20,6 +20,15 @@ const headers = () => ({
   'Content-Type': 'application/json',
   'Authorization': `Bearer ${getAuthToken()}`
 });
+
+const EGYPT_GOVERNORATES = [
+  'القاهرة', 'الجيزة', 'الإسكندرية', 'الدقهلية', 'البحر الأحمر',
+  'البحيرة', 'الفيوم', 'الغربية', 'الإسماعيلية', 'المنوفية',
+  'المنيا', 'القليوبية', 'الوادي الجديد', 'السويس', 'أسوان',
+  'أسيوط', 'بني سويف', 'بورسعيد', 'دمياط', 'الشرقية',
+  'جنوب سيناء', 'كفر الشيخ', 'مطروح', 'الأقصر', 'قنا',
+  'شمال سيناء', 'سوهاج'
+];
 
 export default function Clients() {
   const navigate = useNavigate();
@@ -72,9 +81,18 @@ export default function Clients() {
   const [feedTypes, setFeedTypes] = useState([]);
   const [createdClientId, setCreatedClientId] = useState(null);
   const [creationStep, setCreationStep] = useState('form'); // 'form' | 'documents' | 'done'
+  const [formErrors, setFormErrors] = useState({});
 
   // Client detail tabs
   const [clientDetailTab, setClientDetailTab] = useState('overview');
+
+  // Delete confirmation modal state
+  const [clientDeleteTarget, setClientDeleteTarget] = useState(null);
+  const [clientDeleteConfirmText, setClientDeleteConfirmText] = useState('');
+  const [clientDeleteLoading, setClientDeleteLoading] = useState(false);
+
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const isOwner = currentUser.role === 'owner';
 
   useEffect(() => {
     fetchClients();
@@ -152,11 +170,20 @@ export default function Clients() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const errors = {};
+    if (!formData.name_arabic.trim()) errors.name_arabic = 'اسم العميل مطلوب';
+    if (!formData.category) errors.category = 'فئة العميل مطلوبة';
+    if (!formData.phone.trim()) errors.phone = 'رقم الهاتف مطلوب';
+    if (!formData.address.trim()) errors.address = 'العنوان مطلوب';
+    if (!formData.city.trim()) errors.city = 'المحافظة مطلوبة';
+    if (!formData.contactPerson.trim()) errors.contactPerson = 'الشخص المسؤول مطلوب';
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
+    setFormErrors({});
     try {
       // Build payload mapping frontend field names to backend expectations
       const payload = {
-        name_english: formData.name_english || formData.name,
-        name_arabic: formData.name_arabic || formData.name,
+        name_english: formData.name_arabic,
+        name_arabic: formData.name_arabic,
         type: formData.category, // Backend uses 'type' not 'category'
         payment_terms: formData.paymentType === 'cash' ? 'cash' : `${formData.creditPeriod} days`,
         credit_limit: formData.creditLimit,
@@ -280,6 +307,32 @@ export default function Clients() {
   const closeClientDetail = () => {
     setSelectedClient(null);
     setClientDetailTab('overview');
+  };
+
+  const handleDeleteClient = async () => {
+    if (!clientDeleteTarget) return;
+    setClientDeleteLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/clients/${clientDeleteTarget._id || clientDeleteTarget.id}`, {
+        method: 'DELETE',
+        headers: headers()
+      });
+      if (res.ok) {
+        setClientDeleteTarget(null);
+        setClientDeleteConfirmText('');
+        fetchClients();
+        if (selectedClient && (selectedClient.client._id === clientDeleteTarget._id || selectedClient.client.id === clientDeleteTarget.id)) {
+          closeClientDetail();
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || err.message || 'فشل حذف العميل');
+      }
+    } catch (err) {
+      alert('فشل الاتصال بالخادم');
+    } finally {
+      setClientDeleteLoading(false);
+    }
   };
 
   const getStatusBadgeClass = (clientStatus) => {
@@ -468,7 +521,7 @@ export default function Clients() {
           <p>{t('clients.subtitle')}</p>
         </div>
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={() => { setFormErrors({}); setShowModal(true); }}
           className="btn btn-primary"
         >
           <Plus className="w-5 h-5" />
@@ -620,12 +673,26 @@ export default function Clients() {
                     </span>
                   </td>
                   <td>
-                    <button
-                      onClick={() => openClientDetail(client)}
-                      className="btn btn-sm btn-outline"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        onClick={() => openClientDetail(client)}
+                        className="btn btn-sm btn-outline"
+                      >
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                      {isOwner && (
+                        <button
+                          className="btn btn-danger btn-sm"
+                          title="حذف"
+                          onClick={() => {
+                            setClientDeleteTarget(client);
+                            setClientDeleteConfirmText('');
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
@@ -636,54 +703,104 @@ export default function Clients() {
 
       {/* Add Client Modal */}
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal modal-large modal-wide" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <div className="modal-header">
-              <h2 className="modal-title">
-                {creationStep === 'form' ? 'إضافة عميل جديد' :
-                 creationStep === 'documents' ? 'رفع مستندات' : 'تم إنشاء العميل'}
-              </h2>
-              <button onClick={() => { setShowModal(false); resetForm(); }} className="modal-close">
-                <X className="w-6 h-6" />
+        <div className="modal-overlay" style={{ zIndex: 2000 }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '700px',
+            maxHeight: '85vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '20px 24px',
+              borderBottom: '1px solid #e5e7eb',
+              background: '#fff'
+            }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#111827' }}>
+                  {creationStep === 'form' ? 'إضافة عميل جديد' :
+                   creationStep === 'documents' ? 'رفع مستندات' : 'تم إنشاء العميل'}
+                </h2>
+                {creationStep === 'form' && (
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#6b7280' }}>أدخل بيانات العميل الجديد</p>
+                )}
+              </div>
+              <button
+                onClick={() => { setFormErrors({}); setShowModal(false); resetForm(); }}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: '#f3f4f6',
+                  color: '#6b7280',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={20} />
               </button>
             </div>
 
             {creationStep === 'form' && (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-                <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
-                  {/* Section: Basic Information */}
-                  <div className="card mb-4">
-                    <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
-                      {t('clients.basicInfo')}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="form-group">
-                        <label className="form-label">{t('clients.nameEn')} *</label>
-                        <input
-                          type="text"
-                          required
-                          value={formData.name_english}
-                          onChange={(e) => setFormData({...formData, name_english: e.target.value, name: e.target.value})}
-                          className="form-input"
-                          placeholder="اسم العميل بالإنجليزية"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">{t('clients.nameAr')}</label>
+                <div style={{ overflowY: 'auto', flex: 1, padding: '24px' }}>
+
+                  {/* SECTION 1: Basic Information */}
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: '#6b7280',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      paddingBottom: '8px',
+                      borderBottom: '1px solid #f3f4f6',
+                      marginBottom: '16px'
+                    }}>
+                      المعلومات الأساسية
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="form-group" style={{ margin: 0, gridColumn: 'span 2' }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          {t('clients.nameAr')} <span style={{ color: '#ef4444', marginRight: '2px' }}>*</span>
+                        </label>
                         <input
                           type="text"
                           value={formData.name_arabic}
-                          onChange={(e) => setFormData({...formData, name_arabic: e.target.value})}
-                          className="form-input"
+                          onChange={(e) => { setFormErrors({ ...formErrors, name_arabic: undefined }); setFormData({...formData, name_arabic: e.target.value, name: e.target.value}); }}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: formErrors.name_arabic ? '1.5px solid #ef4444' : '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = formErrors.name_arabic ? '#ef4444' : '#e5e7eb'}
                           placeholder="اسم العميل بالعربية"
                         />
+                        {formErrors.name_arabic && <small style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{formErrors.name_arabic}</small>}
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">{t('common.category')} *</label>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          {t('common.category')} <span style={{ color: '#ef4444', marginRight: '2px' }}>*</span>
+                        </label>
                         <select
                           value={formData.category}
-                          onChange={(e) => setFormData({...formData, category: e.target.value})}
-                          className="form-select"
+                          onChange={(e) => { setFormErrors({ ...formErrors, category: undefined }); setFormData({...formData, category: e.target.value}); }}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: formErrors.category ? '1.5px solid #ef4444' : '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', background: 'white'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = formErrors.category ? '#ef4444' : '#e5e7eb'}
                         >
                           <option value="farm">{t('clients.farm')}</option>
                           <option value="distributor">{t('clients.distributor')}</option>
@@ -691,104 +808,186 @@ export default function Clients() {
                           <option value="wholesale">{t('clients.wholesale')}</option>
                           <option value="retail">{t('clients.retail')}</option>
                         </select>
+                        {formErrors.category && <small style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{formErrors.category}</small>}
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">{t('clients.license')}</label>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          {t('clients.license')}
+                        </label>
                         <input
                           type="text"
                           value={formData.licenseNumber}
                           onChange={(e) => setFormData({...formData, licenseNumber: e.target.value})}
-                          className="form-input"
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                           placeholder={t('clients.commercialReg')}
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Section: Contact Details */}
-                  <div className="card mb-4">
-                    <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
+                  {/* SECTION 2: Contact Details */}
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: '#6b7280',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      paddingBottom: '8px',
+                      borderBottom: '1px solid #f3f4f6',
+                      marginBottom: '16px'
+                    }}>
                       تفاصيل الاتصال
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="form-group">
-                        <label className="form-label">{t('common.phone')} *</label>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          {t('common.phone')} <span style={{ color: '#ef4444', marginRight: '2px' }}>*</span>
+                        </label>
                         <input
                           type="text"
-                          required
                           value={formData.phone}
-                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                          className="form-input"
+                          onChange={(e) => { setFormErrors({ ...formErrors, phone: undefined }); setFormData({...formData, phone: e.target.value}); }}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: formErrors.phone ? '1.5px solid #ef4444' : '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = formErrors.phone ? '#ef4444' : '#e5e7eb'}
                           placeholder="رقم الهاتف"
                         />
+                        {formErrors.phone && <small style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{formErrors.phone}</small>}
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">{t('clients.contactPerson')}</label>
-                        <input
-                          type="text"
-                          value={formData.contactPerson}
-                          onChange={(e) => setFormData({...formData, contactPerson: e.target.value})}
-                          className="form-input"
-                          placeholder="الشخص المسؤول"
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label className="form-label">{t('common.email')}</label>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          {t('common.email')}
+                        </label>
                         <input
                           type="email"
                           value={formData.email}
                           onChange={(e) => setFormData({...formData, email: e.target.value})}
-                          className="form-input"
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                           placeholder="email@example.com"
                         />
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">{t('common.city')}</label>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          {t('clients.contactPerson')} <span style={{ color: '#ef4444', marginRight: '2px' }}>*</span>
+                        </label>
                         <input
                           type="text"
-                          value={formData.city}
-                          onChange={(e) => setFormData({...formData, city: e.target.value})}
-                          className="form-input"
-                          placeholder={t('common.city')}
+                          value={formData.contactPerson}
+                          onChange={(e) => { setFormErrors({ ...formErrors, contactPerson: undefined }); setFormData({...formData, contactPerson: e.target.value}); }}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: formErrors.contactPerson ? '1.5px solid #ef4444' : '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = formErrors.contactPerson ? '#ef4444' : '#e5e7eb'}
+                          placeholder="الشخص المسؤول"
                         />
+                        {formErrors.contactPerson && <small style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{formErrors.contactPerson}</small>}
                       </div>
-                      <div className="form-group md:col-span-2">
-                        <label className="form-label">{t('clients.address')}</label>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          المحافظة <span style={{ color: '#ef4444', marginRight: '2px' }}>*</span>
+                        </label>
+                        <select
+                          value={formData.city || ''}
+                          onChange={(e) => { setFormErrors({ ...formErrors, city: undefined }); setFormData({...formData, city: e.target.value}); }}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: formErrors.city ? '1.5px solid #ef4444' : '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', background: 'white'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = formErrors.city ? '#ef4444' : '#e5e7eb'}
+                        >
+                          <option value="">اختر المحافظة</option>
+                          {EGYPT_GOVERNORATES.map(g => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
+                        {formErrors.city && <small style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{formErrors.city}</small>}
+                      </div>
+                      <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          {t('clients.address')} <span style={{ color: '#ef4444', marginRight: '2px' }}>*</span>
+                        </label>
                         <input
                           type="text"
                           value={formData.address}
-                          onChange={(e) => setFormData({...formData, address: e.target.value})}
-                          className="form-input"
+                          onChange={(e) => { setFormErrors({ ...formErrors, address: undefined }); setFormData({...formData, address: e.target.value}); }}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: formErrors.address ? '1.5px solid #ef4444' : '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = formErrors.address ? '#ef4444' : '#e5e7eb'}
                           placeholder="العنوان الكامل"
                         />
+                        {formErrors.address && <small style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{formErrors.address}</small>}
                       </div>
                     </div>
                   </div>
 
-                  {/* Section: Payment Terms */}
-                  <div className="card mb-4">
-                    <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
+                  {/* SECTION 3: Payment Terms */}
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: '#6b7280',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      paddingBottom: '8px',
+                      borderBottom: '1px solid #f3f4f6',
+                      marginBottom: '16px'
+                    }}>
                       شروط الدفع
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="form-group">
-                        <label className="form-label">نوع الدفع</label>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          نوع الدفع
+                        </label>
                         <select
                           value={formData.paymentType}
                           onChange={(e) => setFormData({...formData, paymentType: e.target.value})}
-                          className="form-select"
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', background: 'white'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                         >
                           <option value="cash">{t('common.cash')}</option>
                           <option value="credit">{t('common.credit')}</option>
                         </select>
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">فترة الائتمان (أيام)</label>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          فترة الائتمان (أيام)
+                        </label>
                         <select
                           value={formData.creditPeriod}
                           onChange={(e) => setFormData({...formData, creditPeriod: parseInt(e.target.value)})}
-                          className="form-select"
                           disabled={formData.paymentType !== 'credit'}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', background: 'white',
+                            opacity: formData.paymentType !== 'credit' ? 0.6 : 1
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                         >
                           <option value={0}>بدون ائتمان</option>
                           <option value={7}>7 Days</option>
@@ -799,23 +998,27 @@ export default function Clients() {
                           <option value={90}>90 Days</option>
                         </select>
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">حد الائتمان</label>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          حد الائتمان
+                        </label>
                         <input
                           type="number"
                           min="0"
                           value={formData.creditLimit}
                           onChange={(e) => setFormData({...formData, creditLimit: parseInt(e.target.value) || 0})}
-                          className="form-input"
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                           placeholder="0"
                         />
                       </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                      <div className="form-group">
-                        <label className="form-label">
-                          خصم %
-                          <small className="form-help ml-1">(خصم دائم)</small>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          خصم % <small style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>(خصم دائم)</small>
                         </label>
                         <input
                           type="number"
@@ -824,23 +1027,58 @@ export default function Clients() {
                           step="0.5"
                           value={formData.discount || 0}
                           onChange={(e) => setFormData({...formData, discount: parseFloat(e.target.value) || 0})}
-                          className="form-input"
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                           placeholder="0-100%"
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Section: Sales Information */}
-                  <div className="card mb-4">
-                    <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
+                  {/* SECTION 4: Sales Information */}
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: '#6b7280',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      paddingBottom: '8px',
+                      borderBottom: '1px solid #f3f4f6',
+                      marginBottom: '16px'
+                    }}>
                       معلومات المبيعات
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="form-group">
-                        <label className="form-label">
-                          متوسط الاستهلاك الشهري
-                          <small className="form-help ml-1">(طن/كجم)</small>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          نوع العلف المفضل
+                        </label>
+                        <select
+                          value={formData.favoriteFeedType}
+                          onChange={(e) => setFormData({...formData, favoriteFeedType: e.target.value})}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', background: 'white'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                        >
+                          <option key="placeholder-ft" value="">-- اختر --</option>
+                          {feedTypes.map((ft, index) => (
+                            <option key={`feedtype-option-${index}`} value={ft.id}>
+                              {ft.name_english} / {ft.name_arabic}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          متوسط الاستهلاك الشهري <small style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 400 }}>(طن/كجم)</small>
                         </label>
                         <input
                           type="number"
@@ -848,61 +1086,94 @@ export default function Clients() {
                           step="0.1"
                           value={formData.avgConsumption}
                           onChange={(e) => setFormData({...formData, avgConsumption: e.target.value})}
-                          className="form-input"
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
                           placeholder="مثال 50"
                         />
                       </div>
-                      <div className="form-group">
-                        <label className="form-label">نوع العلف المفضل</label>
-                        <select
-                          value={formData.favoriteFeedType}
-                          onChange={(e) => setFormData({...formData, favoriteFeedType: e.target.value})}
-                          className="form-select"
-                        >
-                          <option value="">-- اختر --</option>
-                          {feedTypes.map(ft => (
-                            <option key={ft.id} value={ft.id}>
-                              {ft.name_english} / {ft.name_arabic}
-                            </option>
-                          ))}
-                        </select>
+                      <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          {t('common.storageLocation')}
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.storageLocation || ''}
+                          onChange={(e) => setFormData({...formData, storageLocation: e.target.value})}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                          placeholder={t('clients.storagePlaceholder')}
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0, gridColumn: '1 / -1' }}>
+                        <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                          ملاحظات إضافية
+                        </label>
+                        <textarea
+                          value={formData.notes}
+                          onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                          rows={3}
+                          style={{
+                            width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb',
+                            borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', resize: 'vertical'
+                          }}
+                          onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                          onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+                          placeholder={t('clients.additionalInfo')}
+                        />
                       </div>
                     </div>
                   </div>
 
-                  {/* Section: Additional Notes */}
-                  <div className="card mb-4">
-                    <h3 className="card-title text-sm font-semibold text-gray-700 border-b pb-2 mb-3">
-                      ملاحظات إضافية
-                    </h3>
-                    <div className="form-group">
-                      <textarea
-                        value={formData.notes}
-                        onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                        className="form-textarea"
-                        rows={3}
-                        placeholder={t('clients.additionalInfo')}
-                      />
-                    </div>
-                  </div>
-                  <div className="form-group" style={{ padding: '0 16px', marginBottom: '16px' }}>
-                    <label>{t('common.storageLocation')}</label>
-                    <input type="text" value={formData.storageLocation || ''} onChange={(e) => setFormData({...formData, storageLocation: e.target.value})} className="form-input" placeholder={t('clients.storagePlaceholder')} />
-                  </div>
                 </div>
-                <div className="modal-footer">
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '16px 24px',
+                  borderTop: '1px solid #e5e7eb',
+                  background: 'white'
+                }}>
                   <button
                     type="button"
-                    onClick={() => { setShowModal(false); resetForm(); }}
-                    className="btn btn-outline"
+                    onClick={() => { setFormErrors({}); setShowModal(false); resetForm(); }}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      border: '1px solid #d1d5db',
+                      background: 'white',
+                      color: '#374151',
+                      fontSize: '14px',
+                      fontWeight: 500,
+                      cursor: 'pointer'
+                    }}
                   >
                     إلغاء
                   </button>
                   <button
                     type="submit"
-                    className="btn btn-success"
+                    style={{
+                      padding: '10px 24px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: '#10b981',
+                      color: 'white',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
                   >
-                    إضافة عميل
+                    <Plus size={18} /> إضافة عميل
                   </button>
                 </div>
               </form>
@@ -923,6 +1194,7 @@ export default function Clients() {
                   entityType="client"
                   entityId={createdClientId}
                   allowUpload={true}
+                  useLegal={true}
                 />
               </div>
             )}
@@ -970,7 +1242,7 @@ export default function Clients() {
                 className={`px-4 py-3 font-medium text-sm flex items-center gap-2 ${clientDetailTab === 'liabilities' ? 'border-b-2 border-blue-600 text-blue-600 bg-white' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 <TrendingDown className="w-4 h-4" />
-                الخصوم
+                الخصومات
                 {selectedClient.client.liabilities?.filter(l => l.status === 'overdue').length > 0 && (
                   <span className="badge badge-danger text-xs">
                     {selectedClient.client.liabilities.filter(l => l.status === 'overdue').length}
@@ -1068,6 +1340,29 @@ export default function Clients() {
                 </div>
               </div>
 
+              {/* Contact Info */}
+              <div className="card mb-6">
+                <h3 className="card-title">معلومات الاتصال</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">الهاتف</p>
+                    <p className="font-medium">{selectedClient.client.phone || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">النوع</p>
+                    <p className="font-medium capitalize">{{farm: t('clients.farm'), wholesale: t('clients.wholesale'), distributor: t('clients.distributor'), retail: t('clients.retail'), dealer: t('clients.dealer')}[selectedClient.client.type] || selectedClient.client.type || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">المحافظة</p>
+                    <p className="font-medium">{selectedClient.client.city || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">العنوان</p>
+                    <p className="font-medium">{selectedClient.client.address || '—'}</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Recent Payments */}
               {selectedClient.recentPayments?.length > 0 && (
                 <div className="card">
@@ -1089,7 +1384,7 @@ export default function Clients() {
                       <tbody>
                         {selectedClient.recentPayments.map((payment) => (
                           <tr key={payment._id}>
-                            <td>{new Date(payment.date).toLocaleDateString()}</td>
+                            <td>{formatDate(payment.date)}</td>
                             <td className="font-semibold text-green-600">{formatCurrency(payment.amount || 0)}</td>
                             <td>
                               <span className="badge badge-primary capitalize">
@@ -1126,8 +1421,24 @@ export default function Clients() {
                   entityType="client"
                   entityId={selectedClient.client.id}
                   allowUpload={true}
+                  useLegal={true}
                 />
               )}
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {isOwner && (
+                <button
+                  className="btn btn-danger"
+                  onClick={() => {
+                    setClientDeleteTarget(selectedClient.client);
+                    setClientDeleteConfirmText('');
+                  }}
+                >
+                  <Trash2 size={16} /> حذف
+                </button>
+              )}
+              <div style={{ flex: 1 }}></div>
+              <button className="btn btn-outline" onClick={closeClientDetail}>إغلاق</button>
             </div>
           </div>
         </div>
@@ -1252,7 +1563,7 @@ export default function Clients() {
                                 </td>
                                 <td>{inv.invoiceNumber}</td>
                                 <td>{formatCurrency(inv.balance || 0)}</td>
-                                <td>{new Date(inv.dueDate).toLocaleDateString()}</td>
+                                <td>{formatDate(inv.dueDate)}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1358,6 +1669,46 @@ export default function Clients() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Client Delete Confirmation Modal */}
+      {clientDeleteTarget && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }} onClick={(e) => e.target === e.currentTarget && setClientDeleteTarget(null)}>
+          <div className="modal modal-large" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">حذف عميل</h2>
+              <button className="modal-close" onClick={() => { setClientDeleteTarget(null); setClientDeleteConfirmText(''); }}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '16px' }}>
+                لحذف هذا العميل نهائياً، اكتب اسمه بالكامل:<br />
+                <strong style={{ fontSize: '1.1rem', display: 'block', marginTop: '8px' }}>{clientDeleteTarget.name_arabic || clientDeleteTarget.name}</strong>
+              </p>
+              <div className="form-group">
+                <input
+                  type="text"
+                  className="form-input"
+                  value={clientDeleteConfirmText}
+                  onChange={(e) => setClientDeleteConfirmText(e.target.value)}
+                  placeholder="اكتب الاسم هنا..."
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => { setClientDeleteTarget(null); setClientDeleteConfirmText(''); }}>إلغاء</button>
+              <button
+                className="btn btn-danger"
+                onClick={handleDeleteClient}
+                disabled={clientDeleteLoading || clientDeleteConfirmText.trim() !== (clientDeleteTarget.name_arabic || clientDeleteTarget.name || '').trim()}
+              >
+                {clientDeleteLoading ? 'جاري الحذف...' : 'تأكيد الحذف'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
 import { X, CreditCard, DollarSign, Calendar, FileText, Check } from 'lucide-react';
 
-/**
- * PaymentModal Component
- * Records payments for clients - linked to client file
- * Accessible from client detail view or FAB
- */
-
 const PaymentModal = ({ isOpen, onClose, onSubmit, clients, preselectedClient = null, invoices = [] }) => {
   const [formData, setFormData] = useState({
     clientId: preselectedClient?.id || '',
@@ -16,7 +10,6 @@ const PaymentModal = ({ isOpen, onClose, onSubmit, clients, preselectedClient = 
     date: new Date().toISOString().split('T')[0],
     description: ''
   });
-  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -25,22 +18,13 @@ const PaymentModal = ({ isOpen, onClose, onSubmit, clients, preselectedClient = 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
     try {
       await onSubmit(formData);
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
         onClose();
-        // Reset form
-        setFormData({
-          clientId: '',
-          invoiceId: '',
-          amount: '',
-          method: 'cash',
-          date: new Date().toISOString().split('T')[0],
-          description: ''
-        });
+        setFormData({ clientId: '', invoiceId: '', amount: '', method: 'cash', date: new Date().toISOString().split('T')[0], description: '' });
       }, 1500);
     } catch (error) {
       console.error('Error recording payment:', error);
@@ -49,38 +33,34 @@ const PaymentModal = ({ isOpen, onClose, onSubmit, clients, preselectedClient = 
     }
   };
 
-  const selectedClientInvoices = invoices.filter(inv => 
+  const selectedClientInvoices = invoices.filter(inv =>
     inv.client_id === parseInt(formData.clientId) && inv.status !== 'paid'
   );
 
   return (
     <div className="modal-overlay-component" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal-container-component">
-        {/* Header */}
         <div className="modal-header-component">
           <div className="modal-header-left">
             <CreditCard size={24} color="#3b82f6" />
-            <h2 className="modal-title-component">Record Payment</h2>
+            <h2 className="modal-title-component">تسجيل دفعة</h2>
           </div>
-          <button onClick={onClose} className="modal-close-component" aria-label="Close">
+          <button onClick={onClose} className="modal-close-component" aria-label="إغلاق">
             <X size={24} />
           </button>
         </div>
 
-        {/* Success Message */}
         {success && (
           <div className="modal-success-message">
             <Check size={20} />
-            <span>Payment recorded successfully!</span>
+            <span>تم تسجيل الدفعة بنجاح!</span>
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="modal-body-component">
-          {/* Client Selection */}
           <div className="modal-form-group">
             <label className="modal-label">
-              Client <span className="required">*</span>
+              العميل <span className="required">*</span>
             </label>
             <select
               value={formData.clientId}
@@ -89,41 +69,39 @@ const PaymentModal = ({ isOpen, onClose, onSubmit, clients, preselectedClient = 
               required
               disabled={!!preselectedClient}
             >
-              <option value="">Select Client</option>
+              <option value="">اختر العميل</option>
               {clients?.map(client => (
                 <option key={client.id} value={client.id}>
                   {client.name_arabic} {client.name_english ? `(${client.name_english})` : ''}
-                  {client.due_amount > 0 ? ` - Due: ${parseFloat(client.due_amount).toLocaleString()} EGP` : ''}
+                  {client.due_amount > 0 ? ` - المستحق: ${parseFloat(client.due_amount).toLocaleString()} EGP` : ''}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Invoice Selection (Optional) */}
           {formData.clientId && selectedClientInvoices.length > 0 && (
             <div className="modal-form-group">
               <label className="modal-label">
-                Apply to Invoice <span className="optional">(Optional)</span>
+                تطبيق على فاتورة <span className="optional">(اختياري)</span>
               </label>
               <select
                 value={formData.invoiceId}
                 onChange={(e) => setFormData({...formData, invoiceId: e.target.value})}
                 className="form-select"
               >
-                <option value="">Select Invoice (or leave blank for general payment)</option>
+                <option value="">اختر الفاتورة (أو اتركها فارغة لدفعة عامة)</option>
                 {selectedClientInvoices.map(invoice => (
                   <option key={invoice.id} value={invoice.id}>
-                    {invoice.invoice_number} - Balance: {parseFloat(invoice.balance_due).toLocaleString()} EGP
+                    {invoice.invoice_number} - الرصيد: {parseFloat(invoice.balance_due).toLocaleString()} EGP
                   </option>
                 ))}
               </select>
             </div>
           )}
 
-          {/* Amount */}
           <div className="modal-form-group">
             <label className="modal-label">
-              Amount <span className="required">*</span>
+              المبلغ <span className="required">*</span>
             </label>
             <div className="input-with-icon">
               <DollarSign size={18} className="input-icon" />
@@ -140,32 +118,32 @@ const PaymentModal = ({ isOpen, onClose, onSubmit, clients, preselectedClient = 
             </div>
           </div>
 
-          {/* Payment Method */}
           <div className="modal-form-group">
             <label className="modal-label">
-              Payment Method <span className="required">*</span>
+              طريقة الدفع <span className="required">*</span>
             </label>
             <div className="method-grid">
-              {['cash', 'bank_transfer', 'check', 'credit_card'].map((method) => (
+              {[
+                { value: 'cash', label: '💵 نقدي' },
+                { value: 'bank_transfer', label: '🏦 تحويل بنكي' },
+                { value: 'check', label: '📝 شيك' },
+                { value: 'credit_card', label: '💳 بطاقة ائتمان' }
+              ].map(({ value, label }) => (
                 <button
-                  key={method}
+                  key={value}
                   type="button"
-                  onClick={() => setFormData({...formData, method})}
-                  className={`method-btn ${formData.method === method ? 'active' : ''}`}
+                  onClick={() => setFormData({...formData, method: value})}
+                  className={`method-btn ${formData.method === value ? 'active' : ''}`}
                 >
-                  {method === 'cash' && '💵 Cash'}
-                  {method === 'bank_transfer' && '🏦 Bank Transfer'}
-                  {method === 'check' && '📝 Check'}
-                  {method === 'credit_card' && '💳 Credit Card'}
+                  {label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Date */}
           <div className="modal-form-group">
             <label className="modal-label">
-              Payment Date <span className="required">*</span>
+              تاريخ الدفع <span className="required">*</span>
             </label>
             <div className="input-with-icon">
               <Calendar size={18} className="input-icon" />
@@ -178,10 +156,9 @@ const PaymentModal = ({ isOpen, onClose, onSubmit, clients, preselectedClient = 
             </div>
           </div>
 
-          {/* Description */}
           <div className="modal-form-group">
             <label className="modal-label">
-              Description <span className="optional">(Optional)</span>
+              الوصف <span className="optional">(اختياري)</span>
             </label>
             <div className="input-with-icon">
               <FileText size={18} className="input-icon" />
@@ -189,22 +166,21 @@ const PaymentModal = ({ isOpen, onClose, onSubmit, clients, preselectedClient = 
                 type="text"
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
-                placeholder="Payment notes..."
+                placeholder="ملاحظات الدفع..."
               />
             </div>
           </div>
 
-          {/* Submit Buttons */}
           <div className="modal-footer-component" style={{ margin: '24px -24px -24px', padding: '16px 24px' }}>
             <button type="button" onClick={onClose} className="modal-cancel-btn">
-              Cancel
+              إلغاء
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="modal-submit-btn"
               disabled={isSubmitting || !formData.clientId || !formData.amount}
             >
-              {isSubmitting ? 'Recording...' : 'Record Payment'}
+              {isSubmitting ? 'جاري التسجيل...' : 'تسجيل الدفعة'}
             </button>
           </div>
         </form>

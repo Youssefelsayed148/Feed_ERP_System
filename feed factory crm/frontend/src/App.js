@@ -28,13 +28,70 @@ import Expenses from './pages/Expenses';
 import Payroll from './pages/Payroll';
 import Production from './pages/Production';
 import Accountant from './pages/Accountant';
+import Approvals from './pages/Approvals';
 
 import { authService } from './services/api';
 import './styles/index.css';
 
-const ProtectedRoute = ({ children }) => {
+// Module permission required to access each route. Mirrors Sidebar.js's
+// getMenuItems() module mapping exactly — if a route isn't in this map,
+// it's treated as requiring no module check beyond being logged in
+// (currently: dashboard only). Routes with `null` are owner/admin-only,
+// matching the access doc (Settings is role-only, not a modulePermission).
+const ROUTE_MODULES = {
+  dashboard: 'dashboard',
+  clients: 'clients',
+  orders: 'orders',
+  sales: 'sales',
+  'sales-rep': 'sales',
+  inventory: 'inventory',
+  'feed-recipes': 'feed_recipes',
+  finance: 'finance',
+  'finance/receivables': 'receivables',
+  'finance/payables': 'payables',
+  'finance/expenses': 'expenses',
+  hr: 'hr',
+  'hr/payroll': 'payroll',
+  delivery: 'delivery',
+  assets: 'assets',
+  'maintenance-reminders': 'assets',
+  legal: 'legal',
+  suppliers: 'suppliers',
+  'purchase-orders': 'purchase_orders',
+  grn: 'grn',
+  production: 'production',
+  accountant: 'accounting',
+  accounting: 'accounting',
+  approvals: 'approvals', // open to all authenticated users — each sees only their relevant tabs
+  settings: null // owner/admin/ceo only — no modulePermission, per access doc
+};
+
+const APPROVAL_MANAGER_ROLES = ['sales_manager', 'finance_manager', 'purchasing_mgr', 'production_mgr', 'legal_mgr', 'maintenance_mgr'];
+
+const hasModuleAccess = (user, routePath) => {
+  if (!user) return false;
+  const role = user.role;
+  if (role === 'admin' || role === 'owner' || role === 'ceo') return true;
+
+  if (routePath === 'approvals') return true; // all authenticated users can see their own requests
+
+  const requiredModule = ROUTE_MODULES[routePath];
+  if (requiredModule === null) return false; // settings: non-admin/owner never gets in
+  if (requiredModule === undefined) return true; // unmapped routes: auth-only
+
+  const modulePermissions = user.modulePermissions || [];
+  return modulePermissions.includes(requiredModule);
+};
+
+const ProtectedRoute = ({ children, routePath }) => {
   const isAuthenticated = authService.isAuthenticated();
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  const user = authService.getCurrentUser();
+  if (routePath && !hasModuleAccess(user, routePath)) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
 };
 
 function App() {
@@ -49,36 +106,37 @@ function App() {
             </ProtectedRoute>
           }>
             <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="clients" element={<Clients />} />
-            <Route path="orders" element={<Orders />} />
-            <Route path="sales" element={<Sales />} />
-            <Route path="sales-rep" element={<SalesRep />} />
-            <Route path="inventory" element={<Inventory />} />
-            <Route path="feed-recipes" element={<FeedRecipes />} />
-            <Route path="finance" element={<Finance />} />
-            <Route path="finance/receivables" element={<Finance />} />
-            <Route path="finance/payables" element={<Payables />} />
-            <Route path="finance/expenses" element={<Expenses />} />
-            <Route path="hr" element={<HR />} />
-            <Route path="hr/payroll" element={<Payroll />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="delivery" element={<Delivery />} />
-            <Route path="assets" element={<Assets />} />
-            <Route path="maintenance-reminders" element={<MaintenanceReminders />} />
-            <Route path="legal" element={<Legal />} />
+            <Route path="dashboard" element={<ProtectedRoute routePath="dashboard"><Dashboard /></ProtectedRoute>} />
+            <Route path="clients" element={<ProtectedRoute routePath="clients"><Clients /></ProtectedRoute>} />
+            <Route path="orders" element={<ProtectedRoute routePath="orders"><Orders /></ProtectedRoute>} />
+            <Route path="sales" element={<ProtectedRoute routePath="sales"><Sales /></ProtectedRoute>} />
+            <Route path="sales-rep" element={<ProtectedRoute routePath="sales-rep"><SalesRep /></ProtectedRoute>} />
+            <Route path="inventory" element={<ProtectedRoute routePath="inventory"><Inventory /></ProtectedRoute>} />
+            <Route path="feed-recipes" element={<ProtectedRoute routePath="feed-recipes"><FeedRecipes /></ProtectedRoute>} />
+            <Route path="finance" element={<ProtectedRoute routePath="finance"><Finance /></ProtectedRoute>} />
+            <Route path="finance/receivables" element={<ProtectedRoute routePath="finance/receivables"><Finance /></ProtectedRoute>} />
+            <Route path="finance/payables" element={<ProtectedRoute routePath="finance/payables"><Payables /></ProtectedRoute>} />
+            <Route path="finance/expenses" element={<ProtectedRoute routePath="finance/expenses"><Expenses /></ProtectedRoute>} />
+            <Route path="hr" element={<ProtectedRoute routePath="hr"><HR /></ProtectedRoute>} />
+            <Route path="hr/payroll" element={<ProtectedRoute routePath="hr/payroll"><Payroll /></ProtectedRoute>} />
+            <Route path="settings" element={<ProtectedRoute routePath="settings"><Settings /></ProtectedRoute>} />
+            <Route path="delivery" element={<ProtectedRoute routePath="delivery"><Delivery /></ProtectedRoute>} />
+            <Route path="assets" element={<ProtectedRoute routePath="assets"><Assets /></ProtectedRoute>} />
+            <Route path="maintenance-reminders" element={<ProtectedRoute routePath="maintenance-reminders"><MaintenanceReminders /></ProtectedRoute>} />
+            <Route path="legal" element={<ProtectedRoute routePath="legal"><Legal /></ProtectedRoute>} />
             
             {/* Purchasing Routes */}
-            <Route path="suppliers" element={<Suppliers />} />
-            <Route path="purchase-orders" element={<PurchaseOrders />} />
-            <Route path="grn" element={<GRN />} />
+            <Route path="suppliers" element={<ProtectedRoute routePath="suppliers"><Suppliers /></ProtectedRoute>} />
+            <Route path="purchase-orders" element={<ProtectedRoute routePath="purchase-orders"><PurchaseOrders /></ProtectedRoute>} />
+            <Route path="grn" element={<ProtectedRoute routePath="grn"><GRN /></ProtectedRoute>} />
 
             {/* Production Routes */}
-            <Route path="production" element={<Production />} />
+            <Route path="production" element={<ProtectedRoute routePath="production"><Production /></ProtectedRoute>} />
 
             {/* Accounting Routes */}
-            <Route path="accountant" element={<Accountant />} />
-            <Route path="accounting" element={<Accountant />} />
+            <Route path="accountant" element={<ProtectedRoute routePath="accountant"><Accountant /></ProtectedRoute>} />
+            <Route path="accounting" element={<ProtectedRoute routePath="accounting"><Accountant /></ProtectedRoute>} />
+            <Route path="approvals" element={<ProtectedRoute routePath="approvals"><Approvals /></ProtectedRoute>} />
           </Route>
         </Routes>
       </BrowserRouter>

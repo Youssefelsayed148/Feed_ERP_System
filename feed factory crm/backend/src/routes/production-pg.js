@@ -5,6 +5,8 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { logActivity } = require('../utils/activity');
 const { journalProductionCompleted } = require('../utils/journal');
 
+router.use(authenticate);
+
 // Generate production order number
 const generateOrderNumber = () => {
   const prefix = 'PO';
@@ -20,14 +22,18 @@ router.get('/production-orders', authenticate, async (req, res) => {
     const offset = (page - 1) * limit;
 
     let queryStr = `
-      SELECT 
-        po.id, po.order_number, po.quantity_kg, po.package_size, po.number_of_bags, po.batch_number,
+      SELECT
+        po.id, po.order_number, po.quantity_kg, po.batch_number,
         po.status, po.production_date, po.completion_date,
         po.actual_cost, po.notes, po.created_at,
         ft.code as feed_code, ft.name_arabic as feed_name_arabic,
-        ft.name_english as feed_name_english
+        ft.name_english as feed_name_english,
+        so.order_number as sales_order_number,
+        COALESCE(NULLIF(c.name_arabic, ''), c.name_english) as client_name
       FROM production_orders po
-      JOIN feed_types ft ON po.feed_type_id = ft.id
+      LEFT JOIN feed_types ft ON po.feed_type_id = ft.id
+      LEFT JOIN sales_orders so ON so.id = po.sales_order_id
+      LEFT JOIN clients c ON c.id = so.client_id
       WHERE 1=1
     `;
     
@@ -75,7 +81,7 @@ router.get('/production-orders/:id', async (req, res) => {
         ft.code as feed_code, ft.name_arabic as feed_name_arabic,
         ft.name_english as feed_name_english, ft.protein_percentage
       FROM production_orders po
-      JOIN feed_types ft ON po.feed_type_id = ft.id
+      LEFT JOIN feed_types ft ON po.feed_type_id = ft.id
       WHERE po.id = $1
     `, [id]);
 
@@ -156,7 +162,7 @@ router.post('/production-orders', async (req, res) => {
         RETURNING *
       `, [
         order_number, feed_type_id, recipe.id, quantity_kg, 
-        batch_number, 'draft', production_date, notes, created_by, estimatedCost
+        batch_number,         'draft', production_date, notes, created_by, estimatedCost
       ]);
 
       const order = orderResult.rows[0];
@@ -217,6 +223,17 @@ router.post('/production-orders', async (req, res) => {
       entityId: result.id, entityType: 'production_order'
     });
 
+    // Create approval request → production_mgr Stage 1 → owner Stage 2
+    try {
+      const { query: dbQuery } = require('../config/database');
+      await dbQuery(
+        `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes, stage, status)
+         VALUES ($1, $2, $3, $4, $5, 'manager_review', 'pending') ON CONFLICT DO NOTHING`,
+        ['production', 'production_order', result.id, created_by,
+         `Production order: ${result.order_number} - ${result.quantity_kg} kg`]
+      );
+    } catch (e) { console.error('Error creating production approval request:', e.message); }
+
     res.status(201).json({
       message: 'Production order created successfully',
       order: result
@@ -259,7 +276,7 @@ router.put('/production-orders/:id', authenticate, async (req, res) => {
 });
 
 // PUT approve production order (production_manager or inventory_manager)
-router.put('/production-orders/:id/approve', authenticate, authorize('production_manager', 'inventory_manager', 'admin', 'owner'), async (req, res) => {
+router.put('/production-orders/:id/approve', authenticate, authorize('production_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -304,8 +321,8 @@ router.put('/production-orders/:id/approve', authenticate, authorize('production
   }
 });
 
-// PUT start production order (consume raw materials) - production_manager or inventory_manager
-router.put('/production-orders/:id/start', authenticate, authorize('production_manager', 'inventory_manager', 'admin', 'owner'), async (req, res) => {
+// PUT start production order - production_manager, warehouse_manager, admin, owner
+router.put('/production-orders/:id/start', authenticate, authorize('production_mgr', 'warehouse_manager', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
@@ -316,91 +333,107 @@ router.put('/production-orders/:id/start', authenticate, authorize('production_m
         SELECT po.*, ft.name_arabic as feed_name
         FROM production_orders po
         JOIN feed_types ft ON po.feed_type_id = ft.id
-        WHERE po.id = $1 AND po.status = 'approved'
+        WHERE po.id = $1 AND po.status IN ('draft', 'approved')
       `, [id]);
 
       if (orderResult.rows.length === 0) {
-        throw new Error('Order not found or not in approved status');
+        throw new Error('Order not found or not in draft/approved status');
       }
 
       const order = orderResult.rows[0];
 
-      // Get planned materials
-      const materialsResult = await client.query(`
-        SELECT 
-          poi.id, poi.raw_material_id, poi.planned_quantity,
-          rm.current_stock, rm.name_arabic as material_name, rm.unit_price
-        FROM production_order_items poi
-        JOIN raw_materials rm ON poi.raw_material_id = rm.id
-        WHERE poi.production_order_id = $1
-      `, [id]);
+      // If starting from approved status, consume raw materials
+      if (order.status === 'approved') {
+        // Get planned materials
+        const materialsResult = await client.query(`
+          SELECT 
+            poi.id, poi.raw_material_id, poi.planned_quantity,
+            rm.current_stock, rm.name_arabic as material_name, rm.unit_price
+          FROM production_order_items poi
+          JOIN raw_materials rm ON poi.raw_material_id = rm.id
+          WHERE poi.production_order_id = $1
+        `, [id]);
 
-      let totalActualCost = 0;
+        let totalActualCost = 0;
 
-      for (const material of materialsResult.rows) {
-        const plannedQty = parseFloat(material.planned_quantity) || 0;
-        const currentStock = parseFloat(material.current_stock) || 0;
-        if (currentStock < plannedQty) {
-          throw new Error(
-            `Insufficient stock for ${material.material_name}. Required: ${plannedQty}kg, Available: ${currentStock}kg`
-          );
+        for (const material of materialsResult.rows) {
+          const plannedQty = parseFloat(material.planned_quantity) || 0;
+          const currentStock = parseFloat(material.current_stock) || 0;
+          if (currentStock < plannedQty) {
+            throw new Error(
+              `Insufficient stock for ${material.material_name}. Required: ${plannedQty}kg, Available: ${currentStock}kg`
+            );
+          }
+
+          const actualQty = plannedQty;
+          const actualUnitCost = parseFloat(material.unit_price) || 0;
+          const actualTotalCost = actualQty * actualUnitCost;
+          totalActualCost += actualTotalCost;
+
+          // Update actual quantity and cost
+          await client.query(`
+            UPDATE production_order_items 
+            SET actual_quantity = $1, unit_cost = $2, total_cost = $3
+            WHERE id = $4
+          `, [actualQty, actualUnitCost, actualTotalCost, material.id]);
+
+          // Deduct from inventory (skip if qty is negligible)
+          if (actualQty > 0.01) {
+            await client.query(`
+              UPDATE raw_materials 
+              SET current_stock = current_stock - $1,
+                  updated_at = CURRENT_TIMESTAMP
+              WHERE id = $2
+            `, [actualQty, material.raw_material_id]);
+
+            // Record inventory transaction
+            await client.query(`
+              INSERT INTO inventory_transactions 
+              (raw_material_id, transaction_type, quantity, unit_price, total_cost, 
+               reference_id, reference_type, notes)
+              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `, [
+              material.raw_material_id,
+              'production',
+              -actualQty,
+              actualUnitCost,
+              actualTotalCost,
+              order.id,
+              'production_order',
+              `Production started: ${order.order_number} - ${order.feed_name}`
+            ]);
+          }
         }
 
-        const actualQty = plannedQty;
-        const actualUnitCost = parseFloat(material.unit_price) || 0;
-        const actualTotalCost = actualQty * actualUnitCost;
-        totalActualCost += actualTotalCost;
+        // Update order status to in_progress with actual cost
+        const updateResult = await client.query(`
+          UPDATE production_orders 
+          SET status = 'in_progress', 
+              actual_cost = $1,
+              notes = COALESCE($2, notes),
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = $3
+          RETURNING *
+        `, [totalActualCost, notes, id]);
 
-        // Update actual quantity and cost
-        await client.query(`
-          UPDATE production_order_items 
-          SET actual_quantity = $1, unit_cost = $2, total_cost = $3
-          WHERE id = $4
-        `, [actualQty, actualUnitCost, actualTotalCost, material.id]);
-
-        // Deduct from inventory (skip if qty is negligible)
-        if (actualQty > 0.01) {
-          await client.query(`
-            UPDATE raw_materials 
-            SET current_stock = current_stock - $1,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2
-          `, [actualQty, material.raw_material_id]);
-
-          // Record inventory transaction
-          await client.query(`
-            INSERT INTO inventory_transactions 
-            (raw_material_id, transaction_type, quantity, unit_price, total_cost, 
-             reference_id, reference_type, notes)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          `, [
-            material.raw_material_id,
-            'production',
-            -actualQty,
-            actualUnitCost,
-            actualTotalCost,
-            order.id,
-            'production_order',
-            `Production started: ${order.order_number} - ${order.feed_name}`
-          ]);
-        }
+        return updateResult.rows[0];
       }
 
-      // Update order status to in_progress
+      // Simple status update for draft → in_progress
       const updateResult = await client.query(`
         UPDATE production_orders 
         SET status = 'in_progress', 
-            actual_cost = $1,
-            notes = COALESCE($2, notes),
+            notes = COALESCE($1, notes),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $3
+        WHERE id = $2
         RETURNING *
-      `, [totalActualCost, notes, id]);
+      `, [notes, id]);
 
       return updateResult.rows[0];
     });
 
     res.json({
+      success: true,
       message: 'Production started successfully',
       order: result
     });
@@ -413,7 +446,7 @@ router.put('/production-orders/:id/start', authenticate, authorize('production_m
 });
 
 // PUT complete production order (add finished goods)
-router.put('/production-orders/:id/complete', authenticate, authorize('production_manager', 'inventory_manager', 'admin', 'owner'), async (req, res) => {
+router.put('/production-orders/:id/complete', authenticate, authorize('production_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const { actual_cost, notes, actual_quantity_kg } = req.body;
@@ -425,11 +458,11 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
         SELECT po.*, ft.name_arabic as feed_name, ft.name_english as feed_name_en
         FROM production_orders po
         JOIN feed_types ft ON po.feed_type_id = ft.id
-        WHERE po.id = $1 AND po.status IN ('approved', 'in_progress')
+        WHERE po.id = $1 AND po.status IN ('draft', 'approved', 'in_progress')
       `, [id]);
 
       if (orderResult.rows.length === 0) {
-        throw new Error('Order not found or not in approved/in_progress status');
+        throw new Error('Order not found or not in a processable status');
       }
 
       const order = orderResult.rows[0];
@@ -507,7 +540,7 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
         pkgSize,
         numBags,
         unitCost || 0,
-        totalCost,
+        totalCost || 0,
         order.id
       ]);
 
@@ -536,51 +569,44 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
         RETURNING *
       `, [actual_cost, actual_quantity_kg, notes, id]);
 
-      return updateResult.rows[0];
+      const updatedOrder = updateResult.rows[0];
+
+      // Check if all production orders for the linked sales order are completed
+      let salesOrderUpdated = false;
+      if (updatedOrder.sales_order_id) {
+        const remainingResult = await client.query(
+          `SELECT COUNT(*) as remaining FROM production_orders WHERE sales_order_id = $1 AND status != 'completed'`,
+          [updatedOrder.sales_order_id]
+        );
+        const remaining = parseInt(remainingResult.rows[0].remaining);
+        if (remaining === 0) {
+          await client.query(
+            `UPDATE sales_orders SET status = 'ready_for_delivery', ready_at = NOW(), updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND status NOT IN ('ready_for_delivery', 'in_transit', 'delivered', 'cancelled')`,
+            [updatedOrder.sales_order_id]
+          );
+          salesOrderUpdated = true;
+        }
+      }
+
+      return { order: updatedOrder, salesOrderUpdated };
     });
 
-    const soNumberFromNotes = result.notes?.match(/from sales order (SO-\d+)/i)?.[1] || result.notes?.match(/Auto from (SO-\d+)/i)?.[1];
-
     logActivity({
-      userId: result.created_by || 0, action: 'complete', module: 'production',
-      description: `Completed production order ${result.order_number}`,
-      entityId: result.id, entityType: 'production_order',
+      userId: result.order.created_by || 0, action: 'complete', module: 'production',
+      description: `Completed production order ${result.order.order_number}`,
+      entityId: result.order.id, entityType: 'production_order',
       oldStatus: 'in_progress', newStatus: 'completed'
     });
 
-    journalProductionCompleted(result).catch(e => console.error('[JOURNAL] production:', e.message));
-
-    // Auto-create delivery assignment if linked to a sales order
-    try {
-      if (soNumberFromNotes) {
-        const soNumber = soNumberFromNotes;
-        const soRes = await query('SELECT id, client_id FROM sales_orders WHERE order_number = $1', [soNumber]);
-        if (soRes.rows.length > 0) {
-          const existingDel = await query(
-            'SELECT id FROM delivery_assignments WHERE order_id = $1 AND status IN ($2, $3, $4)',
-            [soRes.rows[0].id, 'pending', 'in_transit', 'assigned']
-          );
-          if (existingDel.rows.length === 0) {
-            // Update sales order status to 'ready'
-            await query(
-              'UPDATE sales_orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-              ['ready', soRes.rows[0].id]
-            );
-            const delResult = await query(`
-              INSERT INTO delivery_assignments (order_id, scheduled_date, status, notes, created_by)
-              VALUES ($1, CURRENT_DATE + INTERVAL '1 day', 'pending', $2, $3) RETURNING id
-            `, [soRes.rows[0].id, `Auto from production ${result.order_number}`, result.created_by || 1]);
-            console.log(`[DELIVERY] Auto-created delivery #${delResult.rows[0].id} for ${soNumber}`);
-          }
-        }
-      }
-    } catch (delErr) {
-      console.error('[DELIVERY] Failed to auto-create delivery:', delErr.message);
-    }
+    journalProductionCompleted(result.order).catch(e => console.error('[JOURNAL] production:', e.message));
 
     res.json({
-      message: 'Production order completed successfully. ' + (soNumberFromNotes ? 'Delivery assignment created.' : ''),
-      order: result
+      success: true,
+      sales_order_updated: result.salesOrderUpdated,
+      message: result.salesOrderUpdated
+        ? 'Production order completed successfully. Sales order updated to ready for delivery.'
+        : 'Production order completed successfully.',
+      order: result.order
     });
   } catch (error) {
     console.error('Error completing production order:', error);
@@ -591,7 +617,7 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
 });
 
 // PUT cancel production order
-router.put('/production-orders/:id/cancel', async (req, res) => {
+router.put('/production-orders/:id/cancel', authorize('production_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -626,7 +652,8 @@ router.get('/stats', async (req, res) => {
   try {
     const result = await query(`
       SELECT 
-        COUNT(*) FILTER (WHERE status = 'draft') as draft_count,
+        COUNT(*) as total_count,
+        COUNT(*) FILTER (WHERE status IN ('draft', 'pending_approval')) as draft_count,
         COUNT(*) FILTER (WHERE status = 'approved') as approved_count,
         COUNT(*) FILTER (WHERE status = 'in_progress') as in_progress_count,
         COUNT(*) FILTER (WHERE status = 'completed') as completed_count,
@@ -634,7 +661,6 @@ router.get('/stats', async (req, res) => {
         COALESCE(SUM(quantity_kg) FILTER (WHERE status = 'completed'), 0) as total_produced_kg,
         COALESCE(SUM(actual_cost) FILTER (WHERE status = 'completed'), 0) as total_production_cost
       FROM production_orders
-      WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
     `);
 
     res.json(result.rows[0]);
@@ -870,8 +896,8 @@ router.get('/finished-goods', async (req, res) => {
         fgi.quantity_kg,
         fgi.package_size,
         fgi.number_of_bags,
-        fgi.unit_cost,
-        fgi.total_cost,
+        NULL::numeric AS unit_cost,
+        0 AS total_cost,
         fgi.status,
         fgi.expiry_date,
         fgi.created_at,

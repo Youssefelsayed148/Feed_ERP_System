@@ -27,7 +27,7 @@ router.get('/dashboard', authenticate, async (req, res) => {
     const invRes = await query(`
       SELECT
         COUNT(*) as total,
-        COALESCE(SUM(balance_due) FILTER (WHERE status IN ('pending', 'partial', 'overdue')), 0) as total_receivables,
+        COALESCE(SUM(balance_due) FILTER (WHERE status IN ('pending', 'partial', 'overdue', 'جزئي')), 0) as total_receivables,
         COALESCE(SUM(balance_due) FILTER (WHERE status != 'paid' AND due_date < CURRENT_DATE AND balance_due > 0), 0) as overdue_amount
       FROM invoices
     `);
@@ -168,7 +168,7 @@ router.get('/invoices', authenticate, async (req, res) => {
 
 router.get('/payments', authenticate, async (req, res) => {
   try {
-    let sql = `SELECT cph.*, c.name_arabic as client_name FROM client_payment_history cph LEFT JOIN clients c ON cph.client_id = c.id WHERE 1=1`;
+    let sql = `SELECT cph.*, COALESCE(NULLIF(dc.name_arabic, ''), dc.name_english, NULLIF(ic.name_arabic, ''), ic.name_english) as client_name FROM client_payment_history cph LEFT JOIN clients dc ON dc.id = cph.client_id LEFT JOIN invoices inv ON inv.id = cph.invoice_id LEFT JOIN clients ic ON ic.id = inv.client_id WHERE 1=1`;
     const params = [];
     if (req.query.client_id) {
       sql += ` AND cph.client_id = $${params.length + 1}`;
@@ -200,10 +200,14 @@ router.get('/payments', authenticate, async (req, res) => {
 router.post('/payments', authenticate, async (req, res) => {
   try {
     const { invoiceId, invoice_id, client_id, amount, paymentMethod, method, paymentDate, notes, reference, description } = req.body;
-    const finalClientId = client_id || null;
+    let finalClientId = client_id || null;
     const finalInvoiceId = invoiceId || invoice_id || null;
+    if (!finalClientId && finalInvoiceId) {
+      const invClient = await query('SELECT client_id FROM invoices WHERE id = $1', [finalInvoiceId]);
+      if (invClient.rows.length > 0) finalClientId = invClient.rows[0].client_id;
+    }
     const finalMethod = paymentMethod || method || 'cash';
-    const finalDesc = notes || reference || description || 'Payment recorded';
+    const finalDesc = notes || reference || description || 'تسجيل دفعة';
     const finalDate = paymentDate || new Date().toISOString().split('T')[0];
 
     const result = await query(
@@ -295,18 +299,19 @@ router.get('/receivables', authenticate, async (req, res) => {
         c.current_balance,
         c.credit_limit,
         c.status,
-        COALESCE(SUM(i.balance_due) FILTER (WHERE i.status IN ('pending', 'partial', 'overdue')), 0) as total_due,
-        COALESCE(SUM(i.balance_due) FILTER (WHERE i.status = 'overdue'), 0) as overdue_due,
+        COALESCE(SUM(i.balance_due) FILTER (WHERE i.status IN ('pending', 'partial', 'overdue', 'جزئي')), 0) as total_due,
+        COALESCE(SUM(i.balance_due) FILTER (WHERE i.status IN ('overdue')), 0) as overdue_due,
+        COALESCE(MAX(CURRENT_DATE - i.due_date) FILTER (WHERE i.due_date < CURRENT_DATE AND i.status IN ('pending', 'partial', 'overdue', 'جزئي')), 0) as days_overdue,
         COALESCE(SUM(i.balance_due) FILTER (WHERE i.due_date >= CURRENT_DATE OR i.due_date IS NULL), 0) as current,
         COALESCE(SUM(i.balance_due) FILTER (WHERE i.due_date < CURRENT_DATE AND i.due_date >= CURRENT_DATE - INTERVAL '30 days'), 0) as bucket_1_30,
         COALESCE(SUM(i.balance_due) FILTER (WHERE i.due_date < CURRENT_DATE - INTERVAL '30 days' AND i.due_date >= CURRENT_DATE - INTERVAL '60 days'), 0) as bucket_31_60,
         COALESCE(SUM(i.balance_due) FILTER (WHERE i.due_date < CURRENT_DATE - INTERVAL '60 days' AND i.due_date >= CURRENT_DATE - INTERVAL '90 days'), 0) as bucket_61_90,
         COALESCE(SUM(i.balance_due) FILTER (WHERE i.due_date < CURRENT_DATE - INTERVAL '90 days'), 0) as bucket_over_90
       FROM clients c
-      LEFT JOIN invoices i ON c.id = i.client_id AND i.status IN ('pending', 'partial', 'overdue')
+      LEFT JOIN invoices i ON c.id = i.client_id AND i.status IN ('pending', 'partial', 'overdue', 'جزئي')
       WHERE c.is_active = true
       GROUP BY c.id, c.name_arabic, c.name_english, c.code, c.current_balance, c.credit_limit, c.status
-      HAVING COALESCE(SUM(i.balance_due) FILTER (WHERE i.status IN ('pending', 'partial', 'overdue')), 0) > 0
+      HAVING COALESCE(SUM(i.balance_due) FILTER (WHERE i.status IN ('pending', 'partial', 'overdue', 'جزئي')), 0) > 0
       ORDER BY total_due DESC
     `);
 
@@ -319,7 +324,7 @@ router.get('/receivables', authenticate, async (req, res) => {
         COALESCE(SUM(balance_due) FILTER (WHERE due_date < CURRENT_DATE - INTERVAL '90 days'), 0) as "over-90",
         COALESCE(SUM(balance_due), 0) as total
       FROM invoices
-      WHERE status IN ('pending', 'partial', 'overdue')
+      WHERE status IN ('pending', 'partial', 'overdue', 'جزئي')
     `);
 
     const totalsRow = totalsResult.rows[0];
@@ -334,7 +339,7 @@ router.get('/receivables', authenticate, async (req, res) => {
       amount: parseFloat(c.total_due),
       total_due: parseFloat(c.total_due),
       overdue_due: parseFloat(c.overdue_due),
-      days: parseFloat(c.bucket_over_90) > 0 ? 90 : parseFloat(c.bucket_61_90) > 0 ? 61 : parseFloat(c.bucket_31_60) > 0 ? 31 : parseFloat(c.bucket_1_30) > 0 ? 1 : 0,
+      days: parseInt(c.days_overdue) || 0,
       current: parseFloat(c.current),
       bucket_1_30: parseFloat(c.bucket_1_30),
       bucket_31_60: parseFloat(c.bucket_31_60),

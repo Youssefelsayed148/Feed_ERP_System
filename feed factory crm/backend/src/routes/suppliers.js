@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
+const adminOnly = authorize('owner', 'admin');
 const logger = require('../utils/logger');
 
 // GET /api/suppliers - List all suppliers
@@ -27,9 +28,11 @@ router.get('/', authenticate, async (req, res) => {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     
     const result = await query(
-      `SELECT s.*, COALESCE(SUM(po.total_amount), 0) as total_spend
+      `SELECT s.*, 
+        COALESCE(SUM(po.total_amount), 0) as total_spend,
+        COUNT(DISTINCT po.id) as total_orders
        FROM suppliers s
-       LEFT JOIN purchase_orders po ON po.supplier_id = s.id AND po.status IN ('approved', 'received')
+       LEFT JOIN purchase_orders po ON po.supplier_id = s.id AND po.status IN ('approved', 'received', 'pending')
        ${whereClause}
        GROUP BY s.id
        ORDER BY s.name ASC`,
@@ -48,6 +51,7 @@ router.get('/', authenticate, async (req, res) => {
       paymentTerms: s.payment_terms,
       performanceRating: parseFloat(s.performance_rating),
       totalSpend: parseFloat(s.total_spend) || 0,
+      totalOrders: parseInt(s.total_orders) || 0,
       is_active: s.is_active,
       status: s.is_active ? 'active' : 'inactive',
       createdAt: s.created_at,
@@ -78,7 +82,7 @@ router.get('/:id', authenticate, async (req, res) => {
     let materials = [];
     if (s.materials_supplied && s.materials_supplied.length > 0) {
       const materialsResult = await query(
-        `SELECT id, code, name_arabic, name_english, category, unit, unit_price FROM raw_materials WHERE id = ANY($1)`,
+        `SELECT id, code, name_arabic, name_english, category, unit, unit_price FROM raw_materials WHERE code = ANY($1)`,
         [s.materials_supplied]
       );
       materials = materialsResult.rows.map(m => ({
@@ -149,6 +153,34 @@ router.post('/', authenticate, async (req, res) => {
     
     const s = result.rows[0];
     logger.info(`Created supplier: ${s.name} (${s.code})`);
+
+    // Keep supplier_materials in sync with materials_supplied so Purchase
+    // Orders (and any future per-supplier pricing/lead-time features) can
+    // read a real, queryable relationship rather than just an ID array.
+    // materials_supplied stores raw_materials.code (e.g. "RM001"), not the
+    // numeric id, so each entry must be resolved first.
+    if (materialsSupplied && materialsSupplied.length > 0) {
+      for (const materialCode of materialsSupplied) {
+        try {
+          const materialLookup = await query(
+            `SELECT id FROM raw_materials WHERE code = $1`,
+            [materialCode]
+          );
+          if (materialLookup.rows.length === 0) {
+            logger.error(`Could not link material ${materialCode} to supplier ${s.id}: no matching raw_materials.code`);
+            continue;
+          }
+          await query(
+            `INSERT INTO supplier_materials (supplier_id, raw_material_id, unit_price)
+             VALUES ($1, $2, (SELECT unit_price FROM raw_materials WHERE id = $2))
+             ON CONFLICT (supplier_id, raw_material_id) DO NOTHING`,
+            [s.id, materialLookup.rows[0].id]
+          );
+        } catch (linkError) {
+          logger.error(`Error linking material ${materialCode} to supplier ${s.id}:`, linkError);
+        }
+      }
+    }
     
     res.status(201).json({ 
       success: true, 
@@ -238,6 +270,35 @@ router.put('/:id', authenticate, async (req, res) => {
     
     const s = result.rows[0];
     logger.info(`Updated supplier: ${s.name} (${req.params.id})`);
+
+    // Keep supplier_materials in sync with materials_supplied whenever the
+    // materials list itself was part of this update. materials_supplied
+    // stores raw_materials.code (e.g. "RM001"), not the numeric id, so
+    // each entry must be resolved first.
+    if (updateData.materialsSupplied !== undefined) {
+      const newMaterialCodes = updateData.materialsSupplied || [];
+      try {
+        await query(`DELETE FROM supplier_materials WHERE supplier_id = $1`, [req.params.id]);
+        for (const materialCode of newMaterialCodes) {
+          const materialLookup = await query(
+            `SELECT id FROM raw_materials WHERE code = $1`,
+            [materialCode]
+          );
+          if (materialLookup.rows.length === 0) {
+            logger.error(`Could not link material ${materialCode} to supplier ${req.params.id}: no matching raw_materials.code`);
+            continue;
+          }
+          await query(
+            `INSERT INTO supplier_materials (supplier_id, raw_material_id, unit_price)
+             VALUES ($1, $2, (SELECT unit_price FROM raw_materials WHERE id = $2))
+             ON CONFLICT (supplier_id, raw_material_id) DO NOTHING`,
+            [req.params.id, materialLookup.rows[0].id]
+          );
+        }
+      } catch (linkError) {
+        logger.error(`Error syncing supplier_materials for supplier ${req.params.id}:`, linkError);
+      }
+    }
     
     res.json({ 
       success: true, 
@@ -265,7 +326,7 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // DELETE /api/suppliers/:id - Delete supplier
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, adminOnly, async (req, res) => {
   try {
     const result = await query(
       `DELETE FROM suppliers WHERE id = $1 RETURNING name, code`,

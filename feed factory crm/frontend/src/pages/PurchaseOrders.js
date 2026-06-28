@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { formatCurrency, formatNumber } from '../utils/formatters';
 import { t } from '../utils/i18n';
+import { authService } from '../services/api';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const getAuthToken = () => localStorage.getItem('token');
@@ -11,6 +12,9 @@ const headers = () => ({
 });
 
 const PurchaseOrders = () => {
+  const currentUser = authService.getCurrentUser();
+  const isPurchasingMgr = currentUser?.role === 'purchasing_mgr';
+  const canApprove = currentUser?.role === 'owner' || currentUser?.role === 'admin';
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [materials, setMaterials] = useState([]);
@@ -166,25 +170,40 @@ const PurchaseOrders = () => {
   };
 
   const addCartItem = () => {
-    setCartItems([...cartItems, { material: '', quantity: '', unit: 'kg', unitPrice: '', total: 0 }]);
+    setCartItems([...cartItems, { material: '', quantity: '', unit: 'kg', unitPrice: 0, pricePerKg: 0, total: 0 }]);
   };
 
   const updateCartItem = (index, field, value) => {
     const updated = [...cartItems];
-    updated[index][field] = value;
+
     if (field === 'material') {
+      updated[index].material = value;
       const material = materials.find(m => (m.id || m.code).toString() === value.toString());
       if (material) {
-        const price = parseFloat(material.unit_price) || 0;
-        updated[index].unitPrice = price.toString();
+        const pricePerKg = parseFloat(material.unit_price) || 0;
+        updated[index].pricePerKg = pricePerKg;
         updated[index].materialName = material.name_arabic || material.name;
+        // Apply unit conversion
+        updated[index].unitPrice = updated[index].unit === 'ton' ? pricePerKg * 1000 : pricePerKg;
         const qty = parseFloat(updated[index].quantity) || 0;
-        updated[index].total = qty * price;
+        updated[index].total = qty * updated[index].unitPrice;
+      } else {
+        updated[index].pricePerKg = 0;
+        updated[index].unitPrice = 0;
+        updated[index].total = 0;
       }
+    } else if (field === 'unit') {
+      updated[index].unit = value;
+      const basePrice = updated[index].pricePerKg || 0;
+      updated[index].unitPrice = value === 'ton' ? basePrice * 1000 : basePrice;
+      updated[index].total = (parseFloat(updated[index].quantity) || 0) * updated[index].unitPrice;
+    } else if (field === 'quantity') {
+      updated[index].quantity = value;
+      updated[index].total = (parseFloat(value) || 0) * (updated[index].unitPrice || 0);
+    } else {
+      updated[index][field] = value;
     }
-    if (field === 'quantity' || field === 'unitPrice') {
-      updated[index].total = Number(updated[index].quantity) * Number(updated[index].unitPrice) || 0;
-    }
+
     setCartItems(updated);
   };
 
@@ -315,7 +334,7 @@ const PurchaseOrders = () => {
   const sendWhatsApp = (po) => {
     const supplierName = po.supplier_name || 'Supplier';
     const total = parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0);
-    const message = `Purchase Order: ${po.po_number || po.id}\nSupplier: ${supplierName}\nTotal: EGP ${total.toLocaleString()}\nDelivery: ${po.expected_date || po.delivery_date || 'N/A'}`;
+    const message = `Purchase Order: ${po.po_number || po.id}\nSupplier: ${supplierName}\nTotal: EGP ${formatNumber(total)}\nDelivery: ${po.expected_date || po.delivery_date || 'N/A'}`;
     const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
@@ -518,7 +537,7 @@ const PurchaseOrders = () => {
                   <td style={{ fontWeight: 600 }}>{po.po_number}</td>
                   <td>{po.supplier_name || getSupplierName(po)}</td>
                   <td>{po.item_count || 0} {t('common.items')}</td>
-                  <td>{t('common.currency')} {formatNumber((parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0)))}</td>
+                  <td>{formatCurrency((parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0)))}</td>
                   <td>{po.expected_date ? new Date(po.expected_date).toLocaleDateString('en-GB') : '-'}</td>
                   <td>
                     <span style={{
@@ -548,7 +567,7 @@ const PurchaseOrders = () => {
                         </button>
                       )}
                       
-                      {po.status === 'pending_approval' && (
+                      {po.status === 'pending_approval' && canApprove && (
                         <>
                           <button 
                             className="btn btn-success btn-sm" 
@@ -564,16 +583,17 @@ const PurchaseOrders = () => {
                           </button>
                         </>
                       )}
+
+                      {po.status === 'pending_approval' && isPurchasingMgr && (
+                        <span style={{ fontSize: '12px', padding: '4px 10px', background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a', borderRadius: '8px', fontWeight: 500 }}>
+                          بانتظار موافقة المالك
+                        </span>
+                      )}
                       
                       {po.status === 'approved' && (
-                        <button 
-                          className="btn btn-primary btn-sm" 
-                          onClick={() => approvePO(po.id)}
-                          disabled
-                          style={{ opacity: 0.6 }}
-                        >
-                          Approved
-                        </button>
+                        <span style={{ fontSize: '12px', padding: '4px 10px', background: '#f0fdf4', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '8px', fontWeight: 500 }}>
+                          معتمد
+                        </span>
                       )}
                     </div>
                   </td>
@@ -609,7 +629,7 @@ const PurchaseOrders = () => {
             <h2>{t('po.create')}</h2>
 
             <div className="form-group">
-              <label className="form-label">Supplier *</label>
+              <label className="form-label">المورد *</label>
               <select
                 className="form-input"
                 value={formData.supplierId}
@@ -682,7 +702,8 @@ const PurchaseOrders = () => {
                               material: m.id?.toString() || m.code,
                               quantity: Math.max(m.reorder_level - m.current_stock, 0).toString(),
                               unit: 'kg',
-                              unitPrice: m.unit_price?.toString() || '0',
+                              pricePerKg: parseFloat(m.unit_price) || 0,
+                              unitPrice: parseFloat(m.unit_price) || 0,
                               total: Math.max(m.reorder_level - m.current_stock, 0) * (parseFloat(m.unit_price) || 0)
                             }]);
                           } else {
@@ -733,45 +754,57 @@ const PurchaseOrders = () => {
                       </option>
                     ))}
                   </select>
-                  <input
-                    type="number"
-                    placeholder="Qty"
-                    className="form-input"
-                    value={item.quantity}
-                    onChange={(e) => updateCartItem(index, 'quantity', e.target.value)}
-                  />
-                  <select
-                    className="form-input"
-                    value={item.unit}
-                    onChange={(e) => updateCartItem(index, 'unit', e.target.value)}
-                  >
-                    <option value="kg">kg</option>
-                    <option value="bag">bag</option>
-                    <option value="ton">ton</option>
-                    <option value="ltr">ltr</option>
-                  </select>
-                  <input
-                    type="number"
-                    placeholder="Price"
-                    className="form-input"
-                    value={item.unitPrice}
-                    onChange={(e) => updateCartItem(index, 'unitPrice', e.target.value)}
-                  />
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontWeight: 600, fontSize: '0.95em', color: '#1565c0', padding: '0 8px' }}>
-                    {item.total ? `${t('common.currency')} ${formatNumber(item.total)}` : '-'}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 }}>
+                    <label style={{ fontSize: '11px', color: '#888', marginBottom: '2px' }}>الكمية</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      className="form-input"
+                      value={item.quantity}
+                      onChange={(e) => updateCartItem(index, 'quantity', e.target.value)}
+                      min="0"
+                      step="1"
+                    />
                   </div>
-                  <button 
-                    type="button" 
-                    className="btn btn-sm" 
-                    onClick={() => removeCartItem(index)}
-                    style={{ color: '#d32f2f' }}
-                  >
-                    Remove
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <label style={{ fontSize: '11px', color: '#888', marginBottom: '2px' }}>الوحدة</label>
+                    <select
+                      className="form-input"
+                      value={item.unit}
+                      onChange={(e) => updateCartItem(index, 'unit', e.target.value)}
+                    >
+                      <option value="kg">كجم</option>
+                      <option value="ton">طن</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '120px' }}>
+                    <label style={{ fontSize: '11px', color: '#888', marginBottom: '2px' }}>سعر الوحدة</label>
+                    <div style={{ padding: '8px 10px', background: '#f5f5f5', borderRadius: '4px', fontSize: '13px', color: '#555', border: '1px solid #e0e0e0' }}>
+                      {item.unitPrice ? formatCurrency(item.unitPrice) : '—'}
+                      <span style={{ fontSize: '11px', color: '#888', marginRight: '4px' }}>/{item.unit === 'ton' ? 'طن' : 'كجم'}</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: '120px' }}>
+                    <label style={{ fontSize: '11px', color: '#888', marginBottom: '2px' }}>الإجمالي</label>
+                    <div style={{ padding: '8px 10px', fontWeight: 600, fontSize: '0.95em', color: '#1565c0', background: '#e8f0fe', borderRadius: '4px', border: '1px solid #c5d8fc' }}>
+                      {item.total ? formatCurrency(item.total) : '—'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                    <label style={{ fontSize: '11px', color: 'transparent', marginBottom: '2px' }}>.</label>
+                    <button 
+                      type="button" 
+                      className="btn btn-sm" 
+                      onClick={() => removeCartItem(index)}
+                      style={{ color: '#d32f2f' }}
+                    >
+                      حذف
+                    </button>
+                  </div>
                 </div>
               ))}
               <button type="button" className="btn btn-primary" onClick={addCartItem}>
-                + Add Item
+                + إضافة مادة
               </button>
             </div>
 
@@ -784,15 +817,15 @@ const PurchaseOrders = () => {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span>{t('common.subtotal')}:</span>
-                  <span>{t('common.currency')} {formatNumber(calculateTotals().subtotal)}</span>
+                  <span>{formatCurrency(calculateTotals().subtotal)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span>{t('common.vat')} (14%):</span>
-                  <span>{t('common.currency')} {formatNumber(calculateTotals().vat)}</span>
+                  <span>{formatCurrency(calculateTotals().vat)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
                   <span>{t('common.total')}:</span>
-                  <span>{t('common.currency')} {formatNumber(calculateTotals().total)}</span>
+                  <span>{formatCurrency(calculateTotals().total)}</span>
                 </div>
               </div>
             )}
@@ -815,7 +848,7 @@ const PurchaseOrders = () => {
                 rows="3"
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Additional notes..."
+                placeholder="ملاحظات إضافية..."
               />
             </div>
 
@@ -867,13 +900,13 @@ const PurchaseOrders = () => {
                 fontWeight: '500',
                 textTransform: 'capitalize'
               }}>
-                {selectedPO.status ? selectedPO.status.replace(/_/g, ' ') : 'Draft'}
+                {selectedPO.status ? (t('common.statuses.' + selectedPO.status) || selectedPO.status.replace(/_/g, ' ')) : t('common.statuses.draft')}
               </span>
             </div>
 
             <div style={{ marginBottom: '24px' }}>
               <h4 style={{ marginBottom: '12px' }}>معلومات المورد</h4>
-              <p><strong>Name:</strong> {selectedPO.supplier_name || getSupplierName(selectedPO)}</p>
+              <p><strong>الاسم:</strong> {selectedPO.supplier_name || getSupplierName(selectedPO)}</p>
             </div>
 
             <div style={{ marginBottom: '24px' }}>
@@ -898,7 +931,7 @@ const PurchaseOrders = () => {
                     selectedPOItems.map((item, idx) => (
                       <tr key={idx}>
                         <td>{item.raw_material_name || item.material || '-'}</td>
-                        <td>{formatNumber(item.quantity)} kg</td>
+                        <td>{formatNumber(item.quantity)} {item.unit || 'kg'}</td>
                         <td>{formatCurrency(parseFloat(item.unit_cost))}</td>
                         <td>{formatCurrency(parseFloat(item.total_cost))}</td>
                       </tr>
@@ -928,9 +961,9 @@ const PurchaseOrders = () => {
                 </div>
               </div>
 
-              <p><strong>Delivery Date:</strong> {selectedPO.expected_date ? new Date(selectedPO.expected_date).toLocaleDateString('en-GB') : 'N/A'}</p>
+              <p><strong>تاريخ التسليم:</strong> {selectedPO.expected_date ? new Date(selectedPO.expected_date).toLocaleDateString('en-GB') : '-'}</p>
             {selectedPO.notes && (
-              <p style={{ marginTop: '8px' }}><strong>Notes:</strong> {selectedPO.notes}</p>
+              <p style={{ marginTop: '8px' }}><strong>ملاحظات:</strong> {selectedPO.notes}</p>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>

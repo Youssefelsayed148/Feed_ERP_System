@@ -482,8 +482,8 @@ export const hrService = {
   },
   
   checkOut: async (data) => {
-    const response = await fetch(`${API_BASE_URL}/hr/attendance/checkout`, {
-      method: 'PUT',
+    const response = await fetch(`${API_BASE_URL}/hr/attendance/check-out`, {
+      method: 'POST',
       headers: headers(),
       body: JSON.stringify(data)
     });

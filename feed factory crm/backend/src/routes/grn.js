@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { query, transaction } = require('../config/database');
-const { authenticate: auth } = require('../middleware/auth');
+const { authenticate: auth, authorize } = require('../middleware/auth');
 const { journalPayableCreated } = require('../utils/journal');
 const { logActivity } = require('../utils/activity');
 
@@ -9,14 +9,27 @@ const { logActivity } = require('../utils/activity');
 (async () => {
   try {
     await query(`ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS received_quantity NUMERIC(12,3) DEFAULT 0`);
+    await query(`ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(10) DEFAULT 'kg'`);
     await query(`ALTER TABLE goods_receipt_notes ADD COLUMN IF NOT EXISTS total_amount NUMERIC(12,2) DEFAULT 0`);
     await query(`ALTER TABLE grn_items ADD COLUMN IF NOT EXISTS quantity_accepted NUMERIC(12,3) DEFAULT 0`);
     await query(`ALTER TABLE grn_items ADD COLUMN IF NOT EXISTS quantity_rejected NUMERIC(12,3) DEFAULT 0`);
     await query(`ALTER TABLE grn_items ADD COLUMN IF NOT EXISTS rejection_reason TEXT`);
+    await query(`ALTER TABLE grn_items ADD COLUMN IF NOT EXISTS unit VARCHAR(20) DEFAULT 'kg'`);
+    await query(`ALTER TABLE inventory_transactions ADD COLUMN IF NOT EXISTS supplier_id INTEGER REFERENCES suppliers(id)`);
   } catch (e) {
     console.log('[GRN] Schema migration check:', e.message);
   }
 })();
+
+const generateCode = async (prefix, tableName, codeColumn) => {
+  const year = new Date().getFullYear();
+  const result = await query(
+    `SELECT COUNT(*) as count FROM ${tableName} WHERE ${codeColumn} LIKE $1`,
+    [`${prefix}-${year}-%`]
+  );
+  const count = parseInt(result.rows[0].count) + 1;
+  return `${prefix}-${year}-${String(count).padStart(4, '0')}`;
+};
 
 // GET /api/grn/eligible-pos - Get POs that are approved/completed and have unreceived items
 router.get('/eligible-pos', auth, async (req, res) => {
@@ -28,6 +41,7 @@ router.get('/eligible-pos', auth, async (req, res) => {
         po.supplier_id,
         po.status,
         po.total_amount,
+        COALESCE(po.vat_amount, 0) as vat_amount,
         po.expected_date,
         po.notes,
         s.name as supplier_name,
@@ -36,8 +50,11 @@ router.get('/eligible-pos', auth, async (req, res) => {
           json_build_object(
             'id', poi.id,
             'raw_material_id', poi.raw_material_id,
+            'name', rm.name_arabic,
+            'raw_material_name', rm.name_arabic,
+            'raw_material_code', rm.code,
             'quantity', poi.quantity,
-            'unit', 'kg',
+            'unit', COALESCE(poi.unit, rm.unit, 'kg'),
             'unit_cost', poi.unit_cost,
             'total_cost', poi.total_cost,
             'received_quantity', COALESCE(poi.received_quantity, 0),
@@ -47,8 +64,14 @@ router.get('/eligible-pos', auth, async (req, res) => {
       FROM purchase_orders po
       JOIN suppliers s ON po.supplier_id = s.id
       JOIN purchase_order_items poi ON poi.purchase_order_id = po.id
+      LEFT JOIN raw_materials rm ON poi.raw_material_id = rm.id
       WHERE po.status IN ('approved', 'completed')
         AND poi.quantity > COALESCE(poi.received_quantity, 0)
+        AND NOT EXISTS (
+          SELECT 1 FROM goods_receipt_notes g2
+          WHERE g2.purchase_order_id = po.id
+          AND g2.status NOT IN ('rejected')
+        )
       GROUP BY po.id, s.name, s.code
       ORDER BY po.expected_date ASC
     `);
@@ -150,9 +173,16 @@ router.get('/:id', auth, async (req, res) => {
     }
 
     const itemsResult = await query(`
-      SELECT gi.*, r.name_arabic as raw_material_name, r.code as raw_material_code, r.unit
+      SELECT gi.*,
+             r.name_arabic as raw_material_name,
+             r.code as raw_material_code,
+             COALESCE(gi.unit, poi.unit, r.unit, 'kg') as unit
       FROM grn_items gi
       LEFT JOIN raw_materials r ON gi.raw_material_id = r.id
+      LEFT JOIN goods_receipt_notes g ON gi.grn_id = g.id
+      LEFT JOIN purchase_order_items poi
+        ON poi.purchase_order_id = g.purchase_order_id
+        AND poi.raw_material_id = gi.raw_material_id
       WHERE gi.grn_id = $1
     `, [id]);
 
@@ -170,7 +200,7 @@ router.get('/:id', auth, async (req, res) => {
 router.post('/', auth, async (req, res) => {
   try {
     const { grn_number: req_grn, purchase_order_id: po_id, supplier_id, receipt_date, notes, items } = req.body;
-    const grn_number = req_grn || `GRN-${Date.now()}`;
+    const grn_number = req_grn || await generateCode('GRN', 'goods_receipt_notes', 'grn_number');
     const createdBy = req.user.id;
 
     if (!po_id || !items || items.length === 0) {
@@ -191,8 +221,8 @@ router.post('/', auth, async (req, res) => {
       // Insert GRN items
       for (const item of items) {
         await client.query(`
-          INSERT INTO grn_items (grn_id, raw_material_id, ordered_quantity, received_quantity, quantity_accepted, quantity_rejected, unit_price, total_price)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          INSERT INTO grn_items (grn_id, raw_material_id, quantity_ordered, quantity_received, quantity_accepted, quantity_rejected, rejection_reason, unit_cost, total_cost, unit)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `, [
           grn.id,
           item.raw_material_id,
@@ -200,13 +230,26 @@ router.post('/', auth, async (req, res) => {
           item.received_quantity || item.quantity_received || 0,
           item.accepted_quantity || item.quantity_accepted || 0,
           item.rejected_quantity || item.quantity_rejected || 0,
+          item.rejection_reason || null,
           item.unit_price || item.unit_cost || 0,
-          item.total_price || item.total_cost || 0
+          item.total_price || item.total_cost || 0,
+          item.unit || 'kg'
         ]);
       }
 
       return grn;
     });
+
+    // GRN goes direct to owner_review (no manager stage — same as POs)
+    try {
+      const { query: dbQuery } = require('../config/database');
+      await dbQuery(
+        `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes, stage, status)
+         VALUES ($1, $2, $3, $4, $5, 'owner_review', 'pending') ON CONFLICT DO NOTHING`,
+        ['grn', 'grn', result.id, req.user.id,
+         `GRN: ${result.grn_number} - Total: ${result.total_amount} EGP`]
+      );
+    } catch (e) { console.error('Error creating GRN approval request:', e.message); }
 
     res.status(201).json({ success: true, grn: result });
   } catch (error) {
@@ -270,7 +313,10 @@ router.put('/:id/inspect', auth, async (req, res) => {
 });
 
 // PUT /api/grn/:id/approve - Approve GRN (update inventory)
-router.put('/:id/approve', auth, async (req, res) => {
+// Per access doc: GRN approval (which triggers stock auto-update) is
+// admin/owner only — purchasing_mgr and inventory staff explicitly have
+// "No approval rights" here, by design (segregation of duties).
+router.put('/:id/approve', auth, authorize('admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
@@ -314,15 +360,30 @@ router.put('/:id/approve', auth, async (req, res) => {
         const acceptedQty = parseFloat(item.quantity_accepted) || 0;
         if (acceptedQty <= 0) continue;
 
-        // 1. Update raw_materials current_stock
+        // Determine unit from grn_items → join back to purchase_order_items unit
+        const poUnitRes = await client.query(
+          `SELECT COALESCE(poi.unit, 'kg') as unit
+           FROM grn_items gi
+           LEFT JOIN purchase_order_items poi
+             ON poi.purchase_order_id = $1 AND poi.raw_material_id = gi.raw_material_id
+           WHERE gi.id = $2
+           LIMIT 1`,
+          [grn.po_id, item.id]
+        );
+        const poUnit = poUnitRes.rows[0]?.unit || 'kg';
+
+        // Convert to kg for stock storage — raw_materials.current_stock is always in kg
+        const qtyInKg = poUnit === 'ton' ? acceptedQty * 1000 : acceptedQty;
+
+        // 1. Update raw_materials current_stock (always in kg)
         await client.query(`
           UPDATE raw_materials
           SET current_stock = current_stock + $1,
               updated_at = NOW()
           WHERE id = $2
-        `, [acceptedQty, item.raw_material_id]);
+        `, [qtyInKg, item.raw_material_id]);
 
-        // 2. Update purchase_order_items received_quantity
+        // 2. Update purchase_order_items received_quantity (in original PO unit)
         if (item.po_item_id) {
           await client.query(`
             UPDATE purchase_order_items
@@ -331,19 +392,21 @@ router.put('/:id/approve', auth, async (req, res) => {
           `, [acceptedQty, item.po_item_id]);
         }
 
-        // 3. Create inventory transaction
+        // 3. Create inventory transaction — store qty in kg, preserve display unit
         await client.query(`
           INSERT INTO inventory_transactions
-          (raw_material_id, transaction_type, quantity, unit_price, total_cost, reference_id, reference_type, notes, created_by, created_at)
-          VALUES ($1, 'purchase', $2, $3, $4, $5, 'grn', $6, $7, NOW())
+          (raw_material_id, transaction_type, quantity, unit_price, total_cost, reference_id, reference_type, notes, created_by, supplier_id, created_at)
+          VALUES ($1, 'purchase', $2, $3, $4, $5, 'grn', $6, $7, $8, NOW())
+          ON CONFLICT DO NOTHING
         `, [
           item.raw_material_id,
-          acceptedQty,
+          qtyInKg,
           item.unit_cost || 0,
-          acceptedQty * (item.unit_cost || 0),
+          qtyInKg * (item.unit_cost || 0),
           id,
-          `GRN approved: ${grn.grn_number}`,
-          userId
+          `GRN ${grn.grn_number} — ${acceptedQty} ${poUnit}`,
+          userId,
+          grn.supplier_id || null
         ]);
       }
 
@@ -383,6 +446,13 @@ router.put('/:id/approve', auth, async (req, res) => {
       await client.query(
         `UPDATE goods_receipt_notes SET total_amount = $1 WHERE id = $2`,
         [grnTotal, id]
+      );
+
+      // Sync approval_requests status
+      await client.query(
+        `UPDATE approval_requests SET status = 'approved', approver_id = $1, updated_at = NOW()
+         WHERE module_name = 'grn' AND request_id = $2 AND status = 'pending'`,
+        [userId, id]
       );
 
       // Create supplier payable from PO
@@ -438,6 +508,78 @@ router.put('/:id/approve', auth, async (req, res) => {
       entityId: result.grn.id, entityType: 'grn',
       amount: result.totalAmount
     });
+
+    // Auto-reorder check — fire-and-forget, never blocks GRN approval
+    try {
+      const lowStockCheck = await query(`
+        SELECT rm.id, rm.name_arabic, rm.current_stock, rm.reorder_level,
+               rm.min_stock_level, rm.unit, rm.unit_price,
+               s.id as supplier_id, s.name as supplier_name,
+               sm.min_order_qty
+        FROM raw_materials rm
+        LEFT JOIN supplier_materials sm ON sm.raw_material_id = rm.id AND sm.is_preferred = true
+        LEFT JOIN suppliers s ON sm.supplier_id = s.id
+        WHERE rm.current_stock <= rm.reorder_level
+          AND rm.is_active = true
+          AND rm.id NOT IN (
+            SELECT DISTINCT ri.raw_material_id
+            FROM requisition_items ri
+            JOIN requisitions r ON r.id = ri.requisition_id
+            WHERE r.status IN ('draft', 'sent')
+              AND ri.raw_material_id IS NOT NULL
+          )
+      `);
+
+      if (lowStockCheck.rows.length > 0) {
+        const numRes = await query(
+          "SELECT COALESCE(MAX(CAST(SUBSTRING(requisition_number FROM 5) AS INTEGER)), 0) + 1 as next_num FROM requisitions WHERE requisition_number LIKE 'REQ-%'"
+        );
+        const reqNumber = `REQ-${String(numRes.rows[0].next_num).padStart(5, '0')}`;
+
+        let totalCost = 0;
+        const reqResult = await query(
+          `INSERT INTO requisitions (requisition_number, status, total_items, total_cost, notes, created_by)
+           VALUES ($1, 'draft', $2, 0, 'تم الإنشاء تلقائياً بسبب انخفاض المخزون بعد اعتماد GRN', $3) RETURNING id`,
+          [reqNumber, lowStockCheck.rows.length, userId]
+        );
+        const reqId = reqResult.rows[0].id;
+
+        for (const mat of lowStockCheck.rows) {
+          const shortage = Math.max(0, parseFloat(mat.reorder_level) - parseFloat(mat.current_stock));
+          const suggestedQty = Math.max(shortage, parseFloat(mat.min_order_qty || 0), 1);
+          const unitPrice = parseFloat(mat.unit_price || 0);
+          const itemTotal = suggestedQty * unitPrice;
+          totalCost += itemTotal;
+
+          await query(
+            `INSERT INTO requisition_items (requisition_id, raw_material_id, suggested_quantity, unit_price, total_cost, supplier_id, supplier_name, notes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [
+              reqId, mat.id, suggestedQty, unitPrice, itemTotal,
+              mat.supplier_id || null, mat.supplier_name || null,
+              `المخزون الحالي: ${mat.current_stock} ${mat.unit || 'kg'} — حد إعادة الطلب: ${mat.reorder_level} ${mat.unit || 'kg'}`
+            ]
+          );
+        }
+
+        await query('UPDATE requisitions SET total_cost = $1 WHERE id = $2', [totalCost, reqId]);
+
+        // Notify all owners and admins
+        await query(
+          `INSERT INTO notifications (user_id, type, title, message, module, created_at)
+           SELECT u.id, 'warning',
+             'تنبيه: مخزون منخفض — طلب احتياج تلقائي',
+             $1 || ' مادة تحتاج إعادة طلب — تم إنشاء ' || $2 || ' تلقائياً',
+             'inventory', NOW()
+           FROM users u WHERE u.role IN ('owner', 'admin')`,
+          [lowStockCheck.rows.length, reqNumber]
+        );
+
+        console.log(`[AUTO-REORDER] Created ${reqNumber} with ${lowStockCheck.rows.length} items after GRN approval`);
+      }
+    } catch (reorderErr) {
+      console.error('[AUTO-REORDER] Check failed (GRN approval not affected):', reorderErr.message);
+    }
   } catch (error) {
     console.error('Error approving GRN:', error);
     res.status(500).json({ error: 'Failed to approve GRN', message: error.message });

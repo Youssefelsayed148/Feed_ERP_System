@@ -6,7 +6,7 @@ import {
   ChevronDown, Filter, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import { authService, usersService } from '../services/api';
-import { t, setLang, getLang } from '../utils/i18n';
+import { t } from '../utils/i18n';
 
 // Available modules for permissions
 const AVAILABLE_MODULES = [
@@ -405,14 +405,14 @@ const UserManagement = () => {
                         <button 
                           className="btn-icon btn-edit"
                           onClick={() => openEditModal(user)}
-                          title="Edit User"
+                          title="تعديل المستخدم"
                         >
                           <Edit2 size={16} />
                         </button>
                         <button 
                           className="btn-icon btn-delete"
                           onClick={() => openDeleteModal(user)}
-                          title="Deactivate User"
+                          title="تعطيل المستخدم"
                           disabled={user._id === currentUser?._id || user.email === currentUser?.email}
                         >
                           <Trash2 size={16} />
@@ -448,7 +448,7 @@ const UserManagement = () => {
                       className={`form-input ${formErrors.firstName ? 'error' : ''}`}
                       value={userForm.firstName}
                       onChange={(e) => setUserForm({...userForm, firstName: e.target.value})}
-                      placeholder="Enter first name"
+                      placeholder="أدخل الاسم الأول"
                     />
                     {formErrors.firstName && <span className="error-text">{formErrors.firstName}</span>}
                   </div>
@@ -459,7 +459,7 @@ const UserManagement = () => {
                       className={`form-input ${formErrors.lastName ? 'error' : ''}`}
                       value={userForm.lastName}
                       onChange={(e) => setUserForm({...userForm, lastName: e.target.value})}
-                      placeholder="Enter last name"
+                      placeholder="أدخل اسم العائلة"
                     />
                     {formErrors.lastName && <span className="error-text">{formErrors.lastName}</span>}
                   </div>
@@ -484,7 +484,7 @@ const UserManagement = () => {
                       className="form-input"
                       value={userForm.phone}
                       onChange={(e) => setUserForm({...userForm, phone: e.target.value})}
-                      placeholder="Enter phone number"
+                      placeholder="أدخل رقم الهاتف"
                     />
                   </div>
                 </div>
@@ -627,7 +627,7 @@ const UserManagement = () => {
               <div className="alert alert-warning">
                 <AlertTriangle size={24} />
                 <div>
-                  <p>Are you sure you want to deactivate this user?</p>
+                  <p>هل أنت متأكد من تعطيل هذا المستخدم؟</p>
                   <p className="text-sm text-gray-600">
                     <strong>{selectedUser.firstName} {selectedUser.lastName}</strong> ({selectedUser.email})
                   </p>
@@ -642,7 +642,7 @@ const UserManagement = () => {
                 إلغاء
               </button>
               <button className="btn btn-danger" onClick={handleDeleteUser}>
-                <UserX size={16} /> Deactivate User
+                <UserX size={16} /> تعطيل المستخدم
               </button>
             </div>
           </div>
@@ -870,7 +870,7 @@ const IntegrationSettings = () => {
                               className="form-input"
                               value={config.apiKey}
                               onChange={(e) => updateField(item.id, 'apiKey', e.target.value)}
-                              placeholder="Enter API Key"
+                              placeholder="أدخل مفتاح API"
                             />
                           </div>
                           <div className="form-group">
@@ -880,7 +880,7 @@ const IntegrationSettings = () => {
                               className="form-input"
                               value={config.secretKey}
                               onChange={(e) => updateField(item.id, 'secretKey', e.target.value)}
-                              placeholder="Enter Secret Key"
+                              placeholder="أدخل المفتاح السري"
                             />
                           </div>
                         </>
@@ -907,7 +907,7 @@ const IntegrationSettings = () => {
                               className="form-input"
                               value={config.apiKey}
                               onChange={(e) => updateField(item.id, 'apiKey', e.target.value)}
-                              placeholder="Enter API Key"
+                              placeholder="أدخل مفتاح API"
                             />
                           </div>
                         </>
@@ -1007,30 +1007,27 @@ export const getCompanyCurrency = () => {
   return settings.currency || 'EGP';
 };
 
-// Format currency based on company settings
+// Format currency: ALWAYS full precision, comma thousands separator, period decimal,
+// exactly 2 decimal places. e.g. 1000 -> "1,000.00 EGP", 1500000 -> "1,500,000.00 EGP"
+// No abbreviation (no K/M shorthand) — this is the single source of truth for
+// currency display across the whole app.
 export const formatCurrency = (amount, currencyCode = null) => {
   const currency = currencyCode || getCompanyCurrency();
   const config = currencyConfig[currency] || currencyConfig.EGP;
-  
-  if (amount >= 1000000) {
-    return `${config.symbol} ${(amount / 1000000).toFixed(2)}M`;
-  }
-  if (amount >= 1000) {
-    return `${config.symbol} ${(amount / 1000).toFixed(0)}K`;
-  }
-  return `${config.symbol} ${amount.toLocaleString()}`;
+  const value = Number(amount) || 0;
+  const formatted = value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${formatted} ${config.symbol}`;
 };
 
-// Full currency formatter with Intl
-export const formatCurrencyFull = (amount, currencyCode = null) => {
-  const currency = currencyCode || getCompanyCurrency();
-  const config = currencyConfig[currency] || currencyConfig.EGP;
-  
-  return new Intl.NumberFormat(config.locale, { 
-    style: 'currency', 
-    currency: currency, 
-    maximumFractionDigits: 0 
-  }).format(amount || 0);
+// Alias kept for any existing call sites — identical behavior to formatCurrency now.
+export const formatCurrencyFull = formatCurrency;
+
+// Format a plain number (quantities, counts, kg, etc — no currency symbol).
+// Same separator convention as formatCurrency: comma thousands, period decimal.
+// Decimals default to 0 (most quantities are whole numbers) but can be overridden.
+export const formatNumber = (amount, decimals = 0) => {
+  const value = Number(amount) || 0;
+  return value.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 };
 
 const SettingsPage = () => {
@@ -1038,7 +1035,8 @@ const SettingsPage = () => {
   const [companySettings, setCompanySettings] = useState({
     currency: 'EGP',
     timezone: 'Africa/Cairo',
-    dateFormat: 'YYYY-MM-DD'
+    dateFormat: 'YYYY-MM-DD',
+    companyName: 'شركة الخير لأعلاف الحيوانات'
   });
   const user = authService.getCurrentUser();
 
@@ -1087,6 +1085,13 @@ const SettingsPage = () => {
     if (savedSettings.currency) {
       setCompanySettings(prev => ({ ...prev, ...savedSettings }));
     }
+    // Fetch real org name from backend
+    fetch('/api/organization/company', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.name) setCompanySettings(prev => ({ ...prev, companyName: data.name }));
+      })
+      .catch(() => {});
   }, []);
 
   const handleCurrencyChange = (currency) => {
@@ -1166,10 +1171,8 @@ const SettingsPage = () => {
     { id: 'notifications', label: t('settings.notificationsTab'), icon: Bell },
     { id: 'security', label: t('settings.security'), icon: Shield },
     { id: 'branding', label: t('settings.branding'), icon: Palette },
-    { id: 'language', label: t('settings.language'), icon: Globe },
     { id: 'users', label: t('settings.userManagement'), icon: UserCheck },
-    { id: 'integrations', label: t('settings.integrations'), icon: Database },
-    { id: 'approvals', label: t('settings.approvals'), icon: Shield }
+    { id: 'integrations', label: t('settings.integrations'), icon: Database }
   ];
 
   return (
@@ -1177,7 +1180,7 @@ const SettingsPage = () => {
       <div className="page-header">
         <div>
           <h1 className="page-title">{t('nav.settings')}</h1>
-          <p className="page-subtitle">Manage your account and system preferences</p>
+          <p className="page-subtitle">{t('settings.subtitle')}</p>
         </div>
       </div>
 
@@ -1246,7 +1249,8 @@ const SettingsPage = () => {
               <h3 className="card-title">Organization Settings</h3>
               <div className="form-group">
                 <label className="form-label">{t('settings.companyName')}</label>
-                <input type="text" className="form-input" defaultValue="Osiris Labs Real Estate" />
+                <input type="text" className="form-input" value={companySettings.companyName}
+                  onChange={(e) => setCompanySettings({...companySettings, companyName: e.target.value})} />
               </div>
               <div className="form-group">
                 <label className="form-label">{t('settings.defaultCurrency')}</label>
@@ -1255,7 +1259,7 @@ const SettingsPage = () => {
                   value={companySettings.currency}
                   onChange={(e) => handleCurrencyChange(e.target.value)}
                 >
-                  <option value="EGP">EGP - Egyptian Pound (ج.م)</option>
+                  <option value="EGP">EGP - Egyptian Pound</option>
                   <option value="AED">AED - UAE Dirham (د.إ)</option>
                   <option value="USD">USD - US Dollar ($)</option>
                   <option value="EUR">EUR - Euro (€)</option>
@@ -1289,11 +1293,11 @@ const SettingsPage = () => {
             <div className="settings-content">
               <h3 className="card-title">Notification Preferences</h3>
               {[
-                { key: 'leadAssignments', label: 'New lead assignments', desc: 'Get notified when new leads are assigned to you' },
-                { key: 'reservationExpiring', label: 'Reservation expiring', desc: 'Alert when reservations are about to expire' },
-                { key: 'paymentReceived', label: 'Payment received', desc: 'Notification when installments are paid' },
-                { key: 'contractSigned', label: 'Contract signed', desc: 'Alert when contracts are signed' },
-                { key: 'whatsappMessages', label: 'WhatsApp messages', desc: 'New message notifications' }
+                { key: 'leadAssignments', label: 'تعيينات العملاء الجديدة', desc: 'إشعار عند تعيين عملاء جدد لك' },
+                { key: 'reservationExpiring', label: 'انتهاء صلاحية الحجز', desc: 'تنبيه عند اقتراب انتهاء الحجوزات' },
+                { key: 'paymentReceived', label: 'استلام دفعة', desc: 'إشعار عند استلام الأقساط' },
+                { key: 'contractSigned', label: 'توقيع عقد', desc: 'تنبيه عند توقيع العقود' },
+                { key: 'whatsappMessages', label: 'رسائل واتساب', desc: 'إشعارات الرسائل الجديدة' }
               ].map((item) => (
                 <div key={item.key} className="notification-item">
                   <div className="notification-text">
@@ -1319,17 +1323,17 @@ const SettingsPage = () => {
               )}
               <div className="form-group">
                 <label className="form-label">{t('settings.currentPassword')}</label>
-                <input type="password" className="form-input" placeholder="Enter current password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})} />
+                <input type="password" className="form-input" placeholder="أدخل كلمة المرور الحالية" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm({...passwordForm, currentPassword: e.target.value})} />
               </div>
               <div className="form-group">
-                <label className="form-label">New Password</label>
-                <input type="password" className="form-input" placeholder="Enter new password (min 6 chars)" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
+                <label className="form-label">كلمة المرور الجديدة</label>
+                <input type="password" className="form-input" placeholder="أدخل كلمة المرور الجديدة (6 أحرف على الأقل)" value={passwordForm.newPassword} onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})} />
               </div>
               <div className="form-group">
                 <label className="form-label">{t('settings.confirmPassword')}</label>
                 <input type="password" className="form-input" placeholder="Confirm new password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})} />
               </div>
-              <button className="btn btn-primary" onClick={handleUpdatePassword}>Update Password</button>
+              <button className="btn btn-primary" onClick={handleUpdatePassword}>تحديث كلمة المرور</button>
 
               <div className="security-section">
                 <h4 className="security-title">Two-Factor Authentication</h4>
@@ -1338,7 +1342,7 @@ const SettingsPage = () => {
                   setTwoFAEnabled(!twoFAEnabled);
                   alert(twoFAEnabled ? '2FA has been disabled.' : '2FA setup would open here. (Feature requires backend integration)');
                 }}>
-                  {twoFAEnabled ? 'Disable 2FA' : 'Enable 2FA'}
+                  {twoFAEnabled ? 'تعطيل المصادقة الثنائية' : 'تفعيل المصادقة الثنائية'}
                 </button>
               </div>
             </div>
@@ -1386,42 +1390,6 @@ const SettingsPage = () => {
             </div>
           )}
 
-          {activeTab === 'language' && (
-            <div className="settings-content">
-              <h3 className="card-title">Language / اللغة</h3>
-              <p className="settings-description">Choose your preferred language / اختر لغتك المفضلة</p>
-              
-              <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
-                <button
-                  onClick={() => setLang('en')}
-                  style={{
-                    flex: 1, padding: '24px', borderRadius: '12px', border: '2px solid',
-                    borderColor: getLang() === 'en' ? '#2980b9' : '#e2e8f0',
-                    background: getLang() === 'en' ? '#eef7ff' : '#fff',
-                    cursor: 'pointer', textAlign: 'center'
-                  }}
-                >
-                  <div style={{ fontSize: '48px', marginBottom: '12px' }}>🇬🇧</div>
-                  <div style={{ fontSize: '18px', fontWeight: 600 }}>{t('settings.english')}</div>
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>English Interface</div>
-                </button>
-                <button
-                  onClick={() => setLang('ar')}
-                  style={{
-                    flex: 1, padding: '24px', borderRadius: '12px', border: '2px solid',
-                    borderColor: getLang() === 'ar' ? '#2980b9' : '#e2e8f0',
-                    background: getLang() === 'ar' ? '#eef7ff' : '#fff',
-                    cursor: 'pointer', textAlign: 'center'
-                  }}
-                >
-                  <div style={{ fontSize: '48px', marginBottom: '12px' }}>🇸🇦</div>
-                  <div style={{ fontSize: '18px', fontWeight: 600 }}>العربية</div>
-                  <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>واجهة عربية</div>
-                </button>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'users' && (
             <div className="settings-content">
               <UserManagement />
@@ -1433,109 +1401,10 @@ const SettingsPage = () => {
               <IntegrationSettings />
             </div>
           )}
-
-          {activeTab === 'approvals' && (
-            <div className="settings-content">
-              <ApprovalSettings />
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 }
-
-// Approval Settings Component
-const ApprovalSettings = () => {
-  const [settings, setSettings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(authService.getCurrentUser());
-
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/approvals/settings', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (data.success) setSettings(data.settings);
-    } catch (e) {
-      console.error('Error fetching approval settings:', e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleApproval = async (module, currentValue) => {
-    try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/approvals/settings/${module}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ requires_approval: !currentValue })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSettings(settings.map(s => s.module_name === module ? data.setting : s));
-      }
-    } catch (e) {
-      console.error('Error toggling approval:', e);
-    }
-  };
-
-  if (user?.role !== 'owner' && user?.role !== 'admin') {
-    return <p style={{ padding: '20px', color: '#6b7280' }}>Only owners can manage approval settings.</p>;
-  }
-
-  if (loading) return <p>Loading...</p>;
-
-  const moduleLabels = {
-    sales_orders: 'Sales Orders',
-    purchase_orders: 'Purchase Orders',
-    payroll: 'Payroll',
-    expenses: 'Expenses',
-    production: 'Production',
-    inventory_adjustments: 'Inventory Adjustments'
-  };
-
-  return (
-    <div>
-      <h3 className="card-title">Approval Settings</h3>
-      <p className="settings-description">Toggle which modules require approval before execution. When ON, all requests in that module need manager/owner approval.</p>
-      
-      <div style={{ marginTop: '24px' }}>
-        {settings.map(s => (
-          <div key={s.module_name} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '16px', marginBottom: '8px', background: '#fff',
-            borderRadius: '8px', border: '1px solid #e2e8f0'
-          }}>
-            <div>
-              <div style={{ fontWeight: 600 }}>{moduleLabels[s.module_name] || s.module_name}</div>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>
-                {s.requires_approval ? 'Approval required' : 'No approval needed'}
-              </div>
-            </div>
-            <button
-              onClick={() => toggleApproval(s.module_name, s.requires_approval)}
-              style={{
-                padding: '8px 20px', borderRadius: '20px', border: 'none',
-                cursor: 'pointer', fontWeight: 600,
-                background: s.requires_approval ? '#dc2626' : '#10b981',
-                color: '#fff'
-              }}
-            >
-              {s.requires_approval ? 'ON' : 'OFF'}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 export default SettingsPage;

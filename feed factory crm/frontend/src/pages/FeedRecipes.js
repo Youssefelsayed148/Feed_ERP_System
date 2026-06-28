@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency, formatNumber, getStatusLabel } from '../utils/formatters';
 import { t, getLang } from '../utils/i18n';
 import { 
   Plus, Search, Eye, Edit2, Copy, Printer, Check, X, 
@@ -109,7 +109,7 @@ export default function FeedRecipes() {
             name: r.feed_name_arabic || r.feed_name_english || '',
             nameArabic: r.feed_name_arabic || '',
             code: r.feed_code || '',
-            protein: r.protein_percentage || ''
+            protein: r.protein_percentage ? String(r.protein_percentage).replace('%', '').trim() : ''
           },
           feed_type_id: r.feed_type_id,
           version: r.version || '1.0',
@@ -153,12 +153,19 @@ export default function FeedRecipes() {
           name_english: ft.name_english,
           name_arabic: ft.name_arabic,
           code: ft.code,
-          protein: ft.protein_percentage || ft.protein || '',
+          protein: ft.protein_percentage ? String(ft.protein_percentage).replace('%', '').trim() : (ft.protein ? String(ft.protein).replace('%', '').trim() : ''),
           protein_percentage: ft.protein_percentage,
           category: ft.category,
           sub_category: ft.sub_category
         }));
-        setFeedTypes(mapped);
+        // Deduplicate by _id in case feed_types join returns multiple rows per type
+        const seen = new Set();
+        const unique = mapped.filter(ft => {
+          if (seen.has(ft._id)) return false;
+          seen.add(ft._id);
+          return true;
+        });
+        setFeedTypes(unique);
       } else {
         setFeedTypes([]);
       }
@@ -228,12 +235,12 @@ export default function FeedRecipes() {
   };
 
   const getMaterialName = (materialId) => {
-    const material = rawMaterials.find(m => m._id === materialId);
+    const material = rawMaterials.find(m => String(m._id) === String(materialId));
     return material?.name || materialId;
   };
 
   const getMaterialNameArabic = (materialId) => {
-    const material = rawMaterials.find(m => m._id === materialId);
+    const material = rawMaterials.find(m => String(m._id) === String(materialId));
     return material?.nameArabic || '';
   };
 
@@ -249,7 +256,7 @@ export default function FeedRecipes() {
   };
 
   const getMaterialCost = (materialId) => {
-    const material = rawMaterials.find(m => m._id === materialId);
+    const material = rawMaterials.find(m => String(m._id) === String(materialId));
     return material?.costPerUnit || 0;
   };
 
@@ -344,7 +351,7 @@ export default function FeedRecipes() {
         status: fullRecipe.status || recipe.status,
         ingredients: recipeIngredients,
         sellingPrice: fullRecipe.selling_price || recipe.sellPerTon || '',
-        protein: fullRecipe.protein_percentage || recipe.protein || '',
+        protein: fullRecipe.protein_percentage ? String(fullRecipe.protein_percentage).replace('%', '').trim() : (recipe.protein ? String(recipe.protein).replace('%', '').trim() : ''),
         energy: fullRecipe.energy || recipe.energy || '',
         fiber: fullRecipe.fiber || recipe.fiber || '',
         notes: fullRecipe.notes || recipe.notes || ''
@@ -361,7 +368,7 @@ export default function FeedRecipes() {
         status: recipe.status,
         ingredients: recipe.ingredients || [],
         sellingPrice: recipe.sellPerTon || '',
-        protein: recipe.protein || '',
+        protein: recipe.protein ? String(recipe.protein).replace('%', '').trim() : '',
         energy: recipe.energy || '',
         fiber: recipe.fiber || '',
         notes: recipe.notes || ''
@@ -579,7 +586,7 @@ export default function FeedRecipes() {
           marginBottom: '20px',
           fontSize: '14px'
         }}>
-          <strong>Error:</strong> {error}
+          <strong>خطأ:</strong> {error}
           <div style={{marginTop: '8px', fontSize: '12px'}}>
             Check browser console (F12) for more details
           </div>
@@ -609,7 +616,7 @@ export default function FeedRecipes() {
         </div>
         <div className="stat-card">
           <p className="stat-label">{t('recipes.avgCost')}</p>
-          <p className="stat-value">{t('common.currency')} {formatNumber(stats.avgCost, { decimals: 0 })}</p>
+          <p className="stat-value">{formatCurrency(stats.avgCost)}</p>
         </div>
         <div className="stat-card">
           <p className="stat-label">{t('recipes.mostUsed')}</p>
@@ -695,7 +702,7 @@ export default function FeedRecipes() {
                     <td>{formatCurrency(recipe.totalCost || 0)}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(recipe.status)}`}>
-                        {recipe.status}
+                        {getStatusLabel(recipe.status)}
                       </span>
                     </td>
                     <td>
@@ -779,7 +786,7 @@ export default function FeedRecipes() {
                     <div>
                       <p className="text-sm text-gray-600">{t('common.status')}</p>
                       <span className={`badge ${getStatusBadgeClass(selectedRecipe.status)}`}>
-                        {selectedRecipe.status}
+                        {getStatusLabel(selectedRecipe.status)}
                       </span>
                     </div>
                     {selectedRecipe.batchSize && (
@@ -916,7 +923,7 @@ export default function FeedRecipes() {
                             <tr>
                               <th>Material / المادة</th>
                               <th>Required / مطلوب</th>
-                              <th>Available / متاح</th>
+                              <th>المتاح / كجم</th>
                               <th>Status / الحالة</th>
                             </tr>
                           </thead>
@@ -991,7 +998,7 @@ export default function FeedRecipes() {
                       className={`btn flex-1 ${selectedRecipe.status === 'active' ? 'btn-danger' : 'btn-success'}`}
                     >
                       {selectedRecipe.status === 'active' ? (
-                        <><Pause className="w-4 h-4" /> Deactivate</>
+                        <><Pause className="w-4 h-4" /> تعطيل</>
                       ) : (
                         <><Play className="w-4 h-4" /> Activate</>
                       )}
@@ -1063,7 +1070,7 @@ export default function FeedRecipes() {
                           {calculateTotalPercentage(formData.ingredients).toFixed(1)}%
                         </span>
                         {Math.abs(calculateTotalPercentage(formData.ingredients) - 100) > 0.01 && (
-                          <span className="text-xs text-red-500">(Must be 100%)</span>
+                          <span className="text-xs text-red-500">(يجب أن يكون 100%)</span>
                         )}
                       </div>
                     </div>
@@ -1136,7 +1143,7 @@ export default function FeedRecipes() {
 
                     {/* Total Cost Display */}
                     <div className="total-cost-display">
-                      <span className="label">Total Cost per 1000kg:</span>
+                      <span className="label">إجمالي التكلفة لكل 1000كجم:</span>
                       <span className="value">
                         {formatCurrency(calculateTotalCost(formData.ingredients))}
                       </span>
@@ -1145,7 +1152,7 @@ export default function FeedRecipes() {
 
                   {/* Selling Price */}
                   <div className="form-group mt-4">
-                    <label className="label">سعر البيع للطن (ج.م)</label>
+                    <label className="label">سعر البيع للطن (EGP)</label>
                     <div className="flex gap-2 items-center">
                       <input
                         type="number"
@@ -1171,7 +1178,7 @@ export default function FeedRecipes() {
                         value={formData.protein}
                         onChange={(e) => setFormData({ ...formData, protein: e.target.value })}
                         className="input w-full"
-                        placeholder="Optional"
+                        placeholder="اختياري"
                         step="0.1"
                       />
                     </div>
@@ -1182,7 +1189,7 @@ export default function FeedRecipes() {
                         value={formData.energy}
                         onChange={(e) => setFormData({ ...formData, energy: e.target.value })}
                         className="input w-full"
-                        placeholder="Optional"
+                        placeholder="اختياري"
                       />
                     </div>
                     <div className="form-group">
@@ -1192,7 +1199,7 @@ export default function FeedRecipes() {
                         value={formData.fiber}
                         onChange={(e) => setFormData({ ...formData, fiber: e.target.value })}
                         className="input w-full"
-                        placeholder="Optional"
+                        placeholder="اختياري"
                         step="0.1"
                       />
                     </div>

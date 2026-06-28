@@ -1,7 +1,7 @@
 import { t } from '../utils/i18n';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency, formatDate, formatNumber, getStatusLabel } from '../utils/formatters';
 import {
   Users, ShoppingCart, FileText, CreditCard, Bell, TrendingUp,
   DollarSign, Package, Search, Phone, MapPin, AlertTriangle,
@@ -195,7 +195,7 @@ const SalesRep = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <StatCard title={t('sales.myClients')} value={stats?.totalClients || clients.length} icon={Users} color="#3b82f6" />
         <StatCard title={t('sales.myOrders')} value={stats?.totalOrders || orders.length} icon={ShoppingCart} color="#10b981" />
-        <StatCard title={t('common.totalDue')} value={`ج.م ${((stats?.totalDue || 0) ).toLocaleString()}`} icon={DollarSign} color="#ef4444" />
+        <StatCard title={t('common.totalDue')} value={formatCurrency(((stats?.totalDue || 0) ))} icon={DollarSign} color="#ef4444" />
         <StatCard title={t('sales.upcomingReminders')} value={stats?.upcomingReminders || reminders.filter(r => r.status === 'pending').length} icon={Bell} color="#8b5cf6" />
       </div>
 
@@ -348,12 +348,12 @@ const SalesRep = () => {
               <div>
                 <div style={{ fontWeight: 600, marginBottom: '4px' }}>{order.order_number}</div>
                 <div style={{ fontSize: '13px', color: '#6b7280' }}>
-                  {order.client_name} | {order.status}
+                  {order.client_name} | {getStatusLabel(order.status)}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontWeight: 600 }}>{formatCurrency(parseFloat(order.final_amount || 0) )}</div>
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : ''}</div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>{order.delivery_date ? formatDate(order.delivery_date) : ''}</div>
               </div>
             </div>
           ))}
@@ -385,10 +385,10 @@ const SalesRep = () => {
               </div>
               <div style={{ textAlign: 'right' }}>
                 <span style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '12px', background: reminder.status === 'pending' ? '#fef3c7' : '#d1fae5', color: reminder.status === 'pending' ? '#92400e' : '#065f46' }}>
-                  {reminder.status}
+                  {getStatusLabel(reminder.status)}
                 </span>
                 <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                  {new Date(reminder.reminder_date).toLocaleDateString()}
+                  {formatDate(reminder.reminder_date)}
                 </div>
               </div>
             </div>
@@ -421,12 +421,12 @@ const SalesRep = () => {
               <div><div style={{ fontSize: '12px', color: '#6b7280' }}>{t('clients.creditLimit')}</div><div style={{ fontWeight: 600 }}>{formatCurrency(parseFloat(selectedClient.credit_limit || 0) )}</div></div>
               <div><div style={{ fontSize: '12px', color: '#6b7280' }}>{t('clients.currentBalance')}</div><div style={{ fontWeight: 600, color: parseFloat(selectedClient.current_balance || 0) > 0 ? '#ef4444' : '#10b981' }}>{formatCurrency(parseFloat(selectedClient.current_balance || 0) )}</div></div>
               <div style={{ fontSize: '13px' }}>Average order value: <strong>{formatCurrency((pattern.avgOrderValue || 0) )}</strong></div>
-                <div style={{ fontSize: '13px' }}>Last order: <strong>{pattern.lastOrderDate ? new Date(pattern.lastOrderDate).toLocaleDateString() : 'N/A'}</strong></div>
+                <div style={{ fontSize: '13px' }}>Last order: <strong>{pattern.lastOrderDate ? formatDate(pattern.lastOrderDate) : 'N/A'}</strong></div>
               </div>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
               <button onClick={() => { setShowClientDetail(false); setShowPaymentModal(true); }} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                <CreditCard size={16} /> Record Payment
+                <CreditCard size={16} /> تسجيل دفعة
               </button>
               <button onClick={() => { setShowClientDetail(false); setShowReminderModal(true); }} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: '#ec4899', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                 <Bell size={16} /> Add Reminder
@@ -491,7 +491,7 @@ const SalesRep = () => {
               </select>
             </div>
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px' }}>Amount ({t('common.currency')}) <span style={{ color: '#ef4444' }}>*</span></label>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '6px' }}>Amount (EGP) <span style={{ color: '#ef4444' }}>*</span></label>
               <input
                 type="number"
                 name="amount"
@@ -594,7 +594,7 @@ const SalesRep = () => {
               ))}
             </div>
             <button type="button" onClick={addItem} style={{ marginBottom: '16px', padding: '8px 16px', borderRadius: '8px', border: '1px dashed #3b82f6', background: 'white', color: '#3b82f6', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Plus size={14} /> Add Item
+              <Plus size={14} /> إضافة منتج
             </button>
 
             <div style={{ display: 'flex', gap: '12px' }}>

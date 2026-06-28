@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { query, transaction } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
+const adminOnly = authorize('owner', 'admin');
 
 // ============================================================
 // All routes require authentication
@@ -578,7 +579,7 @@ router.post('/', async (req, res) => {
 });
 
 // PUT update client
-router.put('/:id', authenticate, async (req, res) => {
+router.put('/:id', adminOnly, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -851,6 +852,34 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error fetching client:', error);
     res.status(500).json({ error: 'Failed to fetch client' });
+  }
+});
+
+// DELETE client (soft-delete + purge associated legal documents)
+router.delete('/:id', adminOnly, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await transaction(async (client) => {
+      const clientResult = await client.query(
+        `UPDATE clients SET is_active = false, updated_at = NOW() WHERE id = $1 AND is_active = true RETURNING id`,
+        [id]
+      );
+      if (clientResult.rows.length === 0) {
+        return null;
+      }
+      await client.query(
+        `DELETE FROM legal_documents WHERE client_id = $1`,
+        [id]
+      );
+      return clientResult.rows[0];
+    });
+    if (!result) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting client:', error);
+    res.status(500).json({ error: 'Failed to delete client' });
   }
 });
 

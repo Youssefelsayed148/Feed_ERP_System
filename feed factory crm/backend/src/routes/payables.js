@@ -109,23 +109,33 @@ router.get('/', authenticate, async (req, res) => {
 // GET /api/payables/dashboard - Dashboard stats
 router.get('/dashboard', authenticate, async (req, res) => {
   try {
-    const outstandingResult = await query(
-      `SELECT COALESCE(SUM(balance), 0) as total, COUNT(*) as count
-       FROM supplier_payables
-       WHERE status IN ('pending', 'partial', 'overdue')`
+    // FIX: total actually paid across all payables (not outstanding balance)
+    const totalPaidResult = await query(
+      `SELECT COALESCE(SUM(paid_amount), 0) as total
+       FROM supplier_payables`
     );
-    
-    const totalOutstanding = parseFloat(outstandingResult.rows[0].total);
-    
+    const totalOutstanding = parseFloat(totalPaidResult.rows[0].total);
+
+    // FIX: overdue uses status != 'paid' to include 'overdue' status rows
     const overdueResult = await query(
       `SELECT COALESCE(SUM(balance), 0) as total, COUNT(*) as count
        FROM supplier_payables
-       WHERE status IN ('pending','partial') AND due_date < CURRENT_DATE AND balance > 0`
+       WHERE due_date < CURRENT_DATE AND status != 'paid' AND balance > 0`
     );
-    
+
     const overdueAmount = parseFloat(overdueResult.rows[0].total);
     const overdueCount = parseInt(overdueResult.rows[0].count);
-    
+
+    // FIX: due this week as a scalar (calendar week window, not rolling 7 days)
+    const dueThisWeekResult = await query(
+      `SELECT COALESCE(SUM(balance), 0) as total
+       FROM supplier_payables
+       WHERE due_date >= DATE_TRUNC('week', CURRENT_DATE)
+         AND due_date < DATE_TRUNC('week', CURRENT_DATE) + INTERVAL '7 days'
+         AND status != 'paid'`
+    );
+    const dueThisWeek = parseFloat(dueThisWeekResult.rows[0].total);
+
     const upcomingResult = await query(
       `SELECT p.*, s.name as supplier_name
        FROM supplier_payables p
@@ -136,7 +146,7 @@ router.get('/dashboard', authenticate, async (req, res) => {
        ORDER BY p.due_date ASC
        LIMIT 10`
     );
-    
+
     const upcomingDue = upcomingResult.rows.map(p => ({
       id: p.id,
       supplier: p.supplier_id,
@@ -146,11 +156,20 @@ router.get('/dashboard', authenticate, async (req, res) => {
       dueDate: p.due_date,
       status: p.status
     }));
-    
+
+    const paidThisMonthResult = await query(
+      `SELECT COALESCE(SUM(amount), 0) as total
+       FROM supplier_payments
+       WHERE DATE_TRUNC('month', payment_date) = DATE_TRUNC('month', CURRENT_DATE)`
+    );
+    const paidThisMonth = parseFloat(paidThisMonthResult.rows[0].total);
+
     res.json({
       totalOutstanding,
       overdueAmount,
       overdueCount,
+      paidThisMonth,
+      dueThisWeek,
       byType: {},
       upcomingDue
     });
@@ -163,12 +182,20 @@ router.get('/dashboard', authenticate, async (req, res) => {
 router.get('/reminders', authenticate, async (req, res) => {
   try {
     const result = await query(`
-      SELECT pr.*, s.name as supplier_name, sp.balance, sp.due_date
-      FROM payables_reminders pr
-      JOIN supplier_payables sp ON pr.payable_id = sp.id
-      JOIN suppliers s ON sp.supplier_id = s.id
-      WHERE pr.reminder_date >= CURRENT_DATE
-      ORDER BY pr.reminder_date ASC
+      SELECT
+        sp.id,
+        sp.supplier_id,
+        s.name as supplier_name,
+        sp.amount,
+        sp.balance,
+        sp.due_date,
+        sp.status,
+        GREATEST(0, EXTRACT(DAY FROM NOW() - sp.due_date)::int) as days_overdue
+      FROM supplier_payables sp
+      LEFT JOIN suppliers s ON s.id = sp.supplier_id
+      WHERE sp.status IN ('pending', 'partial')
+      AND sp.due_date <= CURRENT_DATE + INTERVAL '7 days'
+      ORDER BY sp.due_date ASC
     `);
     
     const reminders = result.rows.map(r => ({
@@ -190,6 +217,111 @@ router.get('/reminders', authenticate, async (req, res) => {
 });
 
 // GET /api/payables/:id - Get single payable
+router.get('/supplier/:supplierId', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT p.*, po.po_number
+       FROM supplier_payables p
+       LEFT JOIN purchase_orders po ON p.po_id = po.id
+       WHERE p.supplier_id = $1
+         AND p.status IN ('pending', 'partial', 'overdue')
+       ORDER BY p.due_date ASC`,
+      [req.params.supplierId]
+    );
+    
+    const payables = result.rows.map(p => ({
+      id: p.id,
+      supplier: p.supplier_id,
+      poId: p.po_id,
+      poNumber: p.po_number,
+      grnId: p.grn_id,
+      amount: parseFloat(p.amount),
+      paidAmount: parseFloat(p.paid_amount),
+      balance: parseFloat(p.balance),
+      dueDate: p.due_date,
+      status: p.status,
+      notes: p.notes
+    }));
+    
+    const totalOutstanding = payables.reduce((sum, p) => sum + p.balance, 0);
+    
+    res.json({ payables, totalOutstanding, count: payables.length });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/payables/aging-report - Aging report
+router.get('/aging-report', authenticate, authorize('finance_manager', 'admin'), async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT p.*, s.name as supplier_name,
+        CASE 
+          WHEN p.due_date >= CURRENT_DATE THEN 0
+          ELSE CURRENT_DATE - p.due_date
+        END as days_overdue
+       FROM supplier_payables p
+       LEFT JOIN suppliers s ON p.supplier_id = s.id
+       WHERE p.status IN ('pending', 'partial', 'overdue')
+       ORDER BY p.due_date ASC`
+    );
+    
+    const agingReport = {
+      current: { total: 0, count: 0, items: [] },
+      '1-30': { total: 0, count: 0, items: [] },
+      '31-60': { total: 0, count: 0, items: [] },
+      '61-90': { total: 0, count: 0, items: [] },
+      '90+': { total: 0, count: 0, items: [] }
+    };
+    
+    result.rows.forEach(p => {
+      const days = parseInt(p.days_overdue);
+      const balance = parseFloat(p.balance);
+      const item = {
+        id: p.id,
+        supplierName: p.supplier_name,
+        amount: parseFloat(p.amount),
+        balance,
+        daysOutstanding: days,
+        dueDate: p.due_date
+      };
+      
+      if (days <= 0) {
+        agingReport.current.total += balance;
+        agingReport.current.count++;
+        agingReport.current.items.push(item);
+      } else if (days <= 30) {
+        agingReport['1-30'].total += balance;
+        agingReport['1-30'].count++;
+        agingReport['1-30'].items.push(item);
+      } else if (days <= 60) {
+        agingReport['31-60'].total += balance;
+        agingReport['31-60'].count++;
+        agingReport['31-60'].items.push(item);
+      } else if (days <= 90) {
+        agingReport['61-90'].total += balance;
+        agingReport['61-90'].count++;
+        agingReport['61-90'].items.push(item);
+      } else {
+        agingReport['90+'].total += balance;
+        agingReport['90+'].count++;
+        agingReport['90+'].items.push(item);
+      }
+    });
+    
+    const grandTotal = Object.values(agingReport).reduce((sum, bucket) => sum + bucket.total, 0);
+    const totalCount = Object.values(agingReport).reduce((sum, bucket) => sum + bucket.count, 0);
+    
+    res.json({
+      agingReport,
+      grandTotal,
+      totalCount
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const payableResult = await query(
@@ -395,39 +527,6 @@ router.post('/:id/payment', authenticate, async (req, res) => {
 });
 
 // GET /api/payables/supplier/:supplierId - Get supplier payables
-router.get('/supplier/:supplierId', authenticate, async (req, res) => {
-  try {
-    const result = await query(
-      `SELECT p.*, po.po_number
-       FROM supplier_payables p
-       LEFT JOIN purchase_orders po ON p.po_id = po.id
-       WHERE p.supplier_id = $1
-         AND p.status IN ('pending', 'partial', 'overdue')
-       ORDER BY p.due_date ASC`,
-      [req.params.supplierId]
-    );
-    
-    const payables = result.rows.map(p => ({
-      id: p.id,
-      supplier: p.supplier_id,
-      poId: p.po_id,
-      poNumber: p.po_number,
-      grnId: p.grn_id,
-      amount: parseFloat(p.amount),
-      paidAmount: parseFloat(p.paid_amount),
-      balance: parseFloat(p.balance),
-      dueDate: p.due_date,
-      status: p.status,
-      notes: p.notes
-    }));
-    
-    const totalOutstanding = payables.reduce((sum, p) => sum + p.balance, 0);
-    
-    res.json({ payables, totalOutstanding, count: payables.length });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // POST /api/payables/:id/reminders - Create reminder
 router.post('/:id/reminders', authenticate, async (req, res) => {
@@ -491,76 +590,6 @@ router.post('/:id/reminders', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/payables/aging-report - Aging report
-router.get('/aging-report', authenticate, authorize('finance_manager', 'admin'), async (req, res) => {
-  try {
-    const result = await query(
-      `SELECT p.*, s.name as supplier_name,
-        CASE 
-          WHEN p.due_date >= CURRENT_DATE THEN 0
-          ELSE CURRENT_DATE - p.due_date
-        END as days_overdue
-       FROM supplier_payables p
-       LEFT JOIN suppliers s ON p.supplier_id = s.id
-       WHERE p.status IN ('pending', 'partial', 'overdue')
-       ORDER BY p.due_date ASC`
-    );
-    
-    const agingReport = {
-      current: { total: 0, count: 0, items: [] },
-      '1-30': { total: 0, count: 0, items: [] },
-      '31-60': { total: 0, count: 0, items: [] },
-      '61-90': { total: 0, count: 0, items: [] },
-      '90+': { total: 0, count: 0, items: [] }
-    };
-    
-    result.rows.forEach(p => {
-      const days = parseInt(p.days_overdue);
-      const balance = parseFloat(p.balance);
-      const item = {
-        id: p.id,
-        supplierName: p.supplier_name,
-        amount: parseFloat(p.amount),
-        balance,
-        daysOutstanding: days,
-        dueDate: p.due_date
-      };
-      
-      if (days <= 0) {
-        agingReport.current.total += balance;
-        agingReport.current.count++;
-        agingReport.current.items.push(item);
-      } else if (days <= 30) {
-        agingReport['1-30'].total += balance;
-        agingReport['1-30'].count++;
-        agingReport['1-30'].items.push(item);
-      } else if (days <= 60) {
-        agingReport['31-60'].total += balance;
-        agingReport['31-60'].count++;
-        agingReport['31-60'].items.push(item);
-      } else if (days <= 90) {
-        agingReport['61-90'].total += balance;
-        agingReport['61-90'].count++;
-        agingReport['61-90'].items.push(item);
-      } else {
-        agingReport['90+'].total += balance;
-        agingReport['90+'].count++;
-        agingReport['90+'].items.push(item);
-      }
-    });
-    
-    const grandTotal = Object.values(agingReport).reduce((sum, bucket) => sum + bucket.total, 0);
-    const totalCount = Object.values(agingReport).reduce((sum, bucket) => sum + bucket.count, 0);
-    
-    res.json({
-      agingReport,
-      grandTotal,
-      totalCount
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // POST /api/payables - Create payable
 router.post('/', authenticate, authorize('finance_manager', 'admin'), async (req, res) => {

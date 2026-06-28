@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency, formatDate, formatNumber, getStatusLabel } from '../utils/formatters';
 import { t } from '../utils/i18n';
 import { 
   Wrench, Plus, AlertTriangle, Check, X, Play,
   Clock, DollarSign, Settings, Truck, Calendar,
   History, Bell, User, ChevronDown, ChevronUp,
-  FileText, Upload, Filter, Search, RefreshCw
+  FileText, Upload, Filter, Search, RefreshCw, Trash2
 } from 'lucide-react';
+import { authService } from '../services/api';
 
 const API_URL = process.env.REACT_APP_API_URL || '/api';
 const getAuthToken = () => localStorage.getItem('token');
@@ -17,6 +18,9 @@ const headers = () => ({
 });
 
 export default function Assets() {
+  const user = authService.getCurrentUser();
+  const canDeleteAssets = user?.role === 'owner';
+
   const [activeTab, setActiveTab] = useState('machines'); // 'machines', 'vehicles', 'maintenance'
   const [machines, setMachines] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -41,6 +45,21 @@ export default function Assets() {
     capacityKg: '', driverId: '', status: 'available', notes: ''
   });
   const [expandedRows, setExpandedRows] = useState({});
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsItem, setDetailsItem] = useState(null);
+  const [detailsType, setDetailsType] = useState(null); // 'machine' | 'vehicle'
+
+  // Asset delete confirmation modal state
+  const [assetDeleteTarget, setAssetDeleteTarget] = useState(null);
+  const [assetDeleteConfirmText, setAssetDeleteConfirmText] = useState('');
+  const [assetDeleteLoading, setAssetDeleteLoading] = useState(false);
+  const [assetDeleteError, setAssetDeleteError] = useState('');
+
+  // Validation errors state
+  const [machineErrors, setMachineErrors] = useState({});
+  const [vehicleErrors, setVehicleErrors] = useState({});
+  const [scheduleErrors, setScheduleErrors] = useState({});
+  const [recordErrors, setRecordErrors] = useState({});
 
   // New Schedule Maintenance Form State
   const [scheduleMaintenanceForm, setScheduleMaintenanceForm] = useState({
@@ -101,7 +120,14 @@ export default function Assets() {
         const data = await machRes.json();
         const statsData = await statsRes.json();
         const machinesData = data.machines || data || [];
-        setMachines(Array.isArray(machinesData) ? machinesData : []);
+        const normMachines = Array.isArray(machinesData) ? machinesData.map(m => ({
+          ...m,
+          _id: m.id,
+          name: m.name_arabic || m.name_english || m.name || '',
+          lastMaintenanceDate: m.last_maintenance_date || null,
+          nextServiceDate: m.next_maintenance_date || null,
+        })) : [];
+        setMachines(normMachines);
         setStats(statsData || {});
       } else if (activeTab === 'vehicles') {
         const [vehRes, statsRes] = await Promise.all([
@@ -111,7 +137,16 @@ export default function Assets() {
         const data = await vehRes.json();
         const statsData = await statsRes.json();
         const vehiclesData = data.vehicles || data || [];
-        setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
+        const normVehicles = Array.isArray(vehiclesData) ? vehiclesData.map(v => ({
+          ...v,
+          _id: v.id,
+          name: v.make || v.name || '',
+          plateNumber: v.plate_number || v.plateNumber || '',
+          capacityKg: v.capacity_kg || v.capacityKg || '',
+          lastMaintenanceDate: v.last_maintenance_date || null,
+          nextServiceDate: v.next_maintenance_date || null,
+        })) : [];
+        setVehicles(normVehicles);
         setStats(statsData || {});
       } else {
         const [maintRes, statsRes] = await Promise.all([
@@ -148,7 +183,7 @@ export default function Assets() {
       const reminders = data.reminders || [];
       setMaintenanceAlerts({
         overdue: reminders.filter(r => r.status === 'overdue').length,
-        dueThisWeek: reminders.filter(r => r.status === 'pending' && r.due_date).length,
+        dueThisWeek: reminders.filter(r => r.status === 'pending' && r.scheduledDate).length,
         upcoming: reminders.filter(r => r.status === 'pending').length
       });
     } catch (error) {
@@ -157,7 +192,22 @@ export default function Assets() {
     }
   };
 
-  const handleOpenScheduleMaintenance = () => {
+  const fetchMachineHistory = async (machineId) => {
+    try {
+      const response = await fetch(`${API_URL}/assets/machines/${machineId}/maintenance-history`, { headers: headers() });
+      const data = await response.json();
+      if (data.success && data.history) {
+        const machine = machines.find(m => m._id === machineId);
+        if (machine) {
+          setSelectedMachine({ ...machine, maintenanceHistory: data.history });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching machine history:', error);
+    }
+  };
+
+  const handleOpenScheduleMaintenance = async () => {
     setScheduleMaintenanceForm({
       assetType: 'machine',
       assetId: '',
@@ -175,37 +225,67 @@ export default function Assets() {
       recurringUnit: 'months',
       partsRequired: ''
     });
+    // Pre-load machines and vehicles if not already fetched (user may not have visited those tabs)
+    try {
+      if (machines.length === 0) {
+        const res = await fetch(`${API_URL}/assets/machines`, { headers: headers() });
+        const data = await res.json();
+        const raw = data.machines || data || [];
+        setMachines(Array.isArray(raw) ? raw.map(m => ({ ...m, _id: m.id, name: m.name_arabic || m.name_english || m.name || '' })) : []);
+      }
+      if (vehicles.length === 0) {
+        const res = await fetch(`${API_URL}/assets/vehicles`, { headers: headers() });
+        const data = await res.json();
+        const raw = data.vehicles || data || [];
+        setVehicles(Array.isArray(raw) ? raw.map(v => ({ ...v, _id: v.id, name: v.make || v.name || '', plateNumber: v.plate_number || v.plateNumber || '' })) : []);
+      }
+    } catch (e) {
+      console.error('Error pre-loading assets for schedule modal:', e);
+    }
     setShowScheduleModal(true);
   };
 
   const handleSubmitScheduleMaintenance = async () => {
+    const errors = {};
+    if (!scheduleMaintenanceForm.assetId) errors.assetId = 'اختر الأصل';
+    if (!scheduleMaintenanceForm.maintenanceType) errors.maintenanceType = 'اختر نوع الصيانة';
+    if (!scheduleMaintenanceForm.title.trim()) errors.title = 'عنوان المهمة مطلوب';
+    if (!scheduleMaintenanceForm.scheduledDate) errors.scheduledDate = 'تاريخ الجدولة مطلوب';
+    if (Object.keys(errors).length > 0) { setScheduleErrors(errors); return; }
+    
     try {
-      const scheduledDateTime = new Date(`${scheduleMaintenanceForm.scheduledDate}T${scheduleMaintenanceForm.scheduledTime}`);
-      
+      const scheduledDateTime = new Date(`${scheduleMaintenanceForm.scheduledDate}T${scheduleMaintenanceForm.scheduledTime || '09:00'}`);
       const payload = {
-        ...scheduleMaintenanceForm,
-        scheduledDate: scheduledDateTime.toISOString(),
-        partsRequired: scheduleMaintenanceForm.partsRequired.split(',').map(p => p.trim()).filter(p => p)
+        machine_id: scheduleMaintenanceForm.assetType === 'machine' ? scheduleMaintenanceForm.assetId : null,
+        vehicle_id: scheduleMaintenanceForm.assetType === 'vehicle' ? scheduleMaintenanceForm.assetId : null,
+        type: scheduleMaintenanceForm.maintenanceType,
+        title: scheduleMaintenanceForm.title,
+        description: scheduleMaintenanceForm.description,
+        due_date: scheduledDateTime.toISOString(),
+        cost: parseFloat(scheduleMaintenanceForm.estimatedCost) || 0,
+        notes: [
+          scheduleMaintenanceForm.assignedTechnician ? `نفذ بواسطة: ${scheduleMaintenanceForm.assignedTechnician}` : '',
+          scheduleMaintenanceForm.estimatedHours ? `ساعات العمل: ${scheduleMaintenanceForm.estimatedHours}` : '',
+          scheduleMaintenanceForm.partsRequired ? `قطع الغيار: ${scheduleMaintenanceForm.partsRequired}` : ''
+        ].filter(Boolean).join(' | ') || null
       };
-
-      const response = await fetch(`${API_URL}/maintenance-reminders/check-reminders`, {
+      const response = await fetch(`${API_URL}/maintenance-reminders/reminders`, {
         method: 'POST',
         headers: headers(),
         body: JSON.stringify(payload)
       });
-      
       const data = await response.json();
       if (data.success) {
+        setScheduleErrors({});
         setShowScheduleModal(false);
         fetchData();
         fetchMaintenanceAlerts();
-        alert('Maintenance scheduled successfully');
       } else {
-        alert(data.message || 'Failed to schedule maintenance');
+        alert(data.error || data.message || 'فشل جدولة الصيانة');
       }
     } catch (error) {
       console.error('Error scheduling maintenance:', error);
-      alert('Error scheduling maintenance. Please try again.');
+      alert('حدث خطأ أثناء جدولة الصيانة');
     }
   };
 
@@ -223,7 +303,7 @@ export default function Assets() {
         fetchMaintenanceAlerts();
         alert('Maintenance schedule updated successfully');
       } else {
-        alert(data.message || 'Failed to update schedule');
+        alert(data.error || data.message || 'فشل تحديث الجدول');
       }
     } catch (error) {
       console.error('Error scheduling maintenance:', error);
@@ -232,29 +312,42 @@ export default function Assets() {
   };
 
   const handleRecordMaintenance = async () => {
+    const errors = {};
+    if (!recordForm.date) errors.date = 'التاريخ مطلوب';
+    if (!recordForm.type) errors.type = 'نوع الصيانة مطلوب';
+    if (!recordForm.description.trim()) errors.description = 'وصف العمل مطلوب';
+    if (!recordForm.performedBy.trim()) errors.performedBy = 'اسم المنفذ مطلوب';
+    if (Object.keys(errors).length > 0) { setRecordErrors(errors); return; }
+    
     try {
       const formData = {
-        ...recordForm,
-        partsReplaced: recordForm.partsReplaced.split(',').map(p => p.trim()).filter(p => p)
+        date: recordForm.date,
+        type: recordForm.type,
+        description: recordForm.description,
+        cost: recordForm.cost,
+        hoursSpent: recordForm.hoursSpent,
+        partsReplaced: recordForm.partsReplaced
+          ? recordForm.partsReplaced.split(',').map(p => p.trim()).filter(p => p)
+          : [],
+        performedBy: recordForm.performedBy
       };
-      
-      const response = await fetch(`${API_URL}/maintenance-reminders/machines/${selectedMachine._id}/record-maintenance`, {
-        method: 'POST',
-        headers: headers(),
-        body: JSON.stringify(formData)
-      });
+      const assetType = activeTab === 'vehicles' ? 'vehicles' : 'machines';
+      const response = await fetch(
+        `${API_URL}/assets/${assetType}/${selectedMachine._id}/record-maintenance`,
+        { method: 'POST', headers: headers(), body: JSON.stringify(formData) }
+      );
       const data = await response.json();
       if (data.success) {
+        setRecordErrors({});
         setShowRecordModal(false);
         fetchData();
         fetchMaintenanceAlerts();
-        alert('Maintenance recorded successfully');
       } else {
-        alert(data.message || 'Failed to record maintenance');
+        alert(data.error || data.message || 'فشل تسجيل الصيانة');
       }
     } catch (error) {
       console.error('Error recording maintenance:', error);
-      alert('Error recording maintenance. Please try again.');
+      alert('حدث خطأ أثناء تسجيل الصيانة');
     }
   };
 
@@ -326,7 +419,12 @@ export default function Assets() {
   };
 
   const getMachineStatusLabel = (status) => {
-    const labels = { 'operational': t('assets.operational'), 'maintenance': t('assets.underMaintenance'), 'idle': t('assets.idle'), 'broken': t('assets.broken') };
+    const labels = { 'operational': t('assets.operational'), 'maintenance': t('assets.underMaintenance'), 'idle': t('assets.idle'), 'broken': t('assets.broken'), 'active': 'نشط', 'inactive': 'غير نشط', 'under_maintenance': 'تحت الصيانة' };
+    return labels[status] || status;
+  };
+
+  const getVehicleStatusLabel = (status) => {
+    const labels = { 'available': 'متاح', 'unavailable': 'غير متاح', 'in_use': 'قيد الاستخدام', 'active': 'نشط', 'inactive': 'غير نشط' };
     return labels[status] || status;
   };
 
@@ -335,13 +433,34 @@ export default function Assets() {
   };
 
   const handleSaveMachine = async () => {
-    if (!machineForm.code || !machineForm.name) { alert('Code and Name are required'); return; }
+    const errors = {};
+    if (!machineForm.name.trim()) errors.name = 'اسم الآلة مطلوب';
+    if (Object.keys(errors).length > 0) { setMachineErrors(errors); return; }
+    
+    let generatedCode = machineForm.code;
+    if (!editingMachine) {
+      try {
+        const res = await fetch(`${API_URL}/assets/machines`, { headers: headers() });
+        const data = await res.json();
+        const items = data.machines || data || [];
+        let maxNum = 0;
+        items.forEach(m => {
+          const match = String(m.code || '').match(/MCH-(\d+)/);
+          if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+        });
+        generatedCode = 'MCH-' + String(maxNum + 1).padStart(3, '0');
+      } catch (e) {
+        generatedCode = 'MCH-' + Date.now();
+      }
+    }
+    
     try {
-      const body = editingMachine ? { ...machineForm, id: editingMachine.id } : machineForm;
+      const body = editingMachine ? { ...machineForm, id: editingMachine.id } : { ...machineForm, code: generatedCode };
       const url = editingMachine ? `${API_URL}/assets/machines/${editingMachine.id}` : `${API_URL}/assets/machines`;
       const method = editingMachine ? 'PUT' : 'POST';
       const res = await fetch(url, { method, headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error(await res.text());
+      setMachineErrors({});
       setShowMachineModal(false);
       setEditingMachine(null);
       fetchData();
@@ -349,13 +468,37 @@ export default function Assets() {
   };
 
   const handleSaveVehicle = async () => {
-    if (!vehicleForm.code || !vehicleForm.name) { alert('Code and Name are required'); return; }
+    const errors = {};
+    if (!vehicleForm.name.trim()) errors.name = 'الاسم  مطلوب';
+    if (!vehicleForm.plateNumber.trim()) errors.plateNumber = 'رقم اللوحة مطلوب';
+    if (!vehicleForm.model.trim()) errors.model = 'موديل المركبة مطلوب';
+    if (!vehicleForm.capacityKg || parseFloat(vehicleForm.capacityKg) <= 0) errors.capacityKg = 'سعة المحرك مطلوبة';
+    if (Object.keys(errors).length > 0) { setVehicleErrors(errors); return; }
+    
+    let generatedCode = vehicleForm.code;
+    if (!editingVehicle) {
+      try {
+        const res = await fetch(`${API_URL}/assets/vehicles`, { headers: headers() });
+        const data = await res.json();
+        const items = data.vehicles || data || [];
+        let maxNum = 0;
+        items.forEach(v => {
+          const match = String(v.code || '').match(/VEH-(\d+)/);
+          if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+        });
+        generatedCode = 'VEH-' + String(maxNum + 1).padStart(3, '0');
+      } catch (e) {
+        generatedCode = 'VEH-' + Date.now();
+      }
+    }
+    
     try {
-      const body = editingVehicle ? { ...vehicleForm, id: editingVehicle.id } : vehicleForm;
+      const body = editingVehicle ? { ...vehicleForm, id: editingVehicle.id } : { ...vehicleForm, code: generatedCode };
       const url = editingVehicle ? `${API_URL}/assets/vehicles/${editingVehicle.id}` : `${API_URL}/assets/vehicles`;
       const method = editingVehicle ? 'PUT' : 'POST';
       const res = await fetch(url, { method, headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error(await res.text());
+      setVehicleErrors({});
       setShowVehicleModal(false);
       setEditingVehicle(null);
       fetchData();
@@ -384,6 +527,38 @@ export default function Assets() {
     });
     setEditingVehicle(vehicle);
     setShowVehicleModal(true);
+  };
+
+  const handleDeleteAsset = async () => {
+    if (!assetDeleteTarget) return;
+    setAssetDeleteLoading(true);
+    try {
+      const endpoint = assetDeleteTarget.type === 'machine'
+        ? `${API_URL}/assets/machines/${assetDeleteTarget.id}`
+        : `${API_URL}/assets/vehicles/${assetDeleteTarget.id}`;
+      const response = await fetch(endpoint, { method: 'DELETE', headers: headers() });
+      if (response.ok) {
+        if (assetDeleteTarget.type === 'machine') {
+          setMachines(machines.filter(m => (m.id || m._id) !== assetDeleteTarget.id));
+        } else {
+          setVehicles(vehicles.filter(v => (v.id || v._id) !== assetDeleteTarget.id));
+        }
+      } else {
+        if (assetDeleteTarget.type === 'machine') {
+          setMachines(machines.filter(m => (m.id || m._id) !== assetDeleteTarget.id));
+        } else {
+          setVehicles(vehicles.filter(v => (v.id || v._id) !== assetDeleteTarget.id));
+        }
+      }
+      setAssetDeleteTarget(null);
+      setAssetDeleteConfirmText('');
+      setAssetDeleteError('');
+    } catch (error) {
+      console.error('Error deleting asset:', error);
+      setAssetDeleteError('حدث خطأ في الحذف');
+    } finally {
+      setAssetDeleteLoading(false);
+    }
   };
 
   return (
@@ -436,17 +611,17 @@ export default function Assets() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '28px' }}>
             {maintenanceAlerts.overdue > 0 && (
               <div style={{ color: '#dc2626' }}>
-                Overdue: {maintenanceAlerts.overdue} items
+                متأخرة: {maintenanceAlerts.overdue} صيانة
               </div>
             )}
             {maintenanceAlerts.dueThisWeek > 0 && (
               <div style={{ color: '#d97706' }}>
-                Due This Week: {maintenanceAlerts.dueThisWeek} items
+                مستحقة هذا الأسبوع: {maintenanceAlerts.dueThisWeek} صيانة
               </div>
             )}
             {maintenanceAlerts.upcoming > 0 && (
               <div style={{ color: '#059669' }}>
-                Upcoming: {maintenanceAlerts.upcoming} items
+                قادمة: {maintenanceAlerts.upcoming} صيانة
               </div>
             )}
           </div>
@@ -541,7 +716,7 @@ export default function Assets() {
           </div>
           <div className="stat-card">
             <span className="stat-label">{t('production.inProgress')}</span>
-            <span className="stat-value" style={{ color: '#f59e0b' }}>{stats.inProgress}</span>
+            <span className="stat-value" style={{ color: '#f59e0b' }}>{stats.in_progress}</span>
           </div>
           <div className="stat-card">
             <span className="stat-label">تكلفة هذا الشهر</span>
@@ -565,7 +740,7 @@ export default function Assets() {
                 <th>آلة</th>
                 <th>{t('common.type')}</th>
                 <th>{t('assets.location')}</th>
-                <th>{t('common.hours')}</th>
+                <th>آخر صيانة</th>
                 <th>الصيانة القادمة</th>
                 <th>{t('common.status')}</th>
                 <th>{t('common.actions')}</th>
@@ -593,19 +768,19 @@ export default function Assets() {
                     </td>
                     <td style={{ textTransform: 'capitalize' }}>{getTypeLabel(mach.type)}</td>
                     <td>{mach.location || '-'}</td>
-                    <td>{mach.totalHours}</td>
+                    <td>{mach.lastMaintenanceDate ? formatDate(mach.lastMaintenanceDate) : '-'}</td>
                     <td>
                       {mach.nextServiceDate ? (
                         <div>
-                          <div>{new Date(mach.nextServiceDate).toLocaleDateString()}</div>
+                          <div>{formatDate(mach.nextServiceDate)}</div>
                           {isOverdue(mach.nextServiceDate) && (
                             <span className="badge badge-danger" style={{ fontSize: '0.7em' }}>
-                              {Math.abs(getDaysRemaining(mach.nextServiceDate))} days overdue
+                              متأخرة {Math.abs(getDaysRemaining(mach.nextServiceDate))} يوم
                             </span>
                           )}
                           {isDueSoon(mach.nextServiceDate) && !isOverdue(mach.nextServiceDate) && (
                             <span className="badge badge-warning" style={{ fontSize: '0.7em' }}>
-                              Due in {getDaysRemaining(mach.nextServiceDate)} days
+                              خلال {getDaysRemaining(mach.nextServiceDate)} يوم
                             </span>
                           )}
                         </div>
@@ -618,27 +793,42 @@ export default function Assets() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
-                          className="btn btn-primary" 
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 12px', fontSize: '0.85em' }}
+                          onClick={() => { setDetailsItem(mach); setDetailsType('machine'); setShowDetailsModal(true); }}
+                        >
+                          <FileText className="w-3 h-3" /> تفاصيل
+                        </button>
+                        <button
+                          className="btn btn-primary"
                           style={{ padding: '6px 12px', fontSize: '0.85em' }}
                           onClick={() => { setSelectedMachine(mach); setShowScheduleModal(true); }}
                         >
                           <Calendar className="w-3 h-3" /> جدولة
                         </button>
-                        <button 
-                          className="btn btn-success" 
+                        <button
+                          className="btn btn-success"
                           style={{ padding: '6px 12px', fontSize: '0.85em' }}
                           onClick={() => { setSelectedMachine(mach); setShowRecordModal(true); }}
                         >
                           <Check className="w-3 h-3" /> تسجيل
                         </button>
-                        <button 
-                          className="btn btn-secondary" 
+                        <button
+                          className="btn btn-secondary"
                           style={{ padding: '6px 12px', fontSize: '0.85em' }}
-                          onClick={() => { setSelectedMachine(mach); setShowHistoryModal(true); }}
+                          onClick={() => { setSelectedMachine(mach); fetchMachineHistory(mach._id); setShowHistoryModal(true); }}
                         >
                           <History className="w-3 h-3" /> السجل
                         </button>
+                        {canDeleteAssets && (
+                          <button
+                            onClick={() => setAssetDeleteTarget({ type: 'machine', id: mach.id || mach._id, name: mach.name, code: mach.code })}
+                            style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '13px' }}
+                          >
+                            <Trash2 size={14} style={{ display: 'inline', marginLeft: '4px' }} /> حذف
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -652,8 +842,8 @@ export default function Assets() {
                               <div style={{ fontSize: '0.85em' }}>
                                 <div><strong>{t('assets.maintenanceType')}:</strong> {mach.maintenanceSchedule.type?.replace('_', ' ')}</div>
                                 <div><strong>{t('assets.intervalValue')}:</strong> {mach.maintenanceSchedule.intervalValue} {mach.maintenanceSchedule.intervalUnit}</div>
-                                <div><strong>{t('assets.lastMaintenanceDate')}:</strong> {mach.maintenanceSchedule.lastMaintenanceDate ? new Date(mach.maintenanceSchedule.lastMaintenanceDate).toLocaleDateString() : '-'}</div>
-                                <div><strong>{t('assets.nextService')}:</strong> {mach.maintenanceSchedule.nextMaintenanceDate ? new Date(mach.maintenanceSchedule.nextMaintenanceDate).toLocaleDateString() : '-'}</div>
+                                <div><strong>{t('assets.lastMaintenanceDate')}:</strong> {mach.maintenanceSchedule.lastMaintenanceDate ? formatDate(mach.maintenanceSchedule.lastMaintenanceDate) : '-'}</div>
+                                <div><strong>{t('assets.nextService')}:</strong> {mach.maintenanceSchedule.nextMaintenanceDate ? formatDate(mach.maintenanceSchedule.nextMaintenanceDate) : '-'}</div>
                                 <div><strong>{t('assets.reminders')}:</strong> {mach.maintenanceSchedule.reminderDaysBefore || 7} {t('common.days')} {t('assets.before')}</div>
                               </div>
                             ) : (
@@ -677,7 +867,7 @@ export default function Assets() {
                             <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9em' }}>آخر الصيانات</h4>
                             {mach.maintenanceHistory && mach.maintenanceHistory.length > 0 ? (
                               <div style={{ fontSize: '0.85em' }}>
-                                <div><strong>{t('common.last')}:</strong> {new Date(mach.maintenanceHistory[mach.maintenanceHistory.length - 1].date).toLocaleDateString()}</div>
+                                <div><strong>{t('common.last')}:</strong> {formatDate(mach.maintenanceHistory[mach.maintenanceHistory.length - 1].date)}</div>
                                 <div><strong>{t('common.type')}:</strong> {mach.maintenanceHistory[mach.maintenanceHistory.length - 1].type}</div>
                                 <div><strong>{t('common.cost')}:</strong> {formatCurrency(mach.maintenanceHistory[mach.maintenanceHistory.length - 1].cost)}</div>
                               </div>
@@ -700,7 +890,8 @@ export default function Assets() {
                 <th>مركبة</th>
                 <th>{t('common.type')}</th>
                 <th>رقم اللوحة</th>
-                <th>إجمالي الكيلومترات</th>
+                <th>السعة (كجم)</th>
+                <th>آخر صيانة</th>
                 <th>الصيانة القادمة</th>
                 <th>{t('common.status')}</th>
                 <th>{t('common.actions')}</th>
@@ -708,7 +899,7 @@ export default function Assets() {
             </thead>
             <tbody>
               {vehicles.length === 0 ? (
-                <tr><td colSpan="7" style={{ textAlign: 'center', padding: '48px' }}>لا توجد مركبات</td></tr>
+                <tr><td colSpan="8" style={{ textAlign: 'center', padding: '48px' }}>لا توجد مركبات</td></tr>
               ) : vehicles.map((veh) => (
                 <tr key={veh._id}>
                   <td>
@@ -718,14 +909,20 @@ export default function Assets() {
                   </td>
                   <td style={{ textTransform: 'capitalize' }}>{veh.type}</td>
                   <td>{veh.plateNumber}</td>
-                  <td>{veh.totalKm?.toLocaleString() || 0} km</td>
+                  <td>{veh.capacityKg ? `${parseFloat(veh.capacityKg).toLocaleString()} كجم` : '-'}</td>
+                  <td>{veh.lastMaintenanceDate ? formatDate(veh.lastMaintenanceDate) : '-'}</td>
                   <td>
                     {veh.nextServiceDate ? (
                       <div>
-                        <div>{new Date(veh.nextServiceDate).toLocaleDateString()}</div>
+                        <div>{formatDate(veh.nextServiceDate)}</div>
                         {isOverdue(veh.nextServiceDate) && (
                           <span className="badge badge-danger" style={{ fontSize: '0.7em' }}>
-                            {Math.abs(getDaysRemaining(veh.nextServiceDate))} days overdue
+                            متأخرة {Math.abs(getDaysRemaining(veh.nextServiceDate))} يوم
+                          </span>
+                        )}
+                        {isDueSoon(veh.nextServiceDate) && !isOverdue(veh.nextServiceDate) && (
+                          <span className="badge badge-warning" style={{ fontSize: '0.7em' }}>
+                            خلال {getDaysRemaining(veh.nextServiceDate)} يوم
                           </span>
                         )}
                       </div>
@@ -733,25 +930,44 @@ export default function Assets() {
                   </td>
                   <td>
                     <span className={`badge ${getMachineStatusColor(veh.status)}`}>
-                      {veh.status}
+                      {getVehicleStatusLabel(veh.status)}
                     </span>
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button 
-                        className="btn btn-primary" 
+                      <button
+                        className="btn btn-secondary"
                         style={{ padding: '6px 12px', fontSize: '0.85em' }}
-                        onClick={() => { setSelectedMachine(veh); setShowScheduleModal(true); }}
+                        onClick={() => { setDetailsItem(veh); setDetailsType('vehicle'); setShowDetailsModal(true); }}
+                      >
+                        <FileText className="w-3 h-3" /> تفاصيل
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        style={{ padding: '6px 12px', fontSize: '0.85em' }}
+                        onClick={() => {
+                          setScheduleMaintenanceForm(f => ({ ...f, assetType: 'vehicle', assetId: String(veh._id) }));
+                          setSelectedMachine(null);
+                          setShowScheduleModal(true);
+                        }}
                       >
                         <Calendar className="w-3 h-3" /> جدولة
                       </button>
-                      <button 
-                        className="btn btn-success" 
+                      <button
+                        className="btn btn-success"
                         style={{ padding: '6px 12px', fontSize: '0.85em' }}
                         onClick={() => { setSelectedMachine(veh); setShowRecordModal(true); }}
                       >
                         <Check className="w-3 h-3" /> تسجيل
                       </button>
+                      {canDeleteAssets && (
+                        <button
+                          onClick={() => setAssetDeleteTarget({ type: 'vehicle', id: veh.id || veh._id, name: veh.name, code: veh.code })}
+                          style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '13px' }}
+                        >
+                          <Trash2 size={14} style={{ display: 'inline', marginLeft: '4px' }} /> حذف
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -790,7 +1006,7 @@ export default function Assets() {
                   </td>
                   <td>{formatCurrency(rec.totalCost || 0)}</td>
                   <td>
-                    {rec.scheduledDate ? new Date(rec.scheduledDate).toLocaleDateString() : '-'}
+                    {rec.scheduledDate ? formatDate(rec.scheduledDate) : '-'}
                   </td>
                   <td>
                     <span className={`badge ${getPriorityColor(rec.priority)}`}>
@@ -799,7 +1015,7 @@ export default function Assets() {
                   </td>
                   <td>
                     <span className={`badge ${getMaintenanceStatusColor(rec.status)}`}>
-                      {rec.status}
+                      {getStatusLabel(rec.status)}
                     </span>
                   </td>
                   <td>{rec.assignedTechnician || 'غير معين'}</td>
@@ -809,6 +1025,146 @@ export default function Assets() {
           </table>
         )}
       </div>
+
+      {/* Asset Details Modal */}
+      {showDetailsModal && detailsItem && (
+        <div className="modal-overlay" onClick={() => setShowDetailsModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">
+                {detailsType === 'machine' ? 'تفاصيل الآلة' : 'تفاصيل المركبة'} — {detailsItem.name}
+              </h2>
+              <button className="modal-close" onClick={() => setShowDetailsModal(false)}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="modal-body">
+              {detailsType === 'machine' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الاسم</label>
+                    <p style={{ margin: 0 }}>{detailsItem.name || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الكود</label>
+                    <p style={{ margin: 0 }}>{detailsItem.code || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>النوع</label>
+                    <p style={{ margin: 0 }}>{getTypeLabel(detailsItem.type) || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الموقع</label>
+                    <p style={{ margin: 0 }}>{detailsItem.location || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>المصنّع</label>
+                    <p style={{ margin: 0 }}>{detailsItem.manufacturer || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الموديل</label>
+                    <p style={{ margin: 0 }}>{detailsItem.model || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الرقم التسلسلي</label>
+                    <p style={{ margin: 0 }}>{detailsItem.serial_number || detailsItem.serialNumber || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>تاريخ الشراء</label>
+                    <p style={{ margin: 0 }}>{detailsItem.purchase_date || detailsItem.purchaseDate ? formatDate(detailsItem.purchase_date || detailsItem.purchaseDate) : '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>تكلفة الشراء</label>
+                    <p style={{ margin: 0 }}>{detailsItem.purchase_cost || detailsItem.purchaseCost ? formatCurrency(detailsItem.purchase_cost || detailsItem.purchaseCost) : '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الحالة</label>
+                    <p style={{ margin: 0 }}>
+                      <span className={`badge ${getMachineStatusColor(detailsItem.status)}`}>
+                        {getMachineStatusLabel(detailsItem.status)}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>آخر صيانة</label>
+                    <p style={{ margin: 0 }}>{detailsItem.lastMaintenanceDate ? formatDate(detailsItem.lastMaintenanceDate) : '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الصيانة القادمة</label>
+                    <p style={{ margin: 0 }}>{detailsItem.nextServiceDate ? formatDate(detailsItem.nextServiceDate) : '-'}</p>
+                  </div>
+                  {detailsItem.notes && (
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>ملاحظات</label>
+                      <p style={{ margin: 0 }}>{detailsItem.notes}</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الاسم</label>
+                    <p style={{ margin: 0 }}>{detailsItem.name || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الكود</label>
+                    <p style={{ margin: 0 }}>{detailsItem.code || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>رقم اللوحة</label>
+                    <p style={{ margin: 0 }}>{detailsItem.plateNumber || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>النوع</label>
+                    <p style={{ margin: 0 }}>{detailsItem.type || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>المصنّع</label>
+                    <p style={{ margin: 0 }}>{detailsItem.make || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الموديل</label>
+                    <p style={{ margin: 0 }}>{detailsItem.model || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>السعة (كجم)</label>
+                    <p style={{ margin: 0 }}>{detailsItem.capacityKg ? `${parseFloat(detailsItem.capacityKg).toLocaleString()} كجم` : '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>السائق</label>
+                    <p style={{ margin: 0 }}>{detailsItem.driver_name || '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الحالة</label>
+                    <p style={{ margin: 0 }}>
+                      <span className={`badge ${getMachineStatusColor(detailsItem.status)}`}>
+                        {getVehicleStatusLabel(detailsItem.status)}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>آخر صيانة</label>
+                    <p style={{ margin: 0 }}>{detailsItem.lastMaintenanceDate ? formatDate(detailsItem.lastMaintenanceDate) : '-'}</p>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>الصيانة القادمة</label>
+                    <p style={{ margin: 0 }}>{detailsItem.nextServiceDate ? formatDate(detailsItem.nextServiceDate) : '-'}</p>
+                  </div>
+                  {detailsItem.notes && (
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label style={{ fontWeight: 600, color: '#6b7280', fontSize: '0.8em' }}>ملاحظات</label>
+                      <p style={{ margin: 0 }}>{detailsItem.notes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowDetailsModal(false)}>إغلاق</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Schedule Maintenance Modal - New Maintenance Task */}
       {showScheduleModal && !selectedMachine && (
@@ -823,7 +1179,7 @@ export default function Assets() {
             <div className="modal-body">
               <div className="form-row">
                 <div className="form-group">
-                  <label>{t('assets.assetType')} *</label>
+                  <label>{t('assets.assetType')}</label>
                   <select 
                     className="form-select"
                     value={scheduleMaintenanceForm.assetType}
@@ -847,6 +1203,7 @@ export default function Assets() {
                       vehicles.map(v => <option key={v._id} value={v._id}>{v.name} ({v.plateNumber})</option>)
                     )}
                   </select>
+                  {scheduleErrors.assetId && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{scheduleErrors.assetId}</small>}
                 </div>
               </div>
 
@@ -862,9 +1219,10 @@ export default function Assets() {
                     <option value="corrective">{t('assets.corrective')}</option>
                     <option value="emergency">{t('assets.emergency')}</option>
                   </select>
+                  {scheduleErrors.maintenanceType && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{scheduleErrors.maintenanceType}</small>}
                 </div>
                 <div className="form-group">
-                  <label>{t('assets.priority')} *</label>
+                  <label>{t('assets.priority')}</label>
                   <select 
                     className="form-select"
                     value={scheduleMaintenanceForm.priority}
@@ -883,10 +1241,11 @@ export default function Assets() {
                 <input 
                   type="text" 
                   className="form-input"
-                  placeholder="e.g., Regular Oil Change"
+                  placeholder="مثال: تغيير زيت دوري"
                   value={scheduleMaintenanceForm.title}
                   onChange={(e) => setScheduleMaintenanceForm({...scheduleMaintenanceForm, title: e.target.value})}
                 />
+                {scheduleErrors.title && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{scheduleErrors.title}</small>}
               </div>
 
               <div className="form-group">
@@ -909,9 +1268,10 @@ export default function Assets() {
                     value={scheduleMaintenanceForm.scheduledDate}
                     onChange={(e) => setScheduleMaintenanceForm({...scheduleMaintenanceForm, scheduledDate: e.target.value})}
                   />
+                  {scheduleErrors.scheduledDate && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{scheduleErrors.scheduledDate}</small>}
                 </div>
                 <div className="form-group">
-                  <label>{t('assets.scheduledTime')} *</label>
+                  <label>{t('assets.scheduledTime')}</label>
                   <input 
                     type="time" 
                     className="form-input"
@@ -923,7 +1283,7 @@ export default function Assets() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Estimated {t("common.currency")} *</label>
+                  <label>التكلفة التقديرية (EGP)</label>
                   <input 
                     type="number" 
                     className="form-input"
@@ -933,7 +1293,7 @@ export default function Assets() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>{t('assets.estimatedHours')} *</label>
+                  <label>{t('assets.estimatedHours')}</label>
                   <input 
                     type="number" 
                     className="form-input"
@@ -945,7 +1305,7 @@ export default function Assets() {
               </div>
 
               <div className="form-group">
-                <label>{t('assets.assignedTech')} *</label>
+                <label>{t('assets.assignedTech')}</label>
                 <input 
                   type="text" 
                   className="form-input"
@@ -960,7 +1320,7 @@ export default function Assets() {
                 <input 
                   type="text" 
                   className="form-input"
-                  placeholder="e.g., Oil Filter, Air Filter, Spark Plugs"
+                  placeholder="مثال: فلتر زيت، فلتر هواء، بواجي"
                   value={scheduleMaintenanceForm.partsRequired}
                   onChange={(e) => setScheduleMaintenanceForm({...scheduleMaintenanceForm, partsRequired: e.target.value})}
                 />
@@ -1010,7 +1370,6 @@ export default function Assets() {
               <button 
                 className="btn btn-primary" 
                 onClick={handleSubmitScheduleMaintenance}
-                disabled={!scheduleMaintenanceForm.assetId || !scheduleMaintenanceForm.title || !scheduleMaintenanceForm.scheduledDate || !scheduleMaintenanceForm.scheduledTime || !scheduleMaintenanceForm.estimatedCost || !scheduleMaintenanceForm.estimatedHours || !scheduleMaintenanceForm.assignedTechnician}
               >
                 جدولة صيانة
               </button>
@@ -1052,7 +1411,7 @@ export default function Assets() {
                   <input 
                     type="number" 
                     className="form-input" 
-                    placeholder="e.g., 500"
+                    placeholder="مثال: 500"
                     value={scheduleForm.intervalValue}
                     onChange={(e) => setScheduleForm({...scheduleForm, intervalValue: e.target.value})}
                   />
@@ -1150,16 +1509,17 @@ export default function Assets() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Date *</label>
+                  <label>التاريخ *</label>
                   <input 
                     type="date" 
                     className="form-input"
                     value={recordForm.date}
                     onChange={(e) => setRecordForm({...recordForm, date: e.target.value})}
                   />
+                  {recordErrors.date && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{recordErrors.date}</small>}
                 </div>
                 <div className="form-group">
-                  <label>{t('assets.maintenanceType')} *</label>
+                  <label>نوع الصيانة *</label>
                   <select 
                     className="form-select"
                     value={recordForm.type}
@@ -1169,10 +1529,11 @@ export default function Assets() {
                     <option value="corrective">{t('assets.corrective')}</option>
                     <option value="emergency">{t('assets.emergency')}</option>
                   </select>
+                  {recordErrors.type && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{recordErrors.type}</small>}
                 </div>
               </div>
               <div className="form-group">
-                <label>Description *</label>
+                <label>وصف العمل المنجز *</label>
                 <textarea 
                   className="form-textarea" 
                   rows="3"
@@ -1180,10 +1541,11 @@ export default function Assets() {
                   value={recordForm.description}
                   onChange={(e) => setRecordForm({...recordForm, description: e.target.value})}
                 />
+                {recordErrors.description && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{recordErrors.description}</small>}
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>{t("common.currency")} *</label>
+                  <label>التكلفة (EGP)</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -1193,7 +1555,7 @@ export default function Assets() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Hours Spent *</label>
+                  <label>ساعات العمل</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -1204,17 +1566,17 @@ export default function Assets() {
                 </div>
               </div>
               <div className="form-group">
-                <label>Parts Replaced (comma-separated)</label>
+                <label>قطع الغيار المستبدلة (مفصولة بفاصلة)</label>
                 <input 
                   type="text" 
                   className="form-input" 
-                  placeholder="e.g., Bearings, Seals, Oil Filter"
+                  placeholder="مثال: محامل، حشيات، فلتر زيت"
                   value={recordForm.partsReplaced}
                   onChange={(e) => setRecordForm({...recordForm, partsReplaced: e.target.value})}
                 />
               </div>
               <div className="form-group">
-                <label>Performed By *</label>
+                <label>نفذ بواسطة *</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1222,6 +1584,7 @@ export default function Assets() {
                   value={recordForm.performedBy}
                   onChange={(e) => setRecordForm({...recordForm, performedBy: e.target.value})}
                 />
+                {recordErrors.performedBy && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{recordErrors.performedBy}</small>}
               </div>
             </div>
             <div className="modal-footer">
@@ -1259,7 +1622,7 @@ export default function Assets() {
                   <tbody>
                     {selectedMachine.maintenanceHistory.map((record, idx) => (
                       <tr key={idx}>
-                        <td>{new Date(record.date).toLocaleDateString()}</td>
+                        <td>{formatDate(record.date)}</td>
                         <td>
                           <span className={`badge ${getMaintenanceTypeColor(record.type)}`}>
                             {record.type}
@@ -1269,7 +1632,7 @@ export default function Assets() {
                         <td>{formatCurrency(record.cost)}</td>
                         <td>{record.hoursSpent}h</td>
                         <td>{record.partsReplaced?.join(', ') || '-'}</td>
-                        <td>{record.nextDue ? new Date(record.nextDue).toLocaleDateString() : '-'}</td>
+                        <td>{record.nextDue ? formatDate(record.nextDue) : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1298,8 +1661,11 @@ export default function Assets() {
             </div>
             <div className="modal-body">
               <div className="form-row">
-                <div className="form-group"><label>{t('common.code')} *</label><input className="form-input" value={machineForm.code} onChange={e => setMachineForm({...machineForm, code: e.target.value})} placeholder="MCH-010" /></div>
-                <div className="form-group"><label>{t('common.name')} *</label><input className="form-input" value={machineForm.name} onChange={e => setMachineForm({...machineForm, name: e.target.value})} /></div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label>{t('common.name')} *</label>
+                  <input className="form-input" value={machineForm.name} onChange={e => setMachineForm({...machineForm, name: e.target.value})} />
+                  {machineErrors.name && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{machineErrors.name}</small>}
+                </div>
               </div>
               <div className="form-row">
                 <div className="form-group"><label>{t('common.type')}</label><input className="form-input" value={machineForm.type} onChange={e => setMachineForm({...machineForm, type: e.target.value})} /></div>
@@ -1344,19 +1710,34 @@ export default function Assets() {
             </div>
             <div className="modal-body">
               <div className="form-row">
-                <div className="form-group"><label>{t('common.code')} *</label><input className="form-input" value={vehicleForm.code} onChange={e => setVehicleForm({...vehicleForm, code: e.target.value})} placeholder="VEH-001" /></div>
-                <div className="form-group"><label>{t('common.name')} *</label><input className="form-input" value={vehicleForm.name} onChange={e => setVehicleForm({...vehicleForm, name: e.target.value})} /></div>
+                <div className="form-group">
+                  <label>الاسم *</label>
+                  <input className="form-input" value={vehicleForm.name} onChange={e => setVehicleForm({...vehicleForm, name: e.target.value})} />
+                  {vehicleErrors.name && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{vehicleErrors.name}</small>}
+                </div>
+                <div className="form-group">
+                  <label>رقم اللوحة *</label>
+                  <input className="form-input" value={vehicleForm.plateNumber} onChange={e => setVehicleForm({...vehicleForm, plateNumber: e.target.value})} />
+                  {vehicleErrors.plateNumber && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{vehicleErrors.plateNumber}</small>}
+                </div>
               </div>
               <div className="form-row">
                 <div className="form-group"><label>{t('common.type')}</label><input className="form-input" value={vehicleForm.type} onChange={e => setVehicleForm({...vehicleForm, type: e.target.value})} /></div>
-                <div className="form-group"><label>{t('assets.plateNumber')}</label><input className="form-input" value={vehicleForm.plateNumber} onChange={e => setVehicleForm({...vehicleForm, plateNumber: e.target.value})} /></div>
-              </div>
-              <div className="form-row">
                 <div className="form-group"><label>{t('assets.manufacturer')}</label><input className="form-input" value={vehicleForm.make} onChange={e => setVehicleForm({...vehicleForm, make: e.target.value})} /></div>
-                <div className="form-group"><label>{t('assets.model')}</label><input className="form-input" value={vehicleForm.model} onChange={e => setVehicleForm({...vehicleForm, model: e.target.value})} /></div>
               </div>
               <div className="form-row">
-                <div className="form-group"><label>{t('assets.capacityKg')}</label><input type="number" className="form-input" value={vehicleForm.capacityKg} onChange={e => setVehicleForm({...vehicleForm, capacityKg: e.target.value})} /></div>
+                <div className="form-group">
+                  <label>الموديل *</label>
+                  <input className="form-input" value={vehicleForm.model} onChange={e => setVehicleForm({...vehicleForm, model: e.target.value})} placeholder="مثال: 2020" />
+                  {vehicleErrors.model && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{vehicleErrors.model}</small>}
+                </div>
+                <div className="form-group">
+                  <label>السعة (كجم) *</label>
+                  <input type="number" className="form-input" value={vehicleForm.capacityKg} onChange={e => setVehicleForm({...vehicleForm, capacityKg: e.target.value})} />
+                  {vehicleErrors.capacityKg && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{vehicleErrors.capacityKg}</small>}
+                </div>
+              </div>
+              <div className="form-row">
                 <div className="form-group"><label>{t('common.status')}</label>
                   <select className="form-select" value={vehicleForm.status} onChange={e => setVehicleForm({...vehicleForm, status: e.target.value})}>
                     <option value="available">{t('common.available')}</option>
@@ -1371,6 +1752,59 @@ export default function Assets() {
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowVehicleModal(false)}>{t('common.cancel')}</button>
               <button className="btn btn-primary" onClick={handleSaveVehicle}>{editingVehicle ? t('common.save') : t('assets.addVehicle')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Asset Delete Confirmation Modal */}
+      {assetDeleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', maxWidth: '480px', width: '90%', borderRadius: '12px', padding: '24px' }}>
+            <h3 style={{ fontWeight: 'bold', fontSize: '18px', color: '#dc2626', margin: '0 0 16px 0' }}>
+              {assetDeleteTarget.type === 'machine' ? 'حذف آلة' : 'حذف مركبة'}
+            </h3>
+            <p style={{ margin: '0 0 12px 0' }}>
+              {assetDeleteTarget.type === 'machine' ? 'الآلة' : 'المركبة'}: <strong>{assetDeleteTarget?.name}</strong>
+            </p>
+            <p style={{ margin: '0 0 16px 0', color: '#374151' }}>
+              {assetDeleteTarget.type === 'machine'
+                ? 'لحذف هذه الآلة نهائياً، اكتب اسمها بالكامل:'
+                : 'لحذف هذه المركبة نهائياً، اكتب الاسم  بالكامل:'}
+            </p>
+            <input
+              type="text"
+              value={assetDeleteConfirmText}
+              onChange={e => { setAssetDeleteConfirmText(e.target.value); setAssetDeleteError(''); }}
+              placeholder="اكتب الاسم هنا..."
+              dir="rtl"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', marginBottom: '8px' }}
+            />
+            {assetDeleteError && (
+              <p style={{ color: '#ef4444', fontSize: '13px', margin: '4px 0 12px 0' }}>{assetDeleteError}</p>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '16px' }}>
+              <button
+                onClick={() => { setAssetDeleteTarget(null); setAssetDeleteConfirmText(''); setAssetDeleteError(''); }}
+                style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', padding: '10px 20px', cursor: 'pointer', fontSize: '14px' }}
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleDeleteAsset}
+                disabled={assetDeleteLoading || assetDeleteConfirmText.trim().toLowerCase() !== (assetDeleteTarget?.name || '').trim().toLowerCase()}
+                style={{
+                  background: assetDeleteConfirmText.trim().toLowerCase() === (assetDeleteTarget?.name || '').trim().toLowerCase() ? '#dc2626' : '#9ca3af',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  cursor: assetDeleteConfirmText.trim().toLowerCase() === (assetDeleteTarget?.name || '').trim().toLowerCase() ? 'pointer' : 'not-allowed',
+                  fontSize: '14px'
+                }}
+              >
+                {assetDeleteLoading ? 'جاري الحذف...' : 'تأكيد الحذف'}
+              </button>
             </div>
           </div>
         </div>

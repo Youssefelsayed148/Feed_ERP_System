@@ -215,7 +215,7 @@ router.post('/:id/documents', authenticate, async (req, res) => {
 });
 
 // POST /api/contracts/:id/sign - Sign contract
-router.post('/:id/sign', authenticate, authorize('owner', 'admin', 'manager'), async (req, res) => {
+router.post('/:id/sign', authenticate, authorize('owner', 'admin', 'legal_mgr', 'sales_manager'), async (req, res) => {
   try {
     await ensureTable();
     const { id } = req.params;

@@ -205,7 +205,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // Send requisition to suppliers (convert items to purchase orders)
-router.post('/:id/send', authenticate, authorize('purchase_officer', 'admin', 'owner'), async (req, res) => {
+router.post('/:id/send', authenticate, authorize('purchasing_mgr', 'admin', 'owner'), async (req, res) => {
   const reqId = req.params.id;
   const createdBy = req.user.id;
 
@@ -328,7 +328,7 @@ router.post('/:id/send', authenticate, authorize('purchase_officer', 'admin', 'o
 });
 
 // Update requisition status
-router.put('/:id/status', authenticate, authorize('purchase_officer', 'admin', 'owner'), async (req, res) => {
+router.put('/:id/status', authenticate, authorize('purchasing_mgr', 'admin', 'owner'), async (req, res) => {
   const reqId = req.params.id;
   const { status } = req.body;
 
@@ -359,7 +359,7 @@ router.put('/:id/status', authenticate, authorize('purchase_officer', 'admin', '
 // ============================================
 
 // Transfer finished goods between locations or deduct for internal use
-router.post('/transfer', authenticate, authorize('production_manager', 'admin', 'owner'), async (req, res) => {
+router.post('/transfer', authenticate, authorize('production_mgr', 'admin', 'owner'), async (req, res) => {
   const { feedTypeId, packageSize, numberOfBags, transferType, notes } = req.body;
   const createdBy = req.user.id;
 

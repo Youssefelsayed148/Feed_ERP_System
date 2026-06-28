@@ -64,6 +64,119 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
+// GET /api/payroll/employee/:employeeId - Get payroll records for employee
+// MUST come before /:id to avoid shadowing
+router.get('/employee/:employeeId', authenticate, async (req, res) => {
+  try {
+    const result = await query(`
+      SELECT pr.*, pp.period_name, pp.status as period_status
+      FROM payroll_records pr
+      JOIN payroll_periods pp ON pr.period_id = pp.id
+      WHERE pr.user_id = $1
+      ORDER BY pp.created_at DESC
+    `, [req.params.employeeId]);
+    res.json({ records: result.rows, total: result.rowCount });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/payroll/auto-create - MUST come before /:id to avoid shadowing
+router.post('/auto-create', authenticate, authorize('owner', 'admin', 'finance_manager'), async (req, res) => {
+  try {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const periodName = `${year}-${String(month).padStart(2, '0')}`;
+    
+    const existing = await query('SELECT id FROM payroll_periods WHERE period_name = $1', [periodName]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: `Payroll for ${periodName} already exists`, periodId: existing.rows[0].id });
+    }
+    
+    const employees = await query(`
+      SELECT DISTINCT u.id, u.name, u.role, u.department,
+        COALESCE(pr.basic_salary, 0) as salary
+      FROM users u
+      LEFT JOIN LATERAL (
+        SELECT basic_salary FROM payroll_records
+        WHERE user_id = u.id ORDER BY id DESC LIMIT 1
+      ) pr ON true
+      JOIN attendance_records ar ON ar.user_id = u.id
+      WHERE u.id != 2 AND u.role != 'admin'
+      ORDER BY u.name
+    `);
+    
+    if (employees.rows.length === 0) {
+      return res.status(400).json({ error: 'No active employees with attendance records found' });
+    }
+    
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+    
+    const period = await query(`
+      INSERT INTO payroll_periods (period_name, start_date, end_date, status, created_by)
+      VALUES ($1, $2, $3, 'processing', $4)
+      RETURNING id
+    `, [periodName, startDate, endDate, req.user.id]);
+    const periodId = period.rows[0].id;
+    
+    let totalBasic = 0, totalNet = 0;
+    
+    for (const emp of employees.rows) {
+      const daysInMonth = new Date(year, month, 0).getDate();
+      let workingDays = 0;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const day = new Date(year, month - 1, d);
+        const dow = day.getDay();
+        if (dow !== 5 && dow !== 6) workingDays++;
+      }
+      
+      const attendance = await query(`
+        SELECT COUNT(*) as present_days,
+               COALESCE(EXTRACT(EPOCH FROM SUM(work_duration))/3600, 0) as total_hours
+        FROM attendance_records
+        WHERE user_id = $1 AND date >= $2 AND date <= $3 AND status = 'present'
+      `, [emp.id, startDate, endDate]);
+      
+      const att = attendance.rows[0];
+      const presentDays = parseInt(att.present_days) || 0;
+      const absentDays = Math.max(0, workingDays - presentDays);
+      
+      const monthlySalary = parseFloat(emp.salary) || 0;
+      const dailyRate = workingDays > 0 ? monthlySalary / workingDays : 0;
+      const deduction = absentDays * dailyRate * 0.5;
+      const netSalary = Math.max(0, monthlySalary - deduction);
+      
+      await query(`
+        INSERT INTO payroll_records (user_id, period_id, period_start, period_end, basic_salary, deductions, net_salary, status, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'processed', $8)
+      `, [emp.id, periodId, startDate, endDate, monthlySalary, deduction, netSalary, req.user.id]);
+      
+      totalBasic += monthlySalary;
+      totalNet += netSalary;
+    }
+    
+    await query(`
+      UPDATE payroll_periods SET status='processed', total_basic_salary=$1, total_net_salary=$2,
+        total_bonus=0, total_deductions=$3
+      WHERE id=$4
+    `, [totalBasic, totalNet, (totalBasic - totalNet), periodId]);
+    
+    res.json({
+      success: true,
+      message: `Payroll auto-created for ${periodName}: ${employees.rows.length} employees`,
+      periodId,
+      totalEmployees: employees.rows.length,
+      totalBasic,
+      totalNet
+    });
+  } catch (error) {
+    console.error('Error auto-creating payroll:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
@@ -131,7 +244,7 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, authorize('owner', 'admin', 'finance_manager'), async (req, res) => {
   try {
     const { month, year, periodName, period_name, employeePayrolls, dueDate, due_date } = req.body;
     let pn = periodName || period_name;
@@ -208,13 +321,25 @@ router.post('/', authenticate, async (req, res) => {
     });
 
     res.status(201).json({ success: true, data: result });
+
+    // Create approval request for finance_manager → then owner
+    try {
+      const { query: dbQuery } = require('../config/database');
+      await dbQuery(
+        `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes, stage, status)
+         VALUES ($1, $2, $3, $4, $5, 'manager_review', 'pending') ON CONFLICT DO NOTHING`,
+        ['payroll', 'payroll_period', result.id, req.user.id,
+         `Payroll period: ${result.period_name} - Total: ${result.total_net_salary} EGP`]
+      );
+    } catch (e) { console.error('Error creating payroll approval request:', e.message); }
+
   } catch (error) {
     console.error('Error creating payroll:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-router.put('/:id/process', authenticate, async (req, res) => {
+router.put('/:id/process', authenticate, authorize('owner', 'admin', 'finance_manager'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -261,7 +386,7 @@ router.put('/:id/process', authenticate, async (req, res) => {
   }
 });
 
-router.put('/:id/approve', authenticate, async (req, res) => {
+router.put('/:id/approve', authenticate, authorize('owner', 'admin', 'finance_manager'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(`
@@ -369,7 +494,7 @@ router.put('/:id/approve-all', authenticate, authorize('owner', 'admin'), async 
   }
 });
 
-router.put('/:id/post', authenticate, async (req, res) => {
+router.put('/:id/post', authenticate, authorize('owner', 'admin', 'finance_manager'), async (req, res) => {
   try {
     const { id } = req.params;
     const ppResult = await query('SELECT * FROM payroll_periods WHERE id = $1', [id]);
@@ -430,7 +555,7 @@ router.put('/:id/post', authenticate, async (req, res) => {
   }
 });
 
-router.put('/:id/mark-as-paid', authenticate, async (req, res) => {
+router.put('/:id/mark-as-paid', authenticate, authorize('owner', 'admin', 'finance_manager'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(`
@@ -446,7 +571,7 @@ router.put('/:id/mark-as-paid', authenticate, async (req, res) => {
   }
 });
 
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, authorize('owner', 'admin'), async (req, res) => {
   try {
     const { id } = req.params;
     await transaction(async (client) => {
@@ -460,24 +585,9 @@ router.delete('/:id', authenticate, async (req, res) => {
   }
 });
 
-// GET /api/payroll/employee/:employeeId - Get payroll records for employee
-router.get('/employee/:employeeId', authenticate, async (req, res) => {
-  try {
-    const result = await query(`
-      SELECT pr.*, pp.period_name, pp.status as period_status
-      FROM payroll_records pr
-      JOIN payroll_periods pp ON pr.period_id = pp.id
-      WHERE pr.user_id = $1
-      ORDER BY pp.created_at DESC
-    `, [req.params.employeeId]);
-    res.json({ records: result.rows, total: result.rowCount });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // PUT /api/payroll/:id/employees/:empId - Update individual employee payroll record
-router.put('/:id/employees/:empId', authenticate, async (req, res) => {
+router.put('/:id/employees/:empId', authenticate, authorize('owner', 'admin', 'finance_manager'), async (req, res) => {
   try {
     const { id, empId } = req.params;
     const { basicSalary, additions, deductions, allowances } = req.body;
@@ -501,7 +611,7 @@ router.put('/:id/employees/:empId', authenticate, async (req, res) => {
 });
 
 // PUT /api/payroll/:id/recalculate - Recalculate period totals from individual records
-router.put('/:id/recalculate', authenticate, async (req, res) => {
+router.put('/:id/recalculate', authenticate, authorize('owner', 'admin', 'finance_manager'), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -538,7 +648,7 @@ router.put('/:id/recalculate', authenticate, async (req, res) => {
 });
 
 // PUT /api/payroll/:id/bulk-update - Apply increase to all employees
-router.put('/:id/bulk-update', authenticate, async (req, res) => {
+router.put('/:id/bulk-update', authenticate, authorize('owner', 'admin', 'finance_manager'), async (req, res) => {
   try {
     const { id } = req.params;
     const { increaseType, increaseValue, field } = req.body;
@@ -598,109 +708,5 @@ router.put('/:id/bulk-update', authenticate, async (req, res) => {
 });
 
 // POST /api/payroll/auto-create - Auto-create payroll for current month based on attendance
-router.post('/auto-create', authenticate, authorize('owner', 'admin', 'hr_manager'), async (req, res) => {
-  try {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth() + 1;
-    const periodName = `${year}-${String(month).padStart(2, '0')}`;
-    
-    // Check if period already exists
-    const existing = await query('SELECT id FROM payroll_periods WHERE period_name = $1', [periodName]);
-    if (existing.rows.length > 0) {
-      return res.status(400).json({ error: `Payroll for ${periodName} already exists`, periodId: existing.rows[0].id });
-    }
-    
-    // Get all active employees with salary from existing payroll or users
-    const employees = await query(`
-      SELECT DISTINCT u.id, u.name, u.role, u.department,
-        COALESCE(pr.basic_salary, 0) as salary
-      FROM users u
-      LEFT JOIN LATERAL (
-        SELECT basic_salary FROM payroll_records
-        WHERE user_id = u.id ORDER BY id DESC LIMIT 1
-      ) pr ON true
-      JOIN attendance_records ar ON ar.user_id = u.id
-      WHERE u.id != 2 AND u.role != 'admin' -- skip system admin if needed
-      ORDER BY u.name
-    `);
-    
-    if (employees.rows.length === 0) {
-      return res.status(400).json({ error: 'No active employees with attendance records found' });
-    }
-    
-    // Calculate date range
-    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-    
-    // Create payroll period
-    const period = await query(`
-      INSERT INTO payroll_periods (period_name, start_date, end_date, status, created_by)
-      VALUES ($1, $2, $3, 'processing', $4)
-      RETURNING id
-    `, [periodName, startDate, endDate, req.user.id]);
-    const periodId = period.rows[0].id;
-    
-    let totalBasic = 0, totalNet = 0;
-    
-    // Create payroll records for each employee based on attendance
-    for (const emp of employees.rows) {
-      // Count working days in period
-      const daysInMonth = new Date(year, month, 0).getDate();
-      let workingDays = 0;
-      for (let d = 1; d <= daysInMonth; d++) {
-        const day = new Date(year, month - 1, d);
-        const dow = day.getDay();
-        if (dow !== 5 && dow !== 6) workingDays++; // Skip Fri/Sat
-      }
-      
-      // Get attendance for this employee in this period
-      const attendance = await query(`
-        SELECT COUNT(*) as present_days,
-               COALESCE(EXTRACT(EPOCH FROM SUM(work_duration))/3600, 0) as total_hours
-        FROM attendance_records
-        WHERE user_id = $1 AND date >= $2 AND date <= $3 AND status = 'present'
-      `, [emp.id, startDate, endDate]);
-      
-      const att = attendance.rows[0];
-      const presentDays = parseInt(att.present_days) || 0;
-      const absentDays = Math.max(0, workingDays - presentDays);
-      const totalHours = parseFloat(att.total_hours) || 0;
-      
-      // Calculate salary
-      const monthlySalary = parseFloat(emp.salary) || 0;
-      const dailyRate = workingDays > 0 ? monthlySalary / workingDays : 0;
-      const deduction = absentDays * dailyRate * 0.5; // 50% deduction for absent days
-      const netSalary = Math.max(0, monthlySalary - deduction);
-      
-      await query(`
-        INSERT INTO payroll_records (user_id, period_id, period_start, period_end, basic_salary, deductions, net_salary, status, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'processed', $8)
-      `, [emp.id, periodId, startDate, endDate, monthlySalary, deduction, netSalary, req.user.id]);
-      
-      totalBasic += monthlySalary;
-      totalNet += netSalary;
-    }
-    
-    // Update period totals
-    await query(`
-      UPDATE payroll_periods SET status='processed', total_basic_salary=$1, total_net_salary=$2,
-        total_bonus=0, total_deductions=$3
-      WHERE id=$4
-    `, [totalBasic, totalNet, (totalBasic - totalNet), periodId]);
-    
-    res.json({
-      success: true,
-      message: `Payroll auto-created for ${periodName}: ${employees.rows.length} employees`,
-      periodId,
-      totalEmployees: employees.rows.length,
-      totalBasic,
-      totalNet
-    });
-  } catch (error) {
-    console.error('Error auto-creating payroll:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 module.exports = router;

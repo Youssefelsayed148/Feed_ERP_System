@@ -1,13 +1,13 @@
 import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import { init, getLang } from '../../utils/i18n';
+import { init } from '../../utils/i18n';
 import { captureLocation, startGeofenceTracking } from '../../utils/location';
 
 const Layout = () => {
   useEffect(() => {
-    const lang = getLang() || localStorage.getItem('lang') || 'en';
-    init(lang);
+    // Arabic is the system's fixed language for now.
+    init('ar');
     captureLocation('page_load');
     const cleanup = startGeofenceTracking();
     return cleanup;

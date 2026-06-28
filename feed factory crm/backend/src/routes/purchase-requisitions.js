@@ -3,7 +3,7 @@ const router = express.Router();
 const { query } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 
-const managerRoles = ['owner', 'admin', 'sales_manager', 'finance_manager'];
+const managerRoles = ['owner', 'admin', 'purchasing_mgr'];
 
 // GET /api/purchase-requisitions
 router.get('/', authenticate, async (req, res) => {
@@ -78,6 +78,53 @@ router.get('/:id', authenticate, async (req, res) => {
   } catch (error) {
     console.error('Error fetching requisition:', error);
     res.status(500).json({ error: 'Failed to fetch requisition' });
+  }
+});
+
+// PUT /api/purchase-requisitions/:id - Update requisition
+router.put('/:id', authenticate, async (req, res) => {
+  try {
+    const { department, items, notes, status } = req.body;
+    const setClauses = [];
+    const params = [];
+    let paramIdx = 1;
+    if (department !== undefined) { setClauses.push(`department = $${paramIdx++}`); params.push(department); }
+    if (items !== undefined) { setClauses.push(`items = $${paramIdx++}`); params.push(JSON.stringify(items)); }
+    if (notes !== undefined) { setClauses.push(`notes = $${paramIdx++}`); params.push(notes); }
+    if (status !== undefined) { setClauses.push(`status = $${paramIdx++}`); params.push(status); }
+    if (setClauses.length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+    setClauses.push(`updated_at = NOW()`);
+    params.push(req.params.id);
+    const result = await query(
+      `UPDATE purchase_requisitions SET ${setClauses.join(', ')} WHERE id = $${paramIdx} RETURNING *`,
+      params
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Requisition not found' });
+    }
+    res.json({ success: true, requisition: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating requisition:', error);
+    res.status(500).json({ error: 'Failed to update requisition' });
+  }
+});
+
+// DELETE /api/purchase-requisitions/:id - Delete requisition
+router.delete('/:id', authenticate, async (req, res) => {
+  try {
+    const result = await query(
+      'DELETE FROM purchase_requisitions WHERE id = $1 RETURNING id',
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Requisition not found' });
+    }
+    res.json({ success: true, message: 'Requisition deleted' });
+  } catch (error) {
+    console.error('Error deleting requisition:', error);
+    res.status(500).json({ error: 'Failed to delete requisition' });
   }
 });
 

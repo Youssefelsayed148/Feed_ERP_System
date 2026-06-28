@@ -1,4 +1,5 @@
 import { t } from '../utils/i18n';
+import { formatCurrency, formatDate, getStatusLabel } from '../utils/formatters';
 import React, { useState, useEffect } from 'react';
 import { 
   DollarSign, Calendar, Users, FileText, Download, Plus, 
@@ -11,27 +12,16 @@ import {
 } from 'lucide-react';
 import { payrollService, authService } from '../services/api';
 
-const formatCurrency = (amount) => {
-  if (amount === undefined || amount === null) return 'ج.م 0.00';
-  return `ج.م ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-};
 
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-};
+
 
 // Timeline Component
 const PayrollTimeline = ({ status, dueDate }) => {
   const steps = [
-    { key: 'draft', label: 'Draft', description: 'Created' },
-    { key: 'processed', label: t('payroll.processed'), description: 'Calculated' },
-    { key: 'approved', label: 'Approved', description: 'Manager OK' },
-    { key: 'paid', label: 'Paid', description: 'Completed' }
+    { key: 'draft', label: 'مسودة', description: 'تم الإنشاء' },
+    { key: 'processed', label: 'تمت المعالجة', description: 'تم الحساب' },
+    { key: 'approved', label: 'معتمد', description: 'موافقة المدير' },
+    { key: 'paid', label: 'تم الدفع', description: 'مكتمل' }
   ];
 
   const getStepStatus = (stepKey) => {
@@ -51,10 +41,10 @@ const PayrollTimeline = ({ status, dueDate }) => {
     const diffTime = due - now;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays < 0) return { text: `Overdue by ${Math.abs(diffDays)} days`, type: 'overdue' };
-    if (diffDays === 0) return { text: 'Due today', type: 'due-today' };
-    if (diffDays <= 3) return { text: `${diffDays} days remaining`, type: 'urgent' };
-    return { text: `${diffDays} days remaining`, type: 'normal' };
+    if (diffDays < 0) return { text: `متأخر بـ ${Math.abs(diffDays)} يوم`, type: 'overdue' };
+    if (diffDays === 0) return { text: 'مستحق اليوم', type: 'due-today' };
+    if (diffDays <= 3) return { text: `متبقي ${diffDays} أيام`, type: 'urgent' };
+    return { text: `متبقي ${diffDays} أيام`, type: 'normal' };
   };
 
   const dueDateInfo = getDueDateStatus();
@@ -93,7 +83,7 @@ const PayrollTimeline = ({ status, dueDate }) => {
       {dueDate && dueDateInfo && (
         <div className={`due-date-badge ${dueDateInfo.type}`}>
           <CalendarDays size={14} />
-          <span>Due: {formatDate(dueDate)}</span>
+          <span>تاريخ الاستحقاق: {formatDate(dueDate)}</span>
           <span className="due-date-countdown">({dueDateInfo.text})</span>
         </div>
       )}
@@ -212,7 +202,7 @@ const Payroll = () => {
         const updatedPayroll = { 
           ...selectedPayroll, 
           status: 'approved', 
-          approvedBy: user?.name || 'Current User',
+          approvedBy: user?.name || 'المستخدم الحالي',
           approvedAt: new Date().toISOString()
         };
         setSelectedPayroll(updatedPayroll);
@@ -305,7 +295,7 @@ const Payroll = () => {
 
   const handleExportCSV = (payroll) => {
     const csv = [
-      ['Employee Name', 'Department', 'Designation', t('payroll.baseSalary'), t('payroll.allowances'), t('payroll.deductions'), t('payroll.netSalary'), 'Bank Name', 'Bank Account'].join(','),
+      ['اسم الموظف', 'القسم', 'المسمى الوظيفي', t('payroll.baseSalary'), t('payroll.allowances'), t('payroll.deductions'), t('payroll.netSalary'), 'البنك', 'رقم الحساب'].join(','),
       ...payroll.employeePayrolls.map(ep => [
         ep.employeeName,
         ep.department,
@@ -361,6 +351,7 @@ const Payroll = () => {
   const totalDraft = payrolls.filter(p => p.status === 'draft').length;
   const totalProcessed = payrolls.filter(p => p.status === 'processed').length;
   const totalApproved = payrolls.filter(p => p.status === 'approved').length;
+  const totalPosted = payrolls.filter(p => p.status === 'posted').length;
   const totalPaid = payrolls.filter(p => p.status === 'paid').length;
   const totalEmployees = payrolls.reduce((sum, p) => sum + (p.employeeCount || p.employeePayrolls?.length || 0), 0);
 
@@ -369,7 +360,7 @@ const Payroll = () => {
       <div className="page-container">
         <div className="loading-state">
           <RefreshCw size={32} className="spin" />
-          <p>Loading payroll data...</p>
+          <p>جاري تحميل بيانات الرواتب...</p>
         </div>
       </div>
     );
@@ -427,7 +418,7 @@ const Payroll = () => {
             <div className="stat-icon bg-yellow text-yellow">
               <ThumbsUp size={24} />
             </div>
-            <div className="stat-value">{totalApproved}</div>
+            <div className="stat-value">{totalApproved + totalPosted}</div>
             <div className="stat-label">{t('common.statuses.approved')}</div>
           </div>
           <div className="stat-card">
@@ -516,7 +507,7 @@ const Payroll = () => {
                     <td className="net-salary font-bold">{formatCurrency(payroll.totalNetSalary || 0)}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(payroll.status)}`}>
-                        {getStatusIcon(payroll.status)} {payroll.status}
+                        {getStatusIcon(payroll.status)} {getStatusLabel(payroll.status)}
                       </span>
                     </td>
                     <td>
@@ -551,7 +542,7 @@ const Payroll = () => {
                             className="btn btn-sm btn-primary" 
                             onClick={() => handleProcessPayroll(payroll._id)}
                           >
-                            <RefreshCw size={14} /> Process
+                            <RefreshCw size={14} /> معالجة
                           </button>
                         )}
                         {payroll.status === 'processed' && canApprovePayroll && (
@@ -634,7 +625,7 @@ const Payroll = () => {
           <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><Plus size={20} /> Create New Payroll Period</h3>
+                <h3><Plus size={20} /> إنشاء فترة رواتب جديدة</h3>
                 <button className="modal-close" onClick={() => setShowCreateModal(false)}>
                   <X size={20} />
                 </button>
@@ -643,7 +634,7 @@ const Payroll = () => {
                 <form onSubmit={handleCreatePayroll}>
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Month *</label>
+                      <label>الشهر *</label>
                       <input
                         type="month"
                         className="form-input"
@@ -657,7 +648,7 @@ const Payroll = () => {
                       />
                     </div>
                     <div className="form-group">
-                      <label>Year *</label>
+                      <label>السنة *</label>
                       <input
                         type="number"
                         className="form-input"
@@ -692,7 +683,7 @@ const Payroll = () => {
                       إلغاء
                     </button>
                     <button type="submit" className="btn btn-primary">
-                      Create Payroll
+                      إنشاء كشف الرواتب
                     </button>
                   </div>
                 </form>
@@ -706,7 +697,7 @@ const Payroll = () => {
           <div className="modal-overlay" onClick={() => setShowApproveModal(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><ThumbsUp size={20} /> Approve Payroll</h3>
+                <h3><ThumbsUp size={20} /> اعتماد الرواتب</h3>
                 <button className="modal-close" onClick={() => setShowApproveModal(false)}>
                   <X size={20} />
                 </button>
@@ -715,32 +706,32 @@ const Payroll = () => {
                 <div className="approval-confirmation">
                   <div className="confirmation-header">
                     <ThumbsUp size={32} className="approval-icon" />
-                    <h4>Approve Payroll for {selectedPayroll.month}?</h4>
+                    <h4>اعتماد الرواتب لشهر {selectedPayroll.month}؟</h4>
                   </div>
                   
                   <div className="payroll-summary-box">
                     <div className="summary-row">
-                      <span className="label">Month:</span>
+                      <span className="label">الشهر:</span>
                       <span className="value font-bold">{selectedPayroll.month}</span>
                     </div>
                     <div className="summary-row">
-                      <span className="label">Total Employees:</span>
+                      <span className="label">عدد الموظفين:</span>
                       <span className="value">{selectedPayroll.employeePayrolls?.length || 0}</span>
                     </div>
                     <div className="summary-row">
-                      <span className="label">Basic Salary:</span>
+                      <span className="label">الراتب الأساسي:</span>
                       <span className="value">{formatCurrency(selectedPayroll.totalBasicSalary || 0)}</span>
                     </div>
                     <div className="summary-row">
-                      <span className="label">Allowances:</span>
+                      <span className="label">البدلات:</span>
                       <span className="value text-green">{formatCurrency(selectedPayroll.totalAllowances || 0)}</span>
                     </div>
                     <div className="summary-row">
-                      <span className="label">Deductions:</span>
+                      <span className="label">الخصومات:</span>
                       <span className="value text-red">{formatCurrency(selectedPayroll.totalDeductions || 0)}</span>
                     </div>
                     <div className="summary-row total-row">
-                      <span className="label font-bold">Total Net Salary:</span>
+                      <span className="label font-bold">صافي الراتب الإجمالي:</span>
                       <span className="value text-success font-bold">
                         {formatCurrency(selectedPayroll.totalNetSalary || 0)}
                       </span>
@@ -748,18 +739,18 @@ const Payroll = () => {
                   </div>
 
                   <div className="approval-actions-list">
-                    <h5>After approval:</h5>
+                    <h5>بعد الاعتماد:</h5>
                     <div className="action-item">
                       <CheckCircle size={16} className="action-icon" />
-                      <span>Payroll will be ready to post to Finance</span>
+                      <span>ستكون الرواتب جاهزة للترحيل للمالية</span>
                     </div>
                     <div className="action-item">
                       <CheckCircle size={16} className="action-icon" />
-                      <span>Expense and Payable records can be created</span>
+                      <span>يمكن إنشاء سجلات المصروفات والمدفوعات</span>
                     </div>
                     <div className="action-item">
                       <CheckCircle size={16} className="action-icon" />
-                      <span>Payment can be processed</span>
+                      <span>يمكن معالجة الدفع</span>
                     </div>
                   </div>
 
@@ -776,7 +767,7 @@ const Payroll = () => {
                       onClick={handleApprovePayroll}
                       disabled={approvingPayroll}
                     >
-                      {approvingPayroll ? 'Approving...' : 'Confirm Approval'}
+                      {approvingPayroll ? 'جاري الاعتماد...' : 'تأكيد الاعتماد'}
                     </button>
                   </div>
                 </div>
@@ -799,20 +790,20 @@ const Payroll = () => {
                 <div className="post-confirmation">
                   <div className="confirmation-header">
                     <AlertTriangle size={32} className="warning-icon" />
-                    <h4>Post Payroll to Finance?</h4>
+                    <h4>ترحيل الرواتب للمالية؟</h4>
                   </div>
                   
                   <div className="payroll-summary-box">
                     <div className="summary-row">
-                      <span className="label">Month:</span>
+                      <span className="label">الشهر:</span>
                       <span className="value font-bold">{selectedPayroll.month}</span>
                     </div>
                     <div className="summary-row">
-                      <span className="label">Total Employees:</span>
+                      <span className="label">عدد الموظفين:</span>
                       <span className="value">{selectedPayroll.employeePayrolls?.length || 0}</span>
                     </div>
                     <div className="summary-row total-row">
-                      <span className="label font-bold">Total Net Salary:</span>
+                      <span className="label font-bold">صافي الراتب الإجمالي:</span>
                       <span className="value text-success font-bold">
                         {formatCurrency(selectedPayroll.totalNetSalary || 0)}
                       </span>
@@ -820,18 +811,18 @@ const Payroll = () => {
                   </div>
 
                   <div className="actions-preview">
-                    <h5>This will create:</h5>
+                    <h5>سيتم إنشاء:</h5>
                     <div className="action-item">
                       <CheckCircle size={16} className="action-icon" />
-                      <span>Expense record (EXP-SAL-{selectedPayroll.month})</span>
+                      <span>سجل مصروفات (EXP-SAL-{selectedPayroll.month})</span>
                     </div>
                     <div className="action-item">
                       <CheckCircle size={16} className="action-icon" />
-                      <span>Payable record (PAY-SAL-{selectedPayroll.month})</span>
+                      <span>سجل مستحقات (PAY-SAL-{selectedPayroll.month})</span>
                     </div>
                     <div className="action-item">
                       <CheckCircle size={16} className="action-icon" />
-                      <span>Set due date: {selectedPayroll.dueDate ? formatDate(selectedPayroll.dueDate) : 'Not set'}</span>
+                      <span>تاريخ الاستحقاق: {selectedPayroll.dueDate ? formatDate(selectedPayroll.dueDate) : 'غير محدد'}</span>
                     </div>
                   </div>
 
@@ -848,7 +839,7 @@ const Payroll = () => {
                       onClick={handlePostToFinance}
                       disabled={postingToFinance}
                     >
-                      {postingToFinance ? 'Posting...' : 'Confirm Post to Finance'}
+                      {postingToFinance ? 'جاري الترحيل...' : 'تأكيد الترحيل للمالية'}
                     </button>
                   </div>
                 </div>
@@ -862,7 +853,7 @@ const Payroll = () => {
           <div className="modal-overlay" onClick={() => setShowPayModal(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><Banknote size={20} /> Mark as Paid</h3>
+                <h3><Banknote size={20} /> تسجيل كمدفوع</h3>
                 <button className="modal-close" onClick={() => setShowPayModal(false)}>
                   <X size={20} />
                 </button>
@@ -871,24 +862,24 @@ const Payroll = () => {
                 <div className="pay-confirmation">
                   <div className="confirmation-header">
                     <CheckCircle size={32} className="success-icon" />
-                    <h4>Confirm Payment Complete?</h4>
+                    <h4>تأكيد اكتمال الدفع؟</h4>
                   </div>
                   
                   <div className="payroll-summary-box">
                     <div className="summary-row">
-                      <span className="label">Month:</span>
+                      <span className="label">الشهر:</span>
                       <span className="value font-bold">{selectedPayroll.month}</span>
                     </div>
                     <div className="summary-row">
-                      <span className="label">Expense ID:</span>
+                      <span className="label">رقم المصروف:</span>
                       <span className="value font-mono">{selectedPayroll.expenseId}</span>
                     </div>
                     <div className="summary-row">
-                      <span className="label">Payable ID:</span>
+                      <span className="label">رقم المستحق:</span>
                       <span className="value font-mono">{selectedPayroll.payableId}</span>
                     </div>
                     <div className="summary-row total-row">
-                      <span className="label font-bold">Amount Paid:</span>
+                      <span className="label font-bold">المبلغ المدفوع:</span>
                       <span className="value text-success font-bold">
                         {formatCurrency(selectedPayroll.totalNetSalary || 0)}
                       </span>
@@ -897,7 +888,7 @@ const Payroll = () => {
 
                   <div className="payment-notice">
                     <AlertCircle size={16} />
-                    <span>This will mark all employee salaries as paid and complete the payroll cycle.</span>
+                    <span>سيتم تسجيل جميع رواتب الموظفين كمدفوعة وإكمال دورة الرواتب.</span>
                   </div>
 
                   <div className="form-actions">
@@ -913,7 +904,7 @@ const Payroll = () => {
                       onClick={handleMarkAsPaid}
                       disabled={markingAsPaid}
                     >
-                      {markingAsPaid ? 'Processing...' : 'Confirm Payment Complete'}
+                      {markingAsPaid ? 'جاري المعالجة...' : 'تأكيد اكتمال الدفع'}
                     </button>
                   </div>
                 </div>
@@ -927,20 +918,20 @@ const Payroll = () => {
           <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
             <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3 className="text-danger"><Trash2 size={20} /> Delete Payroll</h3>
+                <h3 className="text-danger"><Trash2 size={20} /> حذف كشف الرواتب</h3>
                 <button className="modal-close" onClick={() => setShowDeleteModal(false)}>
                   <X size={20} />
                 </button>
               </div>
               <div className="modal-body">
-                <p>Are you sure you want to delete the payroll for <strong>{selectedPayroll.month}</strong>?</p>
-                <p className="text-muted">This action cannot be undone.</p>
+                <p>هل أنت متأكد من حذف كشف الرواتب لشهر <strong>{selectedPayroll.month}</strong>؟</p>
+                <p className="text-muted">لا يمكن التراجع عن هذا الإجراء.</p>
                 <div className="form-actions">
                   <button className="btn btn-secondary" onClick={() => setShowDeleteModal(false)}>
                     إلغاء
                   </button>
                   <button className="btn btn-danger" onClick={handleDeletePayroll}>
-                    Delete Payroll
+                    حذف كشف الرواتب
                   </button>
                 </div>
               </div>
@@ -958,13 +949,13 @@ const Payroll = () => {
         <div className="page-header">
           <div className="header-left">
             <button className="btn btn-outline" onClick={() => setViewMode('list')}>
-              <ChevronLeft size={18} /> Back to List
+              <ChevronLeft size={18} /> {t('hr.backToList')}
             </button>
             <div className="header-title-section">
-              <h1>Payroll Details - {selectedPayroll.month}</h1>
+              <h1>{t('hr.payrollDetailsTitle')} - {selectedPayroll.month}</h1>
               <div className="header-meta">
                 <span className={`badge ${getStatusBadgeClass(selectedPayroll.status)}`}>
-                  {getStatusIcon(selectedPayroll.status)} {selectedPayroll.status}
+                  {getStatusIcon(selectedPayroll.status)} {getStatusLabel(selectedPayroll.status)}
                 </span>
                 {selectedPayroll.dueDate && (
                   <span className="due-date-tag">
@@ -977,14 +968,14 @@ const Payroll = () => {
           </div>
           <div className="header-actions">
             <button className="btn btn-outline" onClick={() => handleExportCSV(selectedPayroll)}>
-              <Download size={18} /> Export CSV
+              <Download size={18} /> تصدير CSV
             </button>
             {selectedPayroll.status === 'processed' && canApprovePayroll && (
               <button 
                 className="btn btn-warning" 
                 onClick={() => setShowApproveModal(true)}
               >
-                <ThumbsUp size={18} /> Approve
+                <ThumbsUp size={18} /> اعتماد
               </button>
             )}
             {selectedPayroll.status === 'approved' && canManagePayroll && !selectedPayroll.postedToFinance && (
@@ -992,7 +983,7 @@ const Payroll = () => {
                 className="btn btn-success" 
                 onClick={() => setShowPostModal(true)}
               >
-                <ArrowLeftRight size={18} /> Post to Finance
+                <ArrowLeftRight size={18} /> ترحيل للمالية
               </button>
             )}
             {selectedPayroll.status === 'approved' && selectedPayroll.postedToFinance && canManagePayroll && (
@@ -1000,31 +991,31 @@ const Payroll = () => {
                 className="btn btn-primary" 
                 onClick={() => setShowPayModal(true)}
               >
-                <Banknote size={18} /> Mark as Paid
+                <Banknote size={18} /> تسجيل كمدفوع
               </button>
             )}
             {['draft', 'processed', 'approved'].includes(selectedPayroll.status) && !selectedPayroll.postedToFinance && canApprovePayroll && (
               <button 
                 className="btn btn-success" 
                 onClick={async () => {
-                  if (window.confirm(`Approve, process, and post payroll for ${selectedPayroll.month} (${formatCurrency(selectedPayroll.totalNetSalary || 0)}) to finance in one step?`)) {
+                  if (window.confirm(`اعتماد ومعالجة وترحيل رواتب ${selectedPayroll.month} (${formatCurrency(selectedPayroll.totalNetSalary || 0)}) للمالية في خطوة واحدة؟`)) {
                     try {
                       const result = await payrollService.approveAllPayroll(selectedPayroll._id || selectedPayroll.id);
                       if (result.success) {
-                        alert('Payroll fully approved and posted to finance!');
+                        alert('تم اعتماد الرواتب وترحيلها للمالية بنجاح!');
                         fetchPayrolls();
                         const full = await payrollService.getPayroll(selectedPayroll._id || selectedPayroll.id);
                         setSelectedPayroll(full.payroll || result.payroll);
                       } else {
-                        alert(result.error || 'Failed to approve');
+                        alert(result.error || 'فشل الاعتماد');
                       }
                     } catch (e) {
-                      alert('Error: ' + e.message);
+                      alert('خطأ: ' + e.message);
                     }
                   }
                 }}
               >
-                <CheckCircle size={18} /> Approve All (One-Click)
+                <CheckCircle size={18} /> اعتماد الكل
               </button>
             )}
           </div>
@@ -1168,8 +1159,8 @@ const Payroll = () => {
                       <thead>
                         <tr>
                           <th>{t('hr.employee')}</th>
-                          <th>Tax</th>
-                          <th>Insurance</th>
+                          <th>الضريبة</th>
+                          <th>التأمين</th>
                           <th>{t('common.other')}</th>
                           <th>{t('common.total')}</th>
                         </tr>
@@ -1205,9 +1196,9 @@ const Payroll = () => {
                   <Plus size={16} />
                 </div>
                 <div className="history-content">
-                  <div className="history-title">Payroll Created</div>
+                  <div className="history-title">تم إنشاء كشف الرواتب</div>
                   <div className="history-meta">
-                    {selectedPayroll.createdAt ? formatDate(selectedPayroll.createdAt) : 'N/A'}
+                    {selectedPayroll.createdAt ? formatDate(selectedPayroll.createdAt) : '—'}
                   </div>
                 </div>
               </div>
@@ -1217,9 +1208,9 @@ const Payroll = () => {
                   <RefreshCw size={16} />
                 </div>
                 <div className="history-content">
-                  <div className="history-title">Payroll Processed</div>
+                  <div className="history-title">تمت معالجة الرواتب</div>
                   <div className="history-meta">
-                    {selectedPayroll.processedAt ? formatDate(selectedPayroll.processedAt) : 'Pending'}
+                    {selectedPayroll.processedAt ? formatDate(selectedPayroll.processedAt) : 'معلق'}
                   </div>
                 </div>
               </div>
@@ -1229,11 +1220,11 @@ const Payroll = () => {
                   <ThumbsUp size={16} />
                 </div>
                 <div className="history-content">
-                  <div className="history-title">Manager Approved</div>
+                  <div className="history-title">موافقة المدير</div>
                   <div className="history-meta">
                     {selectedPayroll.approvedAt 
-                      ? `${formatDate(selectedPayroll.approvedAt)} by ${selectedPayroll.approvedBy}` 
-                      : 'Pending'}
+                      ? `${formatDate(selectedPayroll.approvedAt)} — ${selectedPayroll.approvedBy}` 
+                      : 'معلق'}
                   </div>
                 </div>
               </div>
@@ -1243,11 +1234,11 @@ const Payroll = () => {
                   <ArrowLeftRight size={16} />
                 </div>
                 <div className="history-content">
-                  <div className="history-title">Posted to Finance</div>
+                  <div className="history-title">مرحّل للمالية</div>
                   <div className="history-meta">
                     {selectedPayroll.postedAt 
-                      ? `${formatDate(selectedPayroll.postedAt)} - ${selectedPayroll.expenseId}` 
-                      : 'Pending'}
+                      ? `${formatDate(selectedPayroll.postedAt)} — ${selectedPayroll.expenseId}` 
+                      : 'معلق'}
                   </div>
                 </div>
               </div>
@@ -1257,9 +1248,9 @@ const Payroll = () => {
                   <Banknote size={16} />
                 </div>
                 <div className="history-content">
-                  <div className="history-title">Payment Completed</div>
+                  <div className="history-title">تم الدفع</div>
                   <div className="history-meta">
-                    {selectedPayroll.paidAt ? formatDate(selectedPayroll.paidAt) : 'Pending'}
+                    {selectedPayroll.paidAt ? formatDate(selectedPayroll.paidAt) : 'معلق'}
                   </div>
                 </div>
               </div>
@@ -1323,7 +1314,7 @@ const Payroll = () => {
           <div className="modal-overlay" onClick={() => setShowApproveModal(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><ThumbsUp size={20} /> Approve Payroll</h3>
+                <h3><ThumbsUp size={20} /> اعتماد الرواتب</h3>
                 <button className="modal-close" onClick={() => setShowApproveModal(false)}>
                   <X size={20} />
                 </button>
@@ -1332,12 +1323,12 @@ const Payroll = () => {
                 <div className="approval-confirmation">
                   <div className="confirmation-header">
                     <ThumbsUp size={32} className="approval-icon" />
-                    <h4>Approve Payroll for {selectedPayroll.month}?</h4>
+                    <h4>اعتماد الرواتب لشهر {selectedPayroll.month}؟</h4>
                   </div>
                   
                   <div className="payroll-summary-box">
                     <div className="summary-row">
-                      <span className="label">Total Net Salary:</span>
+                      <span className="label">صافي الراتب الإجمالي:</span>
                       <span className="value text-success font-bold">
                         {formatCurrency(selectedPayroll.totalNetSalary || 0)}
                       </span>
@@ -1357,7 +1348,7 @@ const Payroll = () => {
                       onClick={handleApprovePayroll}
                       disabled={approvingPayroll}
                     >
-                      {approvingPayroll ? 'Approving...' : 'Confirm Approval'}
+                      {approvingPayroll ? 'جاري الاعتماد...' : 'تأكيد الاعتماد'}
                     </button>
                   </div>
                 </div>
@@ -1380,12 +1371,12 @@ const Payroll = () => {
                 <div className="post-confirmation">
                   <div className="confirmation-header">
                     <AlertTriangle size={32} className="warning-icon" />
-                    <h4>Post Payroll to Finance?</h4>
+                    <h4>ترحيل الرواتب للمالية؟</h4>
                   </div>
                   
                   <div className="payroll-summary-box">
                     <div className="summary-row">
-                      <span className="label">Total Net Salary:</span>
+                      <span className="label">صافي الراتب الإجمالي:</span>
                       <span className="value text-success font-bold">
                         {formatCurrency(selectedPayroll.totalNetSalary || 0)}
                       </span>
@@ -1405,7 +1396,7 @@ const Payroll = () => {
                       onClick={handlePostToFinance}
                       disabled={postingToFinance}
                     >
-                      {postingToFinance ? 'Posting...' : 'Confirm Post'}
+                      {postingToFinance ? 'جاري الترحيل...' : 'تأكيد الترحيل'}
                     </button>
                   </div>
                 </div>
@@ -1419,7 +1410,7 @@ const Payroll = () => {
           <div className="modal-overlay" onClick={() => setShowPayModal(false)}>
             <div className="modal" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><Banknote size={20} /> Mark as Paid</h3>
+                <h3><Banknote size={20} /> تسجيل كمدفوع</h3>
                 <button className="modal-close" onClick={() => setShowPayModal(false)}>
                   <X size={20} />
                 </button>
@@ -1428,12 +1419,12 @@ const Payroll = () => {
                 <div className="pay-confirmation">
                   <div className="confirmation-header">
                     <CheckCircle size={32} className="success-icon" />
-                    <h4>Confirm Payment Complete?</h4>
+                    <h4>تأكيد اكتمال الدفع؟</h4>
                   </div>
                   
                   <div className="payroll-summary-box">
                     <div className="summary-row">
-                      <span className="label">Amount:</span>
+                      <span className="label">المبلغ:</span>
                       <span className="value text-success font-bold">
                         {formatCurrency(selectedPayroll.totalNetSalary || 0)}
                       </span>
@@ -1453,7 +1444,7 @@ const Payroll = () => {
                       onClick={handleMarkAsPaid}
                       disabled={markingAsPaid}
                     >
-                      {markingAsPaid ? 'Processing...' : 'Confirm Payment'}
+                      {markingAsPaid ? 'جاري المعالجة...' : 'تأكيد الدفع'}
                     </button>
                   </div>
                 </div>
@@ -1476,7 +1467,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency }) => {
   const [saving, setSaving] = useState(false);
 
   const net = parseFloat(basic) + parseFloat(allowances) - parseFloat(deductions);
-  const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
   const handleSave = async () => {
     setSaving(true);
@@ -1544,7 +1535,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency }) => {
       <td>
         {editing ? (
           <div style={{ display: 'flex', gap: '4px' }}>
-            <button className="btn btn-sm btn-primary" onClick={handleSave} disabled={saving} style={{ padding: '2px 8px', fontSize: '11px' }}>{saving ? '...' : 'Save'}</button>
+            <button className="btn btn-sm btn-primary" onClick={handleSave} disabled={saving} style={{ padding: '2px 8px', fontSize: '11px' }}>{saving ? '...' : 'حفظ'}</button>
             <button className="btn btn-sm btn-outline" onClick={() => setEditing(false)} style={{ padding: '2px 8px', fontSize: '11px' }}>{t('common.cancel')}</button>
           </div>
         ) : (

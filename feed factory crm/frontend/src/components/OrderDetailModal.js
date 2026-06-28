@@ -47,7 +47,7 @@ export default function OrderDetailModal({ order, items, onClose, onApprove, onR
               background: colors.bg, color: colors.text, border: `1px solid ${colors.border}`,
               textTransform: 'capitalize'
             }}>
-              {order.status?.replace(/_/g, ' ')}
+              {({'pending_approval':'بانتظار الاعتماد','approved':'معتمد','confirmed':'مؤكد','processing':'قيد التنفيذ','in_transit':'في الطريق','delivered':'تم التسليم','rejected':'مرفوض','cancelled':'ملغي'}[order.status] || order.status?.replace(/_/g, ' '))}
             </span>
             <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', borderRadius: '6px' }}>
               <X size={22} color="#6b7280" />
@@ -62,39 +62,39 @@ export default function OrderDetailModal({ order, items, onClose, onApprove, onR
             display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px',
             background: '#f8fafc', borderRadius: '12px', padding: '16px', marginBottom: '20px'
           }}>
-            <InfoRow icon={Hash} label="Order ID" value={order.order_number} />
-            <InfoRow icon={User} label="Created By" value={order.created_by_name || 'N/A'} />
-            <InfoRow icon={Calendar} label="Created" value={new Date(order.created_at).toLocaleString()} />
-            <InfoRow icon={Calendar} label="Delivery Date" value={order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : 'Not set'} />
-            <InfoRow icon={DollarSign} label="Payment Status" value={order.payment_status || 'N/A'} />
-            <InfoRow icon={User} label="Approved By" value={order.approved_by_name || 'N/A'} />
+            <InfoRow icon={Hash} label="رقم الطلب" value={order.order_number} />
+            <InfoRow icon={User} label="أنشئ بواسطة" value={order.created_by_name || 'غير متاح'} />
+            <InfoRow icon={Calendar} label="تاريخ الإنشاء" value={new Date(order.created_at).toLocaleString()} />
+            <InfoRow icon={Calendar} label="تاريخ التسليم" value={order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : 'غير محدد'} />
+            <InfoRow icon={DollarSign} label="حالة الدفع" value={order.payment_status || 'غير متاح'} />
+            <InfoRow icon={User} label="اعتمد بواسطة" value={order.approved_by_name || 'غير متاح'} />
           </div>
 
           {/* Order Items */}
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#1e293b', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Package size={16} /> Order Items
+            <Package size={16} /> عناصر الطلب
           </h3>
           <div style={{ borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: '20px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
                 <tr style={{ background: '#f9fafb' }}>
-                  <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>Feed Type</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>Package</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>Qty</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>Unit Price</th>
-                  <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>Total</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>نوع العلف</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>التعبئة</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>الكمية</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>سعر الوحدة</th>
+                  <th style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: '#6b7280', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #e5e7eb' }}>الإجمالي</th>
                 </tr>
               </thead>
               <tbody>
                 {(items || []).map(item => (
                   <tr key={item.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: '#1e293b' }}>
-                      {item.feed_type_name || item.feed_type_name_ar || `Feed #${item.feed_type_id}`}
+                      {item.feed_type_name || item.feed_type_name_ar || `علف #${item.feed_type_id}`}
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'center', color: '#6b7280' }}>{item.package_size}kg</td>
                     <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600 }}>{item.quantity}</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'monospace' }}>EGP {parseFloat(item.unit_price).toLocaleString()}</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#059669' }}>EGP {parseFloat(item.total_price).toLocaleString()}</td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'monospace' }}>{parseFloat(item.unit_price || 0).toLocaleString()} EGP</td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#059669' }}>{parseFloat(item.total_price || 0).toLocaleString()} EGP</td>
                   </tr>
                 ))}
               </tbody>
@@ -106,27 +106,27 @@ export default function OrderDetailModal({ order, items, onClose, onApprove, onR
             background: '#f9fafb', borderRadius: '12px', padding: '16px',
             border: '1px solid #e5e7eb', marginBottom: '20px'
           }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', margin: '0 0 12px' }}>Financial Summary</h3>
+            <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', margin: '0 0 12px' }}>الملخص المالي</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                <span style={{ color: '#6b7280' }}>Subtotal</span>
-                <span style={{ fontWeight: 500 }}>EGP {parseFloat(order.total_amount || 0).toLocaleString()}</span>
+                <span style={{ color: '#6b7280' }}>المجموع الجزئي</span>
+                <span style={{ fontWeight: 500 }}>{parseFloat(order.total_amount || 0).toLocaleString()} EGP</span>
               </div>
               {parseFloat(order.discount_amount || 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                  <span style={{ color: '#6b7280' }}>Discount</span>
-                  <span style={{ fontWeight: 500, color: '#059669' }}>-EGP {parseFloat(order.discount_amount).toLocaleString()}</span>
+                  <span style={{ color: '#6b7280' }}>الخصم</span>
+                  <span style={{ fontWeight: 500, color: '#059669' }}>-{parseFloat(order.discount_amount || 0).toLocaleString()} EGP</span>
                 </div>
               )}
               {parseFloat(order.tax_amount || 0) > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                  <span style={{ color: '#6b7280' }}>Tax</span>
-                  <span style={{ fontWeight: 500 }}>EGP {parseFloat(order.tax_amount).toLocaleString()}</span>
+                  <span style={{ color: '#6b7280' }}>الضريبة</span>
+                  <span style={{ fontWeight: 500 }}>{parseFloat(order.tax_amount || 0).toLocaleString()} EGP</span>
                 </div>
               )}
               <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '16px' }}>
-                <span style={{ fontWeight: 700, color: '#1e293b' }}>Final Amount</span>
-                <span style={{ fontWeight: 800, color: '#059669' }}>EGP {parseFloat(order.final_amount || 0).toLocaleString()}</span>
+                <span style={{ fontWeight: 700, color: '#1e293b' }}>المبلغ النهائي</span>
+                <span style={{ fontWeight: 800, color: '#059669' }}>{parseFloat(order.final_amount || 0).toLocaleString()} EGP</span>
               </div>
             </div>
           </div>
@@ -139,7 +139,7 @@ export default function OrderDetailModal({ order, items, onClose, onApprove, onR
             }}>
               <FileText size={18} color="#b45309" style={{ flexShrink: 0, marginTop: '1px' }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600, color: '#92400e', margin: '0 0 4px' }}>Notes</p>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: '#92400e', margin: '0 0 4px' }}>ملاحظات</p>
                 <p style={{ fontSize: '13px', color: '#78350f', margin: 0 }}>{order.notes}</p>
               </div>
             </div>
@@ -153,7 +153,7 @@ export default function OrderDetailModal({ order, items, onClose, onApprove, onR
             }}>
               <AlertCircle size={18} color="#b91c1c" style={{ flexShrink: 0, marginTop: '1px' }} />
               <div>
-                <p style={{ fontSize: '13px', fontWeight: 600, color: '#991b1b', margin: '0 0 4px' }}>Rejection Reason</p>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: '#991b1b', margin: '0 0 4px' }}>سبب الرفض</p>
                 <p style={{ fontSize: '13px', color: '#7f1d1d', margin: 0 }}>{order.rejection_reason}</p>
               </div>
             </div>
@@ -169,19 +169,19 @@ export default function OrderDetailModal({ order, items, onClose, onApprove, onR
             padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db',
             background: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 500,
             color: '#374151'
-          }}>Close</button>
+          }}>إغلاق</button>
           {isManager && order.status === 'pending_approval' && (
             <>
               <button onClick={() => onReject(order.id)} style={{
                 padding: '10px 20px', borderRadius: '8px', border: 'none',
                 background: '#fef2f2', color: '#dc2626', cursor: 'pointer', fontSize: '14px', fontWeight: 600
-              }}>Reject</button>
+              }}>رفض</button>
               <button onClick={() => onApprove(order.id)} style={{
                 padding: '10px 20px', borderRadius: '8px', border: 'none',
                 background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white',
                 cursor: 'pointer', fontSize: '14px', fontWeight: 600,
                 boxShadow: '0 2px 8px rgba(16,185,129,0.3)'
-              }}>Approve</button>
+              }}>موافقة</button>
             </>
           )}
         </div>

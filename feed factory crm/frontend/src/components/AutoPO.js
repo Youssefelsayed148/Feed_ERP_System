@@ -423,11 +423,11 @@ const PRApprovalModal = ({ pr, suppliers, onClose, onApprove }) => {
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                 min="1"
-                step="0.01"
+                step="1"
                 required
               />
             </div>
-            
+
             <div className="form-group">
               <label className="form-label">Select Supplier *</label>
               <select
@@ -593,7 +593,7 @@ const MaterialSettingsModal = ({ material, suppliers, onClose, onSave }) => {
                   value={formData.minimumStock}
                   onChange={(e) => setFormData({ ...formData, minimumStock: parseFloat(e.target.value) || 0 })}
                   min="0"
-                  step="0.01"
+                  step="1"
                   required
                 />
                 <small className="form-help">Alert when stock falls below this level</small>
@@ -607,7 +607,7 @@ const MaterialSettingsModal = ({ material, suppliers, onClose, onSave }) => {
                   value={formData.reorderLevel}
                   onChange={(e) => setFormData({ ...formData, reorderLevel: parseFloat(e.target.value) || 0 })}
                   min="0"
-                  step="0.01"
+                  step="1"
                   required
                 />
                 <small className="form-help">Trigger PR when stock falls below this</small>
@@ -622,7 +622,7 @@ const MaterialSettingsModal = ({ material, suppliers, onClose, onSave }) => {
                 value={formData.reorderQuantity}
                 onChange={(e) => setFormData({ ...formData, reorderQuantity: parseFloat(e.target.value) || 0 })}
                 min="0"
-                step="0.01"
+                step="1"
                 required
               />
               <small className="form-help">Default quantity to order when creating PR</small>
@@ -734,7 +734,7 @@ const CreatePRModal = ({ material, suppliers, onClose, onSubmit }) => {
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                   min="1"
-                  step="0.01"
+                  step="1"
                   required
                 />
               </div>

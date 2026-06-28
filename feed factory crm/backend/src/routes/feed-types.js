@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
+const adminOnly = authorize('owner', 'admin');
 
 router.get('/', authenticate, async (req, res) => {
   try {
@@ -9,16 +10,18 @@ router.get('/', authenticate, async (req, res) => {
     let sql = `
       SELECT ft.*,
         fr.total_cost as recipe_cost, fr.id as recipe_id, fr.selling_price,
-        json_build_object(
-          '10kg', json_build_object('cost', fp10.cost_price, 'selling', fp10.selling_price_75),
-          '25kg', json_build_object('cost', fp25.cost_price, 'selling', fp25.selling_price_75),
-          '50kg', json_build_object('cost', fp50.cost_price, 'selling', fp50.selling_price_75)
+        COALESCE(
+          (SELECT json_agg(
+             json_build_object('package_size', fp.package_size, 'price_per_ton', fp.selling_price_75)
+             ORDER BY fp.package_size
+           )
+           FROM feed_pricing fp
+           WHERE fp.feed_type_id = ft.id AND fp.is_active = true
+          ),
+          '[]'
         ) as pricing
       FROM feed_types ft
       LEFT JOIN feed_recipes fr ON ft.id = fr.feed_type_id AND fr.is_active = true
-      LEFT JOIN feed_pricing fp10 ON ft.id = fp10.feed_type_id AND fp10.package_size = 10 AND fp10.is_active = true
-      LEFT JOIN feed_pricing fp25 ON ft.id = fp25.feed_type_id AND fp25.package_size = 25 AND fp25.is_active = true
-      LEFT JOIN feed_pricing fp50 ON ft.id = fp50.feed_type_id AND fp50.package_size = 50 AND fp50.is_active = true
       WHERE ft.is_active = true
     `;
     const params = [];
@@ -28,37 +31,28 @@ router.get('/', authenticate, async (req, res) => {
     }
     sql += ` ORDER BY ft.code`;
     const result = await query(sql, params);
-    const recipeQtys = await query(`
-      SELECT recipe_id, SUM(quantity_kg) as total_kg
-      FROM feed_recipe_items GROUP BY recipe_id
-    `);
-    const qtyMap = {};
-    for (const r of recipeQtys.rows) qtyMap[r.recipe_id] = parseFloat(r.total_kg) || 1000;
 
     const rows = result.rows.map(ft => {
-      const recipeId = ft.recipe_id;
-      const recipeCost = parseFloat(ft.recipe_cost || 0);
-      const totalKg = qtyMap[recipeId] || 1000;
-      const costPerTon = recipeCost / (totalKg / 1000);
-      // Use recipe selling_price if set, otherwise default to 15% markup
-      const sellPriceVal = ft.selling_price !== null && ft.selling_price !== undefined ? parseFloat(ft.selling_price) : 0;
-      const sellPerTon = sellPriceVal > 0 ? sellPriceVal : (costPerTon * 1.15);
-      const p = ft.pricing || {};
+      const pricing = (ft.pricing || []).map(p => ({
+        package_size: parseInt(p.package_size),
+        price_per_ton: parseFloat(p.price_per_ton) || 0
+      }));
+
       return {
-        ...ft,
-        pricing: undefined,
-        cost_per_ton: costPerTon,
-        sell_per_ton: sellPerTon,
-        prices: {
-          small: sellPerTon,
-          medium: sellPerTon,
-          large: sellPerTon
-        },
-        costPrices: {
-          small: costPerTon,
-          medium: costPerTon,
-          large: costPerTon
-        }
+        id: ft.id,
+        _id: String(ft.id),
+        code: ft.code,
+        name_arabic: ft.name_arabic,
+        name_english: ft.name_english,
+        name: ft.name_arabic || ft.name_english,
+        protein_percentage: ft.protein_percentage,
+        category: ft.category,
+        sub_category: ft.sub_category,
+        description: ft.description,
+        is_active: ft.is_active,
+        created_at: ft.created_at,
+        updated_at: ft.updated_at,
+        pricing
       };
     });
     res.json(rows);
@@ -126,7 +120,7 @@ router.put('/:id', authenticate, async (req, res) => {
   }
 });
 
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, adminOnly, async (req, res) => {
   try {
     await query(`DELETE FROM feed_types WHERE id = $1`, [req.params.id]);
     res.json({ success: true });

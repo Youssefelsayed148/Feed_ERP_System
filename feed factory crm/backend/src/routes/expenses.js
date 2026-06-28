@@ -144,17 +144,14 @@ router.post('/', authenticate, async (req, res) => {
 
     journalExpenseCreated({ ...e, category }).catch(e => console.error('[JOURNAL] expense:', e.message));
 
-    // Approval check
+    // Create approval request — expense creation always requires finance_manager/admin/owner approval
     try {
-      const appRes = await query("SELECT requires_approval FROM approval_settings WHERE module = 'expenses'");
-      if (appRes.rows.length > 0 && appRes.rows[0].requires_approval) {
-        await query(
-          `INSERT INTO approval_requests (module, reference_type, reference_id, requested_by, status, notes)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          ['expenses', 'expense', expense.id, req.user.id, 'pending', `Expense: ${category} - ${parseFloat(amount).toFixed(2)} EGP`]
-        );
-      }
-    } catch(e) { console.error('Approval check failed:', e.message); }
+      await query(
+        `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, status, notes, stage)
+         VALUES ($1, $2, $3, $4, $5, $6, 'manager_review')`,
+        ['expenses', 'expense', expense.id, req.user.id, 'pending', `Expense: ${category} - ${parseFloat(amount).toFixed(2)} EGP`]
+      );
+    } catch(e) { console.error('Approval request creation failed:', e.message); }
 
     res.status(201).json({ success: true, expense });
   } catch (error) {
@@ -163,7 +160,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // PUT /api/expenses/:id/approve - Approve expense
-router.put('/:id/approve', authenticate, authorize('finance_manager', 'admin'), async (req, res) => {
+router.put('/:id/approve', authenticate, authorize('finance_manager', 'admin', 'owner'), async (req, res) => {
   try {
     const checkResult = await query(
       `SELECT * FROM expenses WHERE id = $1`,
@@ -176,17 +173,21 @@ router.put('/:id/approve', authenticate, authorize('finance_manager', 'admin'), 
     
     const expense = checkResult.rows[0];
     
-    if (expense.approved_by) {
-      return res.status(400).json({ error: 'Expense already approved' });
+    if (expense.status === 'approved') {
+      return res.json({ success: true, message: 'Already approved' });
     }
-    
+
     const updateResult = await query(
-      `UPDATE expenses 
+      `UPDATE expenses
        SET status = 'approved', approved_by = $1, updated_at = NOW()
-       WHERE id = $2
+       WHERE id = $2 AND status != 'approved'
        RETURNING *`,
       [req.user.id, req.params.id]
     );
+
+    if (updateResult.rowCount === 0) {
+      return res.json({ success: true, message: 'Already approved' });
+    }
     
     const e = updateResult.rows[0];
     
@@ -204,15 +205,67 @@ router.put('/:id/approve', authenticate, authorize('finance_manager', 'admin'), 
       console.error('[PAYABLE] Failed to create from expense:', payErr.message);
     }
 
-    // Create journal entry for expense
+    // Create journal entry for expense (idempotency: skip if already exists)
     try {
-      await journalExpenseCreated(e);
+      const existingJE = await query(
+        `SELECT id FROM journal_entries WHERE reference_type = 'expense' AND reference_id = $1`,
+        [e.id]
+      );
+      if (existingJE.rows.length > 0) {
+        console.log(`[JOURNAL] Entry already exists for expense ${e.id} — skipping`);
+      } else {
+        await journalExpenseCreated(e);
+      }
     } catch (jErr) {
       console.error('[JOURNAL] Failed to create expense entry:', jErr.message);
     }
 
-    res.json({ 
-      message: 'Expense approved successfully', 
+    res.json({
+      message: 'Expense approved successfully',
+      expense: {
+        id: e.id,
+        category: e.category,
+        description: e.description,
+        amount: parseFloat(e.amount),
+        date: e.date,
+        reference: e.reference,
+        status: e.status,
+        approvedBy: e.approved_by,
+        is_active: e.is_active,
+        createdBy: e.created_by,
+        createdAt: e.created_at,
+        updatedAt: e.updated_at
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/expenses/:id/reject - Reject expense
+router.put('/:id/reject', authenticate, authorize('finance_manager', 'admin', 'owner'), async (req, res) => {
+  try {
+    const checkResult = await query(
+      `SELECT * FROM expenses WHERE id = $1`,
+      [req.params.id]
+    );
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Expense not found' });
+    }
+    const expense = checkResult.rows[0];
+    if (expense.status === 'rejected') {
+      return res.status(400).json({ error: 'Expense already rejected' });
+    }
+    const updateResult = await query(
+      `UPDATE expenses
+       SET status = 'rejected', approved_by = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [req.user.id, req.params.id]
+    );
+    const e = updateResult.rows[0];
+    res.json({
+      message: 'Expense rejected successfully',
       expense: {
         id: e.id,
         category: e.category,
@@ -460,7 +513,7 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // DELETE /api/expenses/:id - Delete expense
-router.delete('/:id', authenticate, authorize('finance_manager', 'admin'), async (req, res) => {
+router.delete('/:id', authenticate, authorize('finance_manager', 'admin', 'owner'), async (req, res) => {
   try {
     const result = await query(
       `DELETE FROM expenses WHERE id = $1 RETURNING id`,

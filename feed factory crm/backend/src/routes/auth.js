@@ -25,13 +25,22 @@ const safeUser = (user) => ({
   name: user.name,
   email: user.email,
   role: user.role,
-  department: user.department
+  department: user.department,
+  modulePermissions: Array.isArray(user.module_permissions)
+    ? user.module_permissions
+    : (user.module_permissions ? JSON.parse(user.module_permissions) : [])
 });
 
 // POST /api/auth/register
+// SECURITY: This is a public, unauthenticated endpoint. It must NEVER trust
+// role/department from the request body — doing so allows anyone to create
+// an owner/admin account with no authentication at all. All accounts created
+// here are forced to the lowest-privilege role. Privileged accounts (manager
+// roles, admin, owner) must be created by an existing admin/owner via
+// Settings -> User Management (see POST /api/users below), not via this route.
 router.post('/register', async (req, res) => {
   try {
-    const { name, email: rawEmail, password, role, department } = req.body;
+    const { name, email: rawEmail, password } = req.body;
     const email = (rawEmail || '').trim().toLowerCase();
 
     if (!name || !email || !password) {
@@ -47,12 +56,14 @@ router.post('/register', async (req, res) => {
     // Hash password
     const password_hash = await bcrypt.hash(password, 12);
 
-    // Insert user with real column names
+    // Role and department are NEVER taken from the request body here.
+    // Self-registered accounts always get the lowest-privilege role.
+    // An admin/owner must promote the account afterward via User Management.
     const result = await query(
       `INSERT INTO users (name, email, password_hash, role, department, is_active, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       VALUES ($1, $2, $3, 'sales_rep', 'Sales', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        RETURNING id, name, email, role, department, is_active, created_at`,
-      [name, email, password_hash, role || 'sales_rep', department || 'Sales']
+      [name, email, password_hash]
     );
 
     const user = result.rows[0];
@@ -77,7 +88,7 @@ router.post('/login', async (req, res) => {
 
     // Query user with real column names
     const result = await query(
-      `SELECT id, email, password_hash, name, role, department, is_active
+      `SELECT id, email, password_hash, name, role, department, is_active, module_permissions
        FROM users WHERE email = $1`,
       [email]
     );
@@ -114,7 +125,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authenticate, async (req, res) => {
   try {
     const result = await query(
-      `SELECT id, email, name, role, department, is_active, last_login, created_at, updated_at
+      `SELECT id, email, name, role, department, is_active, last_login, created_at, updated_at, module_permissions
        FROM users WHERE id = $1`,
       [req.user.id]
     );

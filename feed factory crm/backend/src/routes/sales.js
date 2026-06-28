@@ -6,6 +6,16 @@ const { notifyRole, notifyUser } = require('../utils/notify');
 const { logActivity } = require('../utils/activity');
 const { journalInvoiceCreated } = require('../utils/journal');
 
+const generateCode = async (prefix, tableName, codeColumn) => {
+  const year = new Date().getFullYear();
+  const result = await query(
+    `SELECT COUNT(*) as count FROM ${tableName} WHERE ${codeColumn} LIKE $1`,
+    [`${prefix}-${year}-%`]
+  );
+  const count = parseInt(result.rows[0].count) + 1;
+  return `${prefix}-${year}-${String(count).padStart(4, '0')}`;
+};
+
 // ============================================
 // SALES ROUTES - Complete Sales Module API
 // Includes: Orders, Invoices, Client Assignment, Reminders
@@ -288,6 +298,7 @@ router.get('/orders', authenticate, authorize(...salesRoles), async (req, res) =
   try {
     let sql = `
       SELECT so.*, c.name_arabic as client_name, c.name_english as client_name_en,
+             c.code as client_code, c.payment_terms as client_payment_terms,
              u.name as created_by_name, approver.name as approved_by_name,
              (SELECT COUNT(*) FROM sales_order_items WHERE order_id = so.id) as item_count,
              (SELECT status FROM production_orders po 
@@ -295,7 +306,11 @@ router.get('/orders', authenticate, authorize(...salesRoles), async (req, res) =
               ORDER BY po.created_at DESC LIMIT 1) as production_status,
              (SELECT order_number FROM production_orders po 
               WHERE po.notes LIKE '%' || so.order_number || '%' 
-              ORDER BY po.created_at DESC LIMIT 1) as production_order_number
+              ORDER BY po.created_at DESC LIMIT 1) as production_order_number,
+             (SELECT id FROM invoices i WHERE i.order_id = so.id LIMIT 1) as invoice_id,
+             (SELECT invoice_number FROM invoices i WHERE i.order_id = so.id LIMIT 1) as invoice_number,
+             (SELECT status FROM invoices i WHERE i.order_id = so.id LIMIT 1) as invoice_status,
+             (SELECT amount FROM invoices i WHERE i.order_id = so.id LIMIT 1) as invoice_amount
       FROM sales_orders so
       JOIN clients c ON so.client_id = c.id
       LEFT JOIN users u ON so.created_by = u.id
@@ -331,6 +346,28 @@ router.get('/orders', authenticate, authorize(...salesRoles), async (req, res) =
     params.push(limit, (page - 1) * limit);
     
     const result = await query(sql, params);
+    
+    // Fetch items and invoices for all returned orders
+    if (result.rows.length > 0) {
+      const orderIds = result.rows.map(o => o.id);
+      const itemsResult = await query(
+        `SELECT soi.order_id, soi.quantity, soi.package_size, ft.name_arabic as feed_type_name,
+                 (soi.quantity * soi.package_size / 1000.0) as quantity_tons,
+                 soi.unit_price, soi.total_price
+         FROM sales_order_items soi
+         JOIN feed_types ft ON soi.feed_type_id = ft.id
+         WHERE soi.order_id = ANY($1)`,
+        [orderIds]
+      );
+      const itemsByOrder = {};
+      for (const item of itemsResult.rows) {
+        if (!itemsByOrder[item.order_id]) itemsByOrder[item.order_id] = [];
+        itemsByOrder[item.order_id].push(item);
+      }
+      for (const order of result.rows) {
+        order.items = itemsByOrder[order.id] || [];
+      }
+    }
     
     // Get total count for pagination
     let countSql = `SELECT COUNT(*) FROM sales_orders so JOIN clients c ON so.client_id = c.id WHERE 1=1`;
@@ -399,22 +436,26 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
       SELECT COUNT(*) as required FROM client_required_docs WHERE is_required = true
     `);
     const docActual = await query(`
-      SELECT COUNT(DISTINCT description) as uploaded FROM documents 
-      WHERE entity_type = 'client' AND entity_id = $1 AND description IS NOT NULL
+      SELECT COUNT(DISTINCT ld.type) as uploaded FROM legal_documents ld
+      WHERE ld.client_id = $1 AND ld.status = 'verified'
+      AND EXISTS (
+        SELECT 1 FROM client_required_docs crd WHERE crd.doc_type = ld.type AND crd.is_required = true
+      )
     `, [clientId]);
     const required = parseInt(docCheck.rows[0].required) || 0;
     const uploaded = parseInt(docActual.rows[0].uploaded) || 0;
     if (required > 0 && uploaded < required) {
       const missing = await query(`
-        SELECT label_arabic, label_english FROM client_required_docs 
+        SELECT label_arabic, label_english FROM client_required_docs
         WHERE is_required = true AND doc_type NOT IN (
-          SELECT description FROM documents WHERE entity_type = 'client' AND entity_id = $1 AND description IS NOT NULL
+          SELECT ld.type FROM legal_documents ld
+          WHERE ld.client_id = $1 AND ld.status = 'verified'
         ) ORDER BY sort_order
       `, [clientId]);
       const missingLabels = missing.rows.map(r => r.label_arabic || r.label_english).join(', ');
       return res.status(400).json({
         success: false,
-        error: `Client must complete all required documents before placing orders. Missing: ${missingLabels}`,
+        error: `يجب على العميل استكمال المستندات المطلوبة قبل إنشاء الطلبات. المستندات الناقصة: ${missingLabels}`,
         missingDocuments: missing.rows.map(r => r.label_arabic || r.label_english),
         documentsRequired: required,
         documentsUploaded: uploaded
@@ -434,48 +475,44 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
       
       const { credit_limit, current_balance } = clientResult.rows[0];
 
-      // Calculate totals — ALL in tons, price per ton from recipe cost + 16.5% margin
-      const PROFIT_MARGIN = 0.165; // 16.5%
+      // Calculate totals — price per ton from feed_pricing, quantity in bags
       let totalAmount = 0;
       const itemsWithCost = [];
       for (const item of items) {
-        const tons = parseFloat(item.quantity) || 0; // quantity is in tons
-        const pkg = item.packageSize || 50; // bag size for inventory, default 50kg
+        const tons = parseFloat(item.quantityTons) || 0;
+        const pkg = parseInt(item.packageSize) || 50;
+        let pricePerTon = parseFloat(item.pricePerTon) || 0;
 
-        // Get recipe cost per ton
-        let costPerTon = 0;
-        let pricePerTon = parseFloat(item.unitPrice) || 0;
+        // Fetch cost_price and validate selling price from feed_pricing
+        let costPricePerTon = 0;
         try {
-          const recipeRes = await client.query(
-            `SELECT total_cost, total_quantity_kg FROM feed_recipes WHERE feed_type_id = $1 AND is_active = true ORDER BY version DESC LIMIT 1`,
-            [item.feedTypeId]
+          const pricingRes = await client.query(
+            `SELECT selling_price_75, cost_price FROM feed_pricing WHERE feed_type_id = $1 AND package_size = $2 AND is_active = true LIMIT 1`,
+            [item.feedTypeId, pkg]
           );
-          if (recipeRes.rows.length > 0) {
-            const totalCost = parseFloat(recipeRes.rows[0].total_cost) || 0;
-            const totalKg = parseFloat(recipeRes.rows[0].total_quantity_kg) || 1000;
-            costPerTon = (totalCost / totalKg) * 1000;
+          if (pricingRes.rows.length > 0) {
+            const dbPrice = parseFloat(pricingRes.rows[0].selling_price_75) || 0;
+            costPricePerTon = parseFloat(pricingRes.rows[0].cost_price) || 0;
+            if (dbPrice > 0) {
+              pricePerTon = dbPrice; // DB price is authoritative; ignore frontend value
+            }
           }
         } catch (e) {
-          console.error('Error fetching recipe cost:', e.message);
+          console.error('Error fetching feed pricing:', e.message);
         }
 
-        // Calculate selling price per ton: cost × (1 + margin) or use provided price
-        if (!pricePerTon && costPerTon > 0) {
-          pricePerTon = costPerTon * (1 + PROFIT_MARGIN);
-        }
-
-        // Total = tons × price per ton
+        const quantityBags = Math.ceil((tons * 1000) / pkg);
         const itemTotal = tons * pricePerTon;
         totalAmount += itemTotal;
 
         itemsWithCost.push({
           feedTypeId: item.feedTypeId,
           packageSize: pkg,
-          quantity: tons, // stored in tons
+          quantity: quantityBags, // number of bags
           unitPrice: pricePerTon, // EGP per ton
           totalPrice: itemTotal,
-          costPerTon,
-          costPrice: costPerTon * tons
+          costPrice: costPricePerTon, // cost per ton from DB
+          totalCost: quantityBags * costPricePerTon / (1000 / pkg)
         });
       }
 
@@ -491,8 +528,7 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
       }
       
       // Generate order number
-      const countResult = await client.query("SELECT COUNT(*) + 1 as next_num FROM sales_orders");
-      const orderNumber = `SO-${String(countResult.rows[0].next_num).padStart(5, '0')}`;
+      const orderNumber = await generateCode('SO', 'sales_orders', 'order_number');
       
       // Append credit limit warning to notes if triggered
       const finalNotes = creditNote 
@@ -508,13 +544,12 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
       
       const newOrder = orderResult.rows[0];
       
-      // Create order items (quantity in tons, prices per ton in EGP)
+      // Create order items (quantity in bags, prices per ton in EGP)
       for (const item of itemsWithCost) {
-        const bags = Math.ceil((item.quantity * 1000) / item.packageSize);
         await client.query(
           `INSERT INTO sales_order_items (order_id, feed_type_id, package_size, quantity, unit_price, total_price, cost_price, total_cost)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [newOrder.id, item.feedTypeId, item.packageSize, item.quantity, item.unitPrice, item.totalPrice, item.costPerTon, item.costPrice]
+          [newOrder.id, item.feedTypeId, item.packageSize, item.quantity, item.unitPrice, item.totalPrice, item.costPrice, item.totalCost]
         );
       }
       
@@ -528,8 +563,8 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
       try {
         const { query } = require('../config/database');
         await query(
-          `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes)
-           VALUES ($1, $2, $3, $4, $5)`,
+          `INSERT INTO approval_requests (module_name, request_type, request_id, requester_id, notes, stage, status)
+           VALUES ($1, $2, $3, $4, $5, 'manager_review', 'pending')`,
           ['sales_orders', 'sales_order', order.id, createdBy, `Order ${order.order_number} - ${order.final_amount} EGP`]
         );
       } catch (e) {
@@ -575,10 +610,10 @@ router.put('/orders/:id/approve', authenticate, authorize(...managerRoles), asyn
 
   try {
     const result = await transaction(async (client) => {
-      // 1. Update order status
+      // 1. Update order status (jump directly to processing per simplified flow)
       const orderResult = await client.query(
         `UPDATE sales_orders
-         SET status = 'approved', approved_by = $1, approved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+         SET status = 'processing', approved_by = $1, approved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
          WHERE id = $2 AND status = 'pending_approval'
          RETURNING *`,
         [approvedBy, orderId]
@@ -609,10 +644,7 @@ router.put('/orders/:id/approve', authenticate, authorize(...managerRoles), asyn
         const creditDays = daysMatch ? parseInt(daysMatch[1]) : 0;
 
         // Generate invoice number
-        const invNumResult = await client.query(
-          "SELECT COUNT(*) + 1 as next_num FROM invoices"
-        );
-        const invoiceNumber = `INV-${String(invNumResult.rows[0].next_num).padStart(5, '0')}`;
+        const invoiceNumber = await generateCode('INV', 'invoices', 'invoice_number');
 
         // Create invoice with due date based on CURRENT_DATE + credit days (PG handles timezone)
         const invResult = await client.query(
@@ -650,31 +682,58 @@ router.put('/orders/:id/approve', authenticate, authorize(...managerRoles), asyn
            VALUES ($1, $2, CURRENT_DATE + INTERVAL '${creditDays} days', $3, 'expected')`,
           [order.client_id, order.final_amount, `Invoice ${invoiceNumber}`]
         );
+
+        // Auto-record payment for cash orders
+        if (paymentTerms === 'cash' && invoice) {
+          await client.query(
+            `INSERT INTO client_payment_history (client_id, invoice_id, amount, date, description, method, collected_by)
+             VALUES ($1, $2, $3, CURRENT_DATE, $4, 'cash', $5)`,
+            [order.client_id, invoice.id, order.final_amount, `Cash payment for invoice ${invoiceNumber}`, approvedBy]
+          );
+          await client.query(
+            `UPDATE invoices SET status = 'paid', balance_due = 0, paid_amount = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [order.final_amount, invoice.id]
+          );
+          await client.query(
+            `UPDATE clients SET current_balance = GREATEST(current_balance - $1, 0), updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [parseFloat(order.final_amount), order.client_id]
+          );
+          await client.query(
+            `UPDATE client_expected_payments SET status = 'paid', updated_at = CURRENT_TIMESTAMP WHERE client_id = $1 AND description = $2`,
+            [order.client_id, `Invoice ${invoiceNumber}`]
+          );
+        }
       }
 
-      // Get order items for production auto-creation (always)
-      const orderItemsResult = await client.query(
-        'SELECT * FROM sales_order_items WHERE order_id = $1',
-        [orderId]
-      );
-
-      return { order, invoice, items: orderItemsResult.rows };
+      return { order, invoice };
     });
 
-    const { order, invoice, items: orderItems } = result;
+    const { order, invoice } = result;
 
-    // Auto-create production order
+    // Auto-create production orders (outside transaction — failure must not roll back approval)
     try {
-      const recipeRes = await query('SELECT id FROM feed_recipes WHERE feed_type_id = $1 LIMIT 1', [orderItems[0]?.feed_type_id]);
-      const recipeId = recipeRes.rows[0]?.id || null;
-      const poNumber = `PO-${order.order_number}`;
-      const totalQty = orderItems.reduce((sum, item) => sum + parseFloat(item.quantity || 0), 0);
-      await query(
-        `INSERT INTO production_orders (order_number, feed_type_id, recipe_id, quantity_kg, status, notes, created_by)
-         VALUES ($1, $2, $3, $4, 'draft', $5, $6)`,
-        [poNumber, orderItems[0]?.feed_type_id || null, recipeId, totalQty || 0, `Auto-created from sales order ${order.order_number}`, approvedBy]
+      const items = await query(
+        'SELECT * FROM sales_order_items WHERE order_id = $1',
+        [order.id]
       );
-    } catch (e) { console.error('Failed to auto-create production order:', e.message); }
+      for (const item of items.rows) {
+        const quantityKg = parseFloat(item.quantity) * 1000;
+        const numberOfBags = item.package_size > 0
+          ? Math.ceil(quantityKg / item.package_size)
+          : 0;
+        const orderNumber = `PRD-${Date.now()}-${item.id}`;
+        await query(
+          `INSERT INTO production_orders
+           (order_number, feed_type_id, quantity_kg, status, production_date,
+            sales_order_id, package_size, number_of_bags, created_by, created_at, updated_at)
+           VALUES ($1, $2, $3, 'pending', CURRENT_DATE, $4, $5, $6, $7, NOW(), NOW())`,
+          [orderNumber, item.feed_type_id, quantityKg, order.id,
+           item.package_size, numberOfBags, req.user.id]
+        );
+      }
+    } catch (prodErr) {
+      console.error('Failed to create production order:', prodErr.message);
+    }
 
     // Create journal entry outside transaction (non-critical)
     if (invoice) {
@@ -691,59 +750,9 @@ router.put('/orders/:id/approve', authenticate, authorize(...managerRoles), asyn
       userId: approvedBy, action: 'approve', module: 'sales',
       description: `Approved sales order ${order.order_number}` + (invoice ? ` and created invoice ${invoice.invoice_number}` : ''),
       entityId: order.id, entityType: 'sales_order',
-      oldStatus: 'pending_approval', newStatus: 'approved',
+      oldStatus: 'pending_approval', newStatus: 'processing',
       amount: parseFloat(order.final_amount)
     });
-
-    // Auto-create production orders for each feed type in the order
-    try {
-      for (const item of orderItems) {
-        const existingProdQuery = await query(
-          `SELECT id FROM production_orders WHERE notes ILIKE $1 AND status NOT IN ('completed','cancelled')`,
-          [`%${order.order_number}%`]
-        );
-        if (existingProdQuery.rows.length === 0) {
-          const recipeRes = await query(
-            'SELECT id FROM feed_recipes WHERE feed_type_id = $1 AND is_active = true LIMIT 1',
-            [item.feed_type_id]
-          );
-          if (recipeRes.rows.length > 0) {
-            const totalKg = item.quantity * 1000; // quantity is in tons
-            const pkgSize = item.package_size || 50;
-            const numBags = Math.ceil(totalKg / pkgSize);
-            // Calculate estimated cost from recipe
-            const recipeCostRes = await query(
-              'SELECT total_cost, total_quantity_kg FROM feed_recipes WHERE id = $1',
-              [recipeRes.rows[0].id]
-            );
-            let estCost = 0;
-            if (recipeCostRes.rows.length > 0) {
-              const rc = parseFloat(recipeCostRes.rows[0].total_cost) || 0;
-              const rq = parseFloat(recipeCostRes.rows[0].total_quantity_kg) || 1000;
-              estCost = (rc / rq) * totalKg;
-            }
-            await query(
-              `INSERT INTO production_orders (order_number, feed_type_id, recipe_id, quantity_kg, package_size, number_of_bags, batch_number, status, production_date, notes, created_by, actual_cost)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, 'draft', CURRENT_DATE, $8, $9, $10)`,
-              [
-                `PROD-${order.order_number}-${item.feed_type_id}`,
-                item.feed_type_id,
-                recipeRes.rows[0].id,
-                totalKg,
-                pkgSize,
-                numBags,
-                `BATCH-${order.order_number}`,
-                `Auto from ${order.order_number}`,
-                approvedBy,
-                estCost
-              ]
-            );
-          }
-        }
-      }
-    } catch (prodErr) {
-      console.error('[PRODUCTION] Failed to auto-create from sales order:', prodErr.message);
-    }
 
     res.json({
       success: true,
@@ -807,7 +816,7 @@ router.put('/orders/:id/reject', authenticate, authorize(...managerRoles), async
 router.put('/orders/:id/status', authenticate, authorize(...salesRoles), async (req, res) => {
   const orderId = req.params.id;
   const { status } = req.body;
-  const validStatuses = ['pending_approval', 'approved', 'confirmed', 'processing', 'in_transit', 'delivered', 'cancelled'];
+  const validStatuses = ['pending_approval', 'processing', 'ready_for_delivery', 'in_transit', 'delivered', 'cancelled'];
   
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ success: false, error: 'Invalid status' });
@@ -981,7 +990,7 @@ router.post('/invoices', authenticate, authorize(...managerRoles), async (req, r
     const invoice = await transaction(async (client) => {
       // Get order details
       const orderResult = await client.query(
-        'SELECT * FROM sales_orders WHERE id = $1 AND status IN (\'approved\', \'confirmed\', \'delivered\')',
+        'SELECT * FROM sales_orders WHERE id = $1 AND status IN (\'processing\', \'ready_for_delivery\', \'delivered\')',
         [orderId]
       );
       
@@ -1002,10 +1011,7 @@ router.post('/invoices', authenticate, authorize(...managerRoles), async (req, r
       }
       
       // Generate invoice number
-      const invNumberResult = await client.query(
-        "SELECT COUNT(*) + 1 as next_num FROM invoices"
-      );
-      const invoiceNumber = `INV-${String(invNumberResult.rows[0].next_num).padStart(5, '0')}`;
+      const invoiceNumber = await generateCode('INV', 'invoices', 'invoice_number');
       
       // Create invoice
       const invoiceResult = await client.query(
@@ -1109,9 +1115,13 @@ router.post('/payments', authenticate, authorize(...salesRoles), async (req, res
         [clientId, invoiceId || null, amount, date || new Date(), description, method, collectedBy]
       );
 
-      // Update invoice if provided
+      // Update invoice if provided, and propagate the resulting status back
+      // to the order it came from so sales_orders.payment_status reflects
+      // what was actually collected rather than drifting out of sync with
+      // the invoice (the same disconnect that caused cash orders to show
+      // as "paid" before any real payment had been recorded).
       if (invoiceId) {
-        await client.query(
+        const invoiceUpdateResult = await client.query(
           `UPDATE invoices
            SET paid_amount = paid_amount + $1,
                balance_due = GREATEST(balance_due - $1, 0),
@@ -1124,9 +1134,18 @@ router.post('/payments', authenticate, authorize(...salesRoles), async (req, res
                  ELSE paid_date
                END,
                updated_at = NOW()
-           WHERE id = $3`,
+           WHERE id = $3
+           RETURNING order_id, status`,
           [amount, date || new Date(), invoiceId]
         );
+
+        const updatedInvoice = invoiceUpdateResult.rows[0];
+        if (updatedInvoice?.order_id) {
+          await client.query(
+            `UPDATE sales_orders SET payment_status = $1, updated_at = NOW() WHERE id = $2`,
+            [updatedInvoice.status === 'paid' ? 'paid' : 'partial', updatedInvoice.order_id]
+          );
+        }
       }
 
       // Update client balance
@@ -1426,7 +1445,7 @@ router.get('/dashboard-stats', authenticate, authorize(...salesRoles), async (re
       let myDeliveredOrders = 0;
       try {
         const activeRes = await query(
-          `SELECT COUNT(*) as count FROM sales_orders WHERE created_by = $1 AND status IN ('approved','confirmed','processing','in_transit')`,
+          `SELECT COUNT(*) as count FROM sales_orders WHERE created_by = $1 AND status IN ('processing','ready_for_delivery','in_transit')`,
           [userId]
         );
         myActiveOrders = parseInt(activeRes.rows[0].count);
@@ -1459,7 +1478,7 @@ router.get('/dashboard-stats', authenticate, authorize(...salesRoles), async (re
       );
 
       const activeOrders = await query(
-        `SELECT COUNT(*) as count FROM sales_orders WHERE status IN ('approved','confirmed','processing','in_transit')`
+        `SELECT COUNT(*) as count FROM sales_orders WHERE status IN ('processing','ready_for_delivery','in_transit')`
       );
 
       const deliveredOrders = await query(

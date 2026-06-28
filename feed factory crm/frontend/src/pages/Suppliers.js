@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency, formatDate, formatNumber, getStatusLabel } from '../utils/formatters';
 import { t } from '../utils/i18n';
 import { 
   Plus, Search, Star, TrendingUp, Truck, Package, 
@@ -57,15 +57,16 @@ const StarRating = ({ rating, size = 16, interactive = false, onChange }) => {
 
 // Performance Badge Component
 const PerformanceBadge = ({ value, type }) => {
+  const safeValue = parseFloat(value) || 0;
   let color, icon;
   
   if (type === 'delivery') {
-    if (value >= 90) { color = '#22c55e'; icon = <CheckCircle2 size={14} />; }
-    else if (value >= 75) { color = '#f59e0b'; icon = <Clock size={14} />; }
+    if (safeValue >= 90) { color = '#22c55e'; icon = <CheckCircle2 size={14} />; }
+    else if (safeValue >= 75) { color = '#f59e0b'; icon = <Clock size={14} />; }
     else { color = '#ef4444'; icon = <AlertCircle size={14} />; }
   } else {
-    if (value >= 4.5) { color = '#22c55e'; }
-    else if (value >= 3.5) { color = '#f59e0b'; }
+    if (safeValue >= 4.5) { color = '#22c55e'; }
+    else if (safeValue >= 3.5) { color = '#f59e0b'; }
     else { color = '#ef4444'; }
   }
   
@@ -82,7 +83,7 @@ const PerformanceBadge = ({ value, type }) => {
       color: color
     }}>
       {icon}
-      {type === 'delivery' ? `${value}%` : value.toFixed(1)}
+      {type === 'delivery' ? `${safeValue}%` : safeValue.toFixed(1)}
     </span>
   );
 };
@@ -290,7 +291,7 @@ const SupplierFormModal = ({
       <div className="modal modal-large" style={{ maxWidth: '700px' }}>
         <div className="modal-header">
           <h2 className="modal-title">
-            {supplier ? 'Edit Supplier' : 'Add New Supplier'}
+            {supplier ? 'تعديل مورد' : 'إضافة مورد جديد'}
           </h2>
           <button className="modal-close" onClick={onClose}>
             <X size={24} />
@@ -302,7 +303,7 @@ const SupplierFormModal = ({
             {/* Basic Information */}
             <div style={{ marginBottom: '24px' }}>
               <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Basic Information
+                المعلومات الأساسية
               </h4>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -400,7 +401,7 @@ const SupplierFormModal = ({
             {/* Banking Information */}
             <div style={{ marginBottom: '24px' }}>
               <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Banking & Tax Information
+                البنك والمعلومات الضريبية
               </h4>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -459,7 +460,7 @@ const SupplierFormModal = ({
             {/* Materials Supplied */}
             <div style={{ marginBottom: '24px' }}>
               <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Materials & Services
+                المواد والخدمات
               </h4>
               
               <MaterialsMultiSelect
@@ -487,7 +488,7 @@ const SupplierFormModal = ({
             {/* Performance Metrics */}
             <div style={{ marginBottom: '24px' }}>
               <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Performance Metrics
+                مؤشرات الأداء
               </h4>
               
               <div className="form-group">
@@ -507,7 +508,7 @@ const SupplierFormModal = ({
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div className="form-group">
-                  <label className="form-label">On-Time Delivery Rate (%)</label>
+                  <label className="form-label">نسبة التسليم في الموعد (%)</label>
                   <input
                     type="number"
                     className="form-input"
@@ -538,7 +539,7 @@ const SupplierFormModal = ({
             {/* Status & Notes */}
             <div>
               <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Status & Notes
+                الحالة والملاحظات
               </h4>
               
               <div className="form-group">
@@ -584,12 +585,12 @@ const SupplierFormModal = ({
               {isLoading ? (
                 <>
                   <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite', marginRight: '8px', display: 'inline' }} />
-                  Saving...
+                  جاري الحفظ...
                 </>
               ) : (
                 <>
                   <Check size={16} style={{ marginRight: '8px', display: 'inline' }} />
-                  {supplier ? 'Update Supplier' : 'Create Supplier'}
+                  {supplier ? 'تحديث المورد' : 'إنشاء مورد'}
                 </>
               )}
             </button>
@@ -654,7 +655,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
               backgroundColor: supplier.status === 'active' ? '#dcfce7' : supplier.status === 'inactive' ? '#f3f4f6' : '#fee2e2',
               color: supplier.status === 'active' ? '#166534' : supplier.status === 'inactive' ? '#6b7280' : '#991b1b'
             }}>
-              {supplier.status}
+              {getStatusLabel(supplier.status)}
             </span>
           </div>
           
@@ -670,35 +671,31 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
           }}>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
-                {supplier.rating.toFixed(1)}
+                {supplier.rating?.toFixed(1) || '0.0'}
               </div>
               <div style={{ fontSize: '12px', color: '#6b7280' }}>التقييم</div>
-              <StarRating rating={supplier.rating} size={12} />
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#22c55e' }}>
-                {supplier.onTimeDelivery}%
-              </div>
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>On-Time</div>
+              <StarRating rating={supplier.rating || 0} size={12} />
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6' }}>
-                {supplier.totalOrders}
+                {supplier.totalOrders || 0}
               </div>
               <div style={{ fontSize: '12px', color: '#6b7280' }}>{t('nav.orders')}</div>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#8b5cf6' }}>
-                {formatCurrency(supplier.totalSpend || 0)}
+            {supplier.totalSpend > 0 && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#8b5cf6' }}>
+                  {formatCurrency(supplier.totalSpend || 0)}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280' }}>إجمالي المشتريات</div>
               </div>
-              <div style={{ fontSize: '12px', color: '#6b7280' }}>إجمالي المشتريات</div>
-            </div>
+            )}
           </div>
           
           {/* Contact Information */}
           <div style={{ marginBottom: '24px' }}>
             <h4 style={{ marginBottom: '12px', color: '#374151', fontSize: '14px', fontWeight: 600 }}>
-              Contact Information
+              معلومات الاتصال
             </h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               {supplier.phone && (
@@ -731,24 +728,24 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
           {/* Banking Information */}
           <div style={{ marginBottom: '24px' }}>
             <h4 style={{ marginBottom: '12px', color: '#374151', fontSize: '14px', fontWeight: 600 }}>
-              Banking & Payment
+              البنك والدفع
             </h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div>
-                <span style={{ color: '#6b7280', fontSize: '12px' }}>Bank:</span>
-                <div>{supplier.bankName || 'N/A'}</div>
+                <span style={{ color: '#6b7280', fontSize: '12px' }}>البنك:</span>
+                <div>{supplier.bankName || '—'}</div>
               </div>
               <div>
-                <span style={{ color: '#6b7280', fontSize: '12px' }}>Account:</span>
-                <div>{supplier.bankAccount || 'N/A'}</div>
+                <span style={{ color: '#6b7280', fontSize: '12px' }}>الحساب:</span>
+                <div>{supplier.bankAccount || '—'}</div>
               </div>
               <div>
-                <span style={{ color: '#6b7280', fontSize: '12px' }}>Tax ID:</span>
-                <div>{supplier.taxId || 'N/A'}</div>
+                <span style={{ color: '#6b7280', fontSize: '12px' }}>الرقم الضريبي:</span>
+                <div>{supplier.taxId || '—'}</div>
               </div>
               <div>
-                <span style={{ color: '#6b7280', fontSize: '12px' }}>Payment Terms:</span>
-                <div>{supplier.paymentTerms || 'N/A'}</div>
+                <span style={{ color: '#6b7280', fontSize: '12px' }}>شروط الدفع:</span>
+                <div>{supplier.paymentTerms || '—'}</div>
               </div>
             </div>
           </div>
@@ -757,7 +754,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
           <div style={{ marginBottom: '24px' }}>
             <h4 style={{ marginBottom: '12px', color: '#374151', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Package size={16} />
-              Materials Supplied ({suppliedMaterials.length})
+              المواد الموردة ({suppliedMaterials.length})
             </h4>
             
             {lowStockMaterials.length > 0 && (
@@ -772,7 +769,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
               }}>
                 <AlertCircle size={16} style={{ color: '#f59e0b' }} />
                 <span style={{ fontSize: '14px', color: '#92400e' }}>
-                  <strong>{lowStockMaterials.length} materials</strong> from this supplier are running low on stock
+                  <strong>{lowStockMaterials.length} مواد</strong> من هذا المورد منخفضة المخزون
                 </span>
               </div>
             )}
@@ -796,10 +793,10 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
                     )}
                   </div>
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    {t('suppliers.stock')}: {parseFloat(material.current_stock || 0).toLocaleString()} {material.unit || 'kg'}
+                    {t('suppliers.stock')}: {formatNumber(parseFloat(material.current_stock || 0))} {material.unit || 'kg'}
                   </div>
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                    {t('suppliers.min')}: {parseFloat(material.min_stock_level || 0).toLocaleString()} {material.unit || 'kg'}
+                    {t('suppliers.min')}: {formatNumber(parseFloat(material.min_stock_level || 0))} {material.unit || 'kg'}
                   </div>
                   <button
                     className="btn btn-sm btn-primary"
@@ -823,29 +820,22 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
           <div style={{ marginBottom: '24px' }}>
             <h4 style={{ marginBottom: '12px', color: '#374151', fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <BarChart3 size={16} />
-              Performance History
+              سجل الأداء
             </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div style={{ padding: '12px', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>On-Time Delivery</div>
-                <PerformanceBadge value={supplier.onTimeDelivery} type="delivery" />
-                <div style={{ marginTop: '8px', fontSize: '12px', color: '#6b7280' }}>
-                  {supplier.onTimeDelivery >= 90 ? 'Excellent' : supplier.onTimeDelivery >= 75 ? 'Good' : 'Needs Improvement'}
-                </div>
-              </div>
-              <div style={{ padding: '12px', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>تقييم الجودة</div>
-                <PerformanceBadge value={supplier.qualityRating} type="quality" />
-                <div style={{ marginTop: '8px' }}>
-                  <StarRating rating={supplier.qualityRating} size={14} />
-                </div>
+            <div style={{ padding: '12px', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
+              <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>التقييم العام</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <StarRating rating={supplier.rating || 0} size={20} />
+                <span style={{ fontSize: '18px', fontWeight: '600', color: '#374151' }}>
+                  {supplier.rating?.toFixed(1) || 'لا يوجد تقييم'}
+                </span>
               </div>
             </div>
-            
+
             {supplier.lastOrderDate && (
               <div style={{ marginTop: '12px', fontSize: '14px', color: '#6b7280' }}>
                 <Clock size={14} style={{ display: 'inline', marginRight: '4px' }} />
-                Last Order: {new Date(supplier.lastOrderDate).toLocaleDateString()}
+                آخر طلب: {formatDate(supplier.lastOrderDate)}
               </div>
             )}
           </div>
@@ -861,7 +851,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
           {supplier.notes && (
             <div>
               <h4 style={{ marginBottom: '12px', color: '#374151', fontSize: '14px', fontWeight: 600 }}>
-                Notes
+                ملاحظات
               </h4>
               <div style={{ padding: '12px', backgroundColor: '#f9fafb', borderRadius: '6px', fontSize: '14px' }}>
                 {supplier.notes}
@@ -915,6 +905,12 @@ const Suppliers = () => {
   const [orderModalData, setOrderModalData] = useState(null);
   const [notification, setNotification] = useState(null);
   
+  // Delete confirmation modal state
+  const [supplierDeleteTarget, setSupplierDeleteTarget] = useState(null);
+  const [supplierDeleteConfirmText, setSupplierDeleteConfirmText] = useState('');
+  const [supplierDeleteLoading, setSupplierDeleteLoading] = useState(false);
+  const [supplierDeleteError, setSupplierDeleteError] = useState('');
+
   // New state variables for supplier editing
   const [editingSupplier, setEditingSupplier] = useState(null);
   const [supplierForm, setSupplierForm] = useState({
@@ -959,9 +955,7 @@ const Suppliers = () => {
           paymentTerms: s.paymentTerms || s.payment_terms || '',
           rating: s.performanceRating || s.performance_rating || 3,
           performanceRating: s.performanceRating || s.performance_rating || 3,
-          onTimeDelivery: 85,
-          qualityRating: 4,
-          totalOrders: s.totalOrders || 0,
+          totalOrders: s.total_orders || 0,
           totalSpend: s.totalSpend || 0,
           status: s.is_active !== false ? 'active' : 'inactive',
           taxId: '',
@@ -999,7 +993,7 @@ const Suppliers = () => {
   // Filter and sort suppliers
   const filteredSuppliers = suppliers.filter(s => {
     const matchesSearch = 
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.materials?.some(m => m.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -1031,6 +1025,7 @@ const Suppliers = () => {
   // Edit modal functions
   const openEditModal = (supplier) => {
     setEditingSupplier(supplier);
+    setModalMode('edit');
     setSupplierForm({
       name: supplier.name || '',
       code: supplier.code || '',
@@ -1109,13 +1104,32 @@ const Suppliers = () => {
   const handleSaveSupplierForm = async () => {
     try {
       // Validate
-      if (!supplierForm.name || !supplierForm.code) {
-        alert('Name and Code are required');
+      if (!supplierForm.name) {
+        alert('اسم المورد مطلوب');
         return;
+      }
+      
+      // Auto-generate supplier code for new suppliers
+      let generatedCode = supplierForm.code;
+      if (!editingSupplier) {
+        try {
+          const existingCodes = suppliers
+            .map(s => s.code)
+            .filter(c => c && c.startsWith('SUP-'))
+            .map(c => parseInt(c.replace('SUP-', ''), 10))
+            .filter(n => !isNaN(n));
+          const maxNum = existingCodes.length > 0 ? Math.max(...existingCodes) : 0;
+          const nextNum = maxNum + 1;
+          generatedCode = 'SUP-' + String(nextNum).padStart(3, '0');
+        } catch (err) {
+          generatedCode = 'SUP-' + Date.now();
+        }
       }
       
       const supplierData = {
         ...supplierForm,
+        code: generatedCode,
+        materialsSupplied: supplierForm.materials,
         _id: editingSupplier?._id || 'sup_' + Date.now(),
         status: 'active',
         updatedAt: new Date().toISOString()
@@ -1131,13 +1145,20 @@ const Suppliers = () => {
         });
         
         if (response.ok) {
-          const updated = await response.json();
-          setSuppliers(suppliers.map(s => s._id === updated._id ? updated : s));
-          showNotification('Supplier updated successfully');
+          const result = await response.json();
+          const updated = result.data || result;
+          const mappedUpdated = {
+            ...supplierData,
+            ...updated,
+            _id: updated.id ?? updated._id ?? supplierData._id,
+            materials: updated.materialsSupplied ?? updated.materials_supplied ?? supplierData.materials,
+          };
+          setSuppliers(suppliers.map(s => s._id === mappedUpdated._id ? mappedUpdated : s));
+          showNotification('تم تحديث المورد بنجاح');
         } else {
           // Demo mode
           setSuppliers(suppliers.map(s => s._id === editingSupplier._id ? supplierData : s));
-          showNotification('Supplier updated successfully');
+          showNotification('تم تحديث المورد بنجاح');
         }
       } else {
         // Create new
@@ -1148,46 +1169,70 @@ const Suppliers = () => {
         });
         
         if (response.ok) {
-          const created = await response.json();
-          setSuppliers([...suppliers, created]);
-          showNotification('Supplier created successfully');
+          const result = await response.json();
+          const created = result.data || result;
+          const mappedCreated = {
+            ...supplierData,
+            ...created,
+            _id: created.id ?? created._id ?? supplierData._id,
+            materials: created.materialsSupplied ?? created.materials_supplied ?? supplierData.materials,
+          };
+          setSuppliers([...suppliers, mappedCreated]);
+          showNotification('تم إنشاء المورد بنجاح');
         } else {
           // Demo mode
           setSuppliers([...suppliers, supplierData]);
-          showNotification('Supplier created successfully');
+          showNotification('تم إنشاء المورد بنجاح');
         }
       }
       
       closeModal();
     } catch (error) {
       console.error('Error saving supplier:', error);
-      alert('Failed to save supplier');
+      alert('فشل حفظ المورد');
     }
   };
 
-  // Handle delete supplier (updated version)
-  const handleDeleteSupplierById = async (supplierId) => {
-    if (!window.confirm('Are you sure you want to delete this supplier?')) {
-      return;
+  // Handle delete supplier (opens confirmation modal)
+  const handleDeleteSupplierById = (supplierId) => {
+    const supplier = suppliers.find(s => s._id === supplierId);
+    if (supplier) {
+      setSupplierDeleteTarget(supplier);
+      setSupplierDeleteConfirmText('');
+      setSupplierDeleteError('');
     }
-    
+  };
+
+  const handleDeleteSupplier = (supplier) => {
+    setSupplierDeleteTarget(supplier);
+    setSupplierDeleteConfirmText('');
+    setSupplierDeleteError('');
+  };
+
+  const handleConfirmDeleteSupplier = async () => {
+    if (!supplierDeleteTarget) return;
+    setSupplierDeleteLoading(true);
     try {
-      const response = await fetch(`${API_URL}/suppliers/${supplierId}`, {
+      const response = await fetch(`${API_URL}/suppliers/${supplierDeleteTarget._id}`, {
         method: 'DELETE',
         headers: headers()
       });
-      
       if (response.ok) {
-        setSuppliers(suppliers.filter(s => s._id !== supplierId));
-        showNotification('Supplier deleted successfully');
+        setSuppliers(suppliers.filter(s => s._id !== supplierDeleteTarget._id));
+        showNotification('تم حذف المورد بنجاح');
       } else {
-        setSuppliers(suppliers.filter(s => s._id !== supplierId));
-        showNotification('Supplier deleted successfully');
+        setSuppliers(suppliers.filter(s => s._id !== supplierDeleteTarget._id));
+        showNotification('تم حذف المورد بنجاح');
       }
+      setSupplierDeleteTarget(null);
+      setSupplierDeleteConfirmText('');
+      setShowModal(false);
+      setSelectedSupplier(null);
     } catch (error) {
       console.error('Error deleting supplier:', error);
-      setSuppliers(suppliers.filter(s => s._id !== supplierId));
-      showNotification('Supplier deleted successfully');
+      setSupplierDeleteError('حدث خطأ في الحذف، حاول مرة أخرى');
+    } finally {
+      setSupplierDeleteLoading(false);
     }
   };
   
@@ -1205,11 +1250,11 @@ const Suppliers = () => {
         if (response.ok) {
           const updated = await response.json();
           setSuppliers(suppliers.map(s => s._id === selectedSupplier._id ? updated : s));
-          showNotification('Supplier updated successfully');
+          showNotification('تم تحديث المورد بنجاح');
         } else {
           // Fallback to local update
           setSuppliers(suppliers.map(s => s._id === selectedSupplier._id ? { ...formData, _id: s._id } : s));
-          showNotification('Supplier updated successfully');
+          showNotification('تم تحديث المورد بنجاح');
         }
       } else {
         // Create new supplier
@@ -1222,12 +1267,12 @@ const Suppliers = () => {
         if (response.ok) {
           const created = await response.json();
           setSuppliers([...suppliers, created]);
-          showNotification('Supplier created successfully');
+          showNotification('تم إنشاء المورد بنجاح');
         } else {
           // Fallback to local creation
           const newSupplier = { ...formData, _id: `new-${Date.now()}`, totalOrders: 0, totalSpend: 0 };
           setSuppliers([...suppliers, newSupplier]);
-          showNotification('Supplier created successfully');
+          showNotification('تم إنشاء المورد بنجاح');
         }
       }
       
@@ -1235,33 +1280,7 @@ const Suppliers = () => {
       setSelectedSupplier(null);
     } catch (error) {
       console.error('Error saving supplier:', error);
-      showNotification('Error saving supplier', 'error');
-    }
-  };
-  
-  // Handle delete supplier
-  const handleDeleteSupplier = async (supplier) => {
-    if (!window.confirm(`Are you sure you want to delete ${supplier.name}?`)) return;
-    
-    try {
-      const response = await fetch(`${API_URL}/suppliers/${supplier._id}`, {
-        method: 'DELETE',
-        headers: headers()
-      });
-      
-      if (response.ok) {
-        setSuppliers(suppliers.filter(s => s._id !== supplier._id));
-        showNotification('Supplier deleted successfully');
-      } else {
-        setSuppliers(suppliers.filter(s => s._id !== supplier._id));
-          showNotification('Supplier deleted successfully');
-      }
-      
-      setShowModal(false);
-      setSelectedSupplier(null);
-    } catch (error) {
-      console.error('Error deleting supplier:', error);
-      showNotification('Error deleting supplier', 'error');
+        showNotification('خطأ في حفظ المورد', 'error');
     }
   };
   
@@ -1295,7 +1314,7 @@ const Suppliers = () => {
       
       if (poResponse.ok) {
         const result = await poResponse.json();
-        showNotification(`Purchase order ${result.data?.poNumber || 'created'} successfully with ${orderData.items.length} materials`);
+        showNotification(`تم إنشاء أمر شراء ${result.data?.poNumber || ''} بنجاح بـ ${orderData.items.length} مواد`);
         
         // Refresh data
         fetchData();
@@ -1304,20 +1323,20 @@ const Suppliers = () => {
         const supplier = suppliers.find(s => s._id === orderData.supplierId);
         if (supplier?.whatsapp) {
           const itemsList = orderData.items.map(item => 
-            `- ${item.materialName}: ${item.quantity} ${item.unit} x ${item.unitPrice} EGP = ${item.total.toLocaleString()} EGP`
+            `- ${item.materialName}: ${item.quantity} ${item.unit} x ${item.unitPrice} EGP = ${formatNumber(item.total)} EGP`
           ).join('\n');
           
-          const message = `New Purchase Order from Al Kheir Feed Factory\n\nPO Number: ${result.data?.poNumber || 'New'}\n\nItems:\n${itemsList}\n\nSubtotal: ${orderData.subtotal.toLocaleString()} EGP\nVAT (14%): ${orderData.vatAmount.toLocaleString()} EGP\nGrand Total: ${orderData.total.toLocaleString()} EGP\n\nDelivery Date: ${orderData.deliveryDate}`;
+          const message = `New Purchase Order from Al Kheir Feed Factory\n\nPO Number: ${result.data?.poNumber || 'New'}\n\nItems:\n${itemsList}\n\nSubtotal: ${formatNumber(orderData.subtotal)} EGP\nVAT (14%): ${formatNumber(orderData.vatAmount)} EGP\nGrand Total: ${formatNumber(orderData.total)} EGP\n\nDelivery Date: ${orderData.deliveryDate}`;
           
           const url = `https://wa.me/${supplier.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
           window.open(url, '_blank');
         }
       } else {
-        showNotification('Failed to create purchase order', 'error');
+        showNotification('فشل إنشاء أمر الشراء', 'error');
       }
     } catch (error) {
       console.error('Error creating order:', error);
-      showNotification('Error creating purchase order: ' + error.message, 'error');
+        showNotification('خطأ في إنشاء أمر الشراء: ' + error.message, 'error');
     }
   };
   
@@ -1475,7 +1494,7 @@ const Suppliers = () => {
               <tr>
                 <td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>
                   <RefreshCw size={32} style={{ animation: 'spin 1s linear infinite', color: '#6b7280' }} />
-                  <p style={{ marginTop: '12px', color: '#6b7280' }}>Loading suppliers...</p>
+                  <p style={{ marginTop: '12px', color: '#6b7280' }}>جاري تحميل الموردين...</p>
                 </td>
               </tr>
             ) : filteredSuppliers.length === 0 ? (
@@ -1484,7 +1503,7 @@ const Suppliers = () => {
                   <Building2 size={48} style={{ color: '#d1d5db', marginBottom: '12px' }} />
                   <p style={{ color: '#6b7280' }}>لم يتم العثور على موردين</p>
                   <button className="btn btn-primary" onClick={openCreateSupplierModal} style={{ marginTop: '12px' }}>
-                    Add Your First Supplier
+                    إضافة أول مورد
                   </button>
                 </td>
               </tr>
@@ -1535,7 +1554,7 @@ const Suppliers = () => {
                           borderRadius: '12px', 
                           fontSize: '11px' 
                         }}>
-                          +{supplier.materials.length - 3} more
+                          +{supplier.materials.length - 3} المزيد
                         </span>
                       )}
                       {(!supplier.materials || supplier.materials.length === 0) && (
@@ -1550,16 +1569,7 @@ const Suppliers = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <StarRating rating={supplier.rating} size={12} />
                         <span style={{ fontSize: '12px', fontWeight: 500 }}>
-                          {supplier.rating?.toFixed(1)}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '8px', fontSize: '11px' }}>
-                        <span style={{ color: '#22c55e' }}>
-                          {supplier.onTimeDelivery}% on-time
-                        </span>
-                        <span style={{ color: '#6b7280' }}>•</span>
-                        <span style={{ color: '#3b82f6' }}>
-                          Q: {supplier.qualityRating?.toFixed(1)}
+                          {supplier.rating?.toFixed(1) || 'لا يوجد تقييم'}
                         </span>
                       </div>
                     </div>
@@ -1567,11 +1577,13 @@ const Suppliers = () => {
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                       <span style={{ fontWeight: 500 }}>
-                        {supplier.totalOrders || 0} orders
+                        {supplier.totalOrders || 0} طلب
                       </span>
-                      <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                        {formatCurrency((supplier.totalSpend || 0))}
-                      </span>
+                      {supplier.totalSpend > 0 && (
+                        <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                          {formatCurrency((supplier.totalSpend || 0))}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td>
@@ -1584,7 +1596,7 @@ const Suppliers = () => {
                       backgroundColor: getStatusColor(supplier.status).bg,
                       color: getStatusColor(supplier.status).color
                     }}>
-                      {supplier.status}
+                      {getStatusLabel(supplier.status)}
                     </span>
                   </td>
                   <td>
@@ -1622,221 +1634,279 @@ const Suppliers = () => {
       {/* New Simplified Edit Modal */}
       {showModal && modalMode !== 'view' && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal modal-large" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>
-            <div className="modal-header">
-              <h3>{editingSupplier ? t('common.edit') + ' ' + t('suppliers.title') : t('suppliers.addSupplier')}</h3>
-              <button onClick={closeModal} className="modal-close"><X size={20} /></button>
+          <div className="modal modal-large" onClick={e => e.stopPropagation()} style={{ maxWidth: '680px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', borderRadius: '16px', overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', background: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', background: '#e3f2fd', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Building2 size={20} color="#1976d2" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#111827' }}>
+                    {editingSupplier ? 'تعديل مورد' : 'إضافة مورد جديد'}
+                  </h3>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#6b7280' }}>
+                    {editingSupplier ? 'تحديث بيانات المورد' : 'أدخل بيانات المورد الجديد'}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={closeModal}
+                style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}
+              >
+                <X size={18} />
+              </button>
             </div>
-            <div className="modal-body" style={{ maxHeight: '70vh', overflow: 'auto' }}>
-              <form onSubmit={(e) => { e.preventDefault(); handleSaveSupplierForm(); }}>
-                {/* Basic Information */}
+
+            {/* Body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+              <form id="supplierForm" onSubmit={(e) => { e.preventDefault(); handleSaveSupplierForm(); }}>
+                {/* Section 1: Basic Information */}
                 <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Basic Information
-                  </h4>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                    <div className="form-group">
-                      <label className="form-label">Supplier Name *</label>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px', marginBottom: '16px' }}>
+                    المعلومات الأساسية
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ margin: 0 }}>
+                      <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                        اسم المورد <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
                       <input
                         type="text"
-                        className="form-input"
                         value={supplierForm.name}
                         onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
-                        placeholder={t('suppliers.enterName')}
+                        placeholder="أدخل اسم المورد"
                         required
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none' }}
+                        onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                        onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                       />
                     </div>
-                    
-                    <div className="form-group">
-                      <label className="form-label">Supplier Code *</label>
+
+                    <div style={{ margin: 0 }}>
+                      <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                        الشخص المسؤول
+                      </label>
                       <input
                         type="text"
-                        className="form-input"
-                        value={supplierForm.code}
-                        onChange={(e) => setSupplierForm({ ...supplierForm, code: e.target.value })}
-                        placeholder={t('suppliers.codeExample')}
-                        required
+                        value={supplierForm.contactPerson}
+                        onChange={(e) => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })}
+                        placeholder="اسم المسؤول عن التواصل"
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none' }}
+                        onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                        onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                       />
                     </div>
-                  </div>
-                  
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label className="form-label">{t('suppliers.contactPerson')}</label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={supplierForm.contactPerson}
-                      onChange={(e) => setSupplierForm({ ...supplierForm, contactPerson: e.target.value })}
-                      placeholder={t('suppliers.contactName')}
-                    />
-                  </div>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                    <div className="form-group">
-                      <label className="form-label">{t('common.phone')}</label>
+
+                    <div style={{ margin: 0 }}>
+                      <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                        الهاتف <span style={{ color: '#ef4444' }}>*</span>
+                      </label>
                       <input
                         type="tel"
-                        className="form-input"
                         value={supplierForm.phone}
                         onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })}
-                        placeholder="+255 XXX XXX XXX"
+                        placeholder="مثال: 01XXXXXXXXX"
+                        required
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none' }}
+                        onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                        onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                       />
                     </div>
-                    
-                    <div className="form-group">
-                      <label className="form-label">{t('suppliers.whatsapp')}</label>
+
+                    <div style={{ margin: 0 }}>
+                      <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                        واتساب
+                      </label>
                       <input
                         type="tel"
-                        className="form-input"
                         value={supplierForm.whatsapp || ''}
                         onChange={(e) => setSupplierForm({ ...supplierForm, whatsapp: e.target.value })}
-                        placeholder="+255 XXX XXX XXX"
+                        placeholder="مثال: 01XXXXXXXXX"
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none' }}
+                        onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                        onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                       />
                     </div>
                   </div>
-                  
-                  <div className="form-group" style={{ marginBottom: '16px' }}>
-                    <label className="form-label">{t('common.email')}</label>
+
+                  <div style={{ marginTop: '16px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                      البريد الإلكتروني
+                    </label>
                     <input
                       type="email"
-                      className="form-input"
                       value={supplierForm.email}
                       onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })}
                       placeholder="email@example.com"
+                      style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none' }}
+                      onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                      onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                     />
                   </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">{t('common.address')}</label>
+
+                  <div style={{ marginTop: '16px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                      العنوان
+                    </label>
                     <textarea
-                      className="form-textarea"
                       value={supplierForm.address}
                       onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })}
-                      placeholder="Full address"
-                      rows="2"
+                      placeholder="العنوان الكامل"
+                      rows={2}
+                      style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', resize: 'vertical' }}
+                      onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                      onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                     />
                   </div>
                 </div>
-                
-                {/* Materials Section */}
+
+                {/* Section 2: Supply Details */}
                 <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    <Package size={16} style={{ display: 'inline', marginRight: '8px' }} />
-                    Materials Supplied
-                  </h4>
-                  
-                  <div className="form-group">
-                    {supplierForm.materials.map((material, index) => (
-                      <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                        <select
-                          className="form-select flex-1"
-                          value={material}
-                          onChange={(e) => updateMaterial(index, e.target.value)}
-                        >
-                          <option value="">Select a material...</option>
-                          {rawMaterials.map((mat) => (
-                            <option key={mat.id || mat._id || mat.code} value={mat.code || mat.name_arabic || mat.name}>{mat.name_arabic || mat.name_english || mat.name || mat.code} ({mat.code})</option>
-                          ))}
-                        </select>
-                        <button 
-                          type="button"
-                          onClick={() => removeMaterial(index)}
-                          className="btn btn-danger"
-                          title="Remove material"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ))}
-                    
-                    {supplierForm.materials.length === 0 && (
-                      <p style={{ color: '#9ca3af', fontSize: '14px', fontStyle: 'italic', marginBottom: '12px' }}>
-                        {t('suppliers.noMaterials')} added yet. Click below to add materials.
-                      </p>
-                    )}
-                    
-                    <button 
-                      type="button"
-                      onClick={addMaterial} 
-                      className="btn btn-secondary"
-                      style={{ marginTop: '8px' }}
-                    >
-                      <Plus size={16} style={{ marginRight: '4px', display: 'inline' }} /> Add Material
-                    </button>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px', marginBottom: '16px' }}>
+                    تفاصيل التوريد
                   </div>
-                </div>
-                
-                {/* Banking & Payment */}
-                <div style={{ marginBottom: '24px' }}>
-                  <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Banking & Payment
-                  </h4>
-                  
+
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                    <div className="form-group">
-                      <label className="form-label">{t('suppliers.bankName')}</label>
+                    <div style={{ margin: 0 }}>
+                      <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                        اسم البنك
+                      </label>
                       <input
                         type="text"
-                        className="form-input"
                         value={supplierForm.bankName}
                         onChange={(e) => setSupplierForm({ ...supplierForm, bankName: e.target.value })}
-                        placeholder="e.g., CRDB Bank"
+                        placeholder="مثال: بنك CIB"
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none' }}
+                        onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                        onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                       />
                     </div>
-                    
-                    <div className="form-group">
-                      <label className="form-label">{t('hr.bankAccount')}</label>
+
+                    <div style={{ margin: 0 }}>
+                      <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                        رقم الحساب البنكي
+                      </label>
                       <input
                         type="text"
-                        className="form-input"
                         value={supplierForm.bankAccount}
                         onChange={(e) => setSupplierForm({ ...supplierForm, bankAccount: e.target.value })}
-                        placeholder="Account number"
+                        placeholder="رقم الحساب"
+                        style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none' }}
+                        onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                        onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                       />
                     </div>
                   </div>
-                  
-                  <div className="form-group">
-                    <label className="form-label">شروط الدفع</label>
+
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                      شروط الدفع
+                    </label>
                     <select
-                      className="form-select"
                       value={supplierForm.paymentTerms}
                       onChange={(e) => setSupplierForm({ ...supplierForm, paymentTerms: e.target.value })}
+                      style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', background: 'white' }}
+                      onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                      onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                     >
-                      <option value="">Select payment terms...</option>
-                      <option value="Cash on Delivery">{t('suppliers.cashOnDelivery')}</option>
-                      <option value="Net 15">Net 15 (15 days)</option>
-                      <option value="Net 30">Net 30 (30 days)</option>
-                      <option value="Net 45">Net 45 (45 days)</option>
-                      <option value="Net 60">Net 60 (60 days)</option>
+                      <option value="">اختر شروط الدفع...</option>
+                      <option value="Cash on Delivery">الدفع عند الاستلام</option>
+                      <option value="Net 15">Net 15 (15 يوم)</option>
+                      <option value="Net 30">Net 30 (30 يوم)</option>
+                      <option value="Net 45">Net 45 (45 يوم)</option>
+                      <option value="Net 60">Net 60 (60 يوم)</option>
                     </select>
                   </div>
+
+                  <div>
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                      المواد الموردة
+                    </label>
+                    <div style={{ margin: 0 }}>
+                      {supplierForm.materials.map((material, index) => (
+                        <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                          <select
+                            value={material}
+                            onChange={(e) => updateMaterial(index, e.target.value)}
+                            style={{ flex: 1, padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', background: 'white' }}
+                            onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                            onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
+                          >
+                            <option value="">اختر مادة...</option>
+                            {rawMaterials.map((mat) => (
+                              <option key={mat.id || mat._id || mat.code} value={mat.code || mat.name_arabic || mat.name}>
+                                {mat.name_arabic || mat.name_english || mat.name || mat.code} ({mat.code})
+                              </option>
+                            ))}
+                          </select>
+                          <button 
+                            type="button"
+                            onClick={() => removeMaterial(index)}
+                            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #fee2e2', background: '#fee2e2', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            title="حذف المادة"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+
+                      {supplierForm.materials.length === 0 && (
+                        <p style={{ color: '#9ca3af', fontSize: '14px', fontStyle: 'italic', marginBottom: '12px' }}>
+                          لم يتم إضافة مواد بعد. اضغط أدناه لإضافة مواد.
+                        </p>
+                      )}
+
+                      <button 
+                        type="button"
+                        onClick={addMaterial}
+                        style={{ marginTop: '8px', padding: '8px 16px', borderRadius: '8px', border: '1px solid #e5e7eb', background: 'white', color: '#374151', fontSize: '14px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <Plus size={16} /> إضافة مادة
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                
-                {/* Notes */}
+
+                {/* Section 3: Notes */}
                 <div>
-                  <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Notes
-                  </h4>
-                  
-                  <div className="form-group">
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px', marginBottom: '16px' }}>
+                    ملاحظات
+                  </div>
+
+                  <div style={{ margin: 0 }}>
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
+                      ملاحظات إضافية
+                    </label>
                     <textarea
-                      className="form-textarea"
                       value={supplierForm.notes}
                       onChange={(e) => setSupplierForm({ ...supplierForm, notes: e.target.value })}
-                      placeholder="Additional notes about this supplier..."
-                      rows="3"
+                      placeholder="ملاحظات إضافية عن المورد..."
+                      rows={3}
+                      style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', resize: 'vertical' }}
+                      onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
+                      onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
                     />
                   </div>
                 </div>
               </form>
             </div>
-            <div className="modal-footer">
-              <button onClick={closeModal} className="btn btn-secondary">{t('common.cancel')}</button>
-              <button onClick={handleSaveSupplierForm} className="btn btn-primary">
-                <Check size={16} style={{ marginRight: '8px', display: 'inline' }} />
-                {editingSupplier ? 'Update Supplier' : 'Create Supplier'}
+
+            {/* Footer */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderTop: '1px solid #e5e7eb', background: 'white' }}>
+              <button 
+                onClick={closeModal}
+                style={{ padding: '10px 20px', borderRadius: '8px', border: '1px solid #d1d5db', background: 'white', color: '#374151', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}
+              >
+                إلغاء
+              </button>
+              <button 
+                onClick={handleSaveSupplierForm}
+                style={{ padding: '10px 24px', borderRadius: '8px', border: 'none', background: '#3b82f6', color: 'white', fontSize: '14px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Plus size={18} />
+                {editingSupplier ? 'تحديث المورد' : 'إضافة مورد'}
               </button>
             </div>
           </div>
@@ -1861,6 +1931,55 @@ const Suppliers = () => {
           onClose={() => setOrderModalData(null)}
           onSubmit={handleCreateOrder}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {supplierDeleteTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', maxWidth: '480px', width: '90%', borderRadius: '12px', padding: '24px' }}>
+            <h3 style={{ fontWeight: 'bold', fontSize: '18px', color: '#dc2626', margin: '0 0 16px 0' }}>حذف مورد</h3>
+            <p style={{ margin: '0 0 12px 0' }}>
+              المورد: <strong>{supplierDeleteTarget?.name}</strong>
+            </p>
+            <p style={{ margin: '0 0 16px 0', color: '#374151' }}>
+              لحذف هذا المورد نهائياً، اكتب اسمه بالكامل:
+            </p>
+            <input
+              type="text"
+              value={supplierDeleteConfirmText}
+              onChange={e => { setSupplierDeleteConfirmText(e.target.value); setSupplierDeleteError(''); }}
+              placeholder="اكتب الاسم هنا..."
+              dir="rtl"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '14px', marginBottom: '8px' }}
+            />
+            {supplierDeleteError && (
+              <p style={{ color: '#ef4444', fontSize: '13px', margin: '4px 0 12px 0' }}>{supplierDeleteError}</p>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '16px' }}>
+              <button
+                onClick={() => { setSupplierDeleteTarget(null); setSupplierDeleteConfirmText(''); setSupplierDeleteError(''); }}
+                style={{ background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', padding: '10px 20px', cursor: 'pointer', fontSize: '14px' }}
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleConfirmDeleteSupplier}
+                disabled={supplierDeleteLoading || supplierDeleteConfirmText.trim().toLowerCase() !== (supplierDeleteTarget?.name || '').trim().toLowerCase()}
+                style={{
+                  background: supplierDeleteConfirmText.trim().toLowerCase() === (supplierDeleteTarget?.name || '').trim().toLowerCase() ? '#dc2626' : '#9ca3af',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '10px 20px',
+                  cursor: supplierDeleteConfirmText.trim().toLowerCase() === (supplierDeleteTarget?.name || '').trim().toLowerCase() ? 'pointer' : 'not-allowed',
+                  fontSize: '14px'
+                }}
+              >
+                {supplierDeleteLoading ? 'جاري الحذف...' : 'تأكيد الحذف'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

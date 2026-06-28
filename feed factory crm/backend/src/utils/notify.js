@@ -1,16 +1,20 @@
 const { query } = require('../config/database');
 
 async function createNotification({ userId, role, module, type, title, message, referenceId, referenceType }) {
+  if (!userId && !role) {
+    console.warn('createNotification called without userId or role — skipping');
+    return null;
+  }
   try {
     let sql, params;
     if (userId) {
       sql = `INSERT INTO notifications (user_id, role, module, type, title, message, reference_id, reference_type)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`;
-      params = [userId, role || null, module, type, title, message, referenceId || null, referenceType || null];
+      params = [userId, role || null, module || null, type, title, message, referenceId || null, referenceType || null];
     } else if (role) {
       sql = `INSERT INTO notifications (role, module, type, title, message, reference_id, reference_type)
              VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`;
-      params = [role, module, type, title, message, referenceId || null, referenceType || null];
+      params = [role, module || null, type, title, message, referenceId || null, referenceType || null];
     } else {
       return null;
     }

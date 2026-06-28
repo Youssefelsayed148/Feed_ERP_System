@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Scale, Settings, LogOut, ChevronRight,
   ShoppingCart, Package, ClipboardList, Truck, Factory, FileText,
@@ -7,7 +7,7 @@ import {
   Shield, AlertTriangle, Building, Menu, X, ChevronDown, Wrench,
   Receipt, BarChart3, UserPlus, FileCheck, Gavel, HardDrive, Globe,
   ChefHat, Wallet, MessageCircle, Bot, Bell, Calendar, ArrowRight, CheckCircle,
-  AlertCircle, Check, UserCircle
+  AlertCircle, Check, UserCircle, ClipboardCheck
 } from 'lucide-react';
 import { t } from '../../utils/i18n';
 import { useDispatch } from 'react-redux';
@@ -23,6 +23,7 @@ const headers = () => ({
 
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const user = authService.getCurrentUser();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -177,6 +178,8 @@ const Sidebar = () => {
 
     const hasModulePermission = (module) => {
       if (role === 'admin' || role === 'owner' || role === 'ceo') return true;
+      // finance_manager gets hr and payroll access per permissions doc
+      if (role === 'finance_manager' && (module === 'hr' || module === 'payroll')) return true;
       return modulePermissions.includes(module);
     };
     
@@ -254,6 +257,9 @@ const Sidebar = () => {
     if (hasModulePermission('delivery')) {
       menuItems.push({ path: '/delivery', icon: Truck, label: t('nav.delivery'), module: 'delivery' });
     }
+
+    // Approvals visible to ALL authenticated users — each sees only their relevant tabs
+    menuItems.push({ path: '/approvals', icon: ClipboardCheck, label: t('nav.approvals'), module: 'approvals' });
     
     if (role === 'admin' || role === 'owner' || role === 'ceo') {
       menuItems.push({ path: '/settings', icon: Settings, label: t('nav.settings'), module: 'settings' });
@@ -306,8 +312,8 @@ const Sidebar = () => {
             }}>{unreadCount > 99 ? '99+' : unreadCount}</span>
           )}
         </div>
-        {pendingApprovals > 0 && ['owner', 'admin', 'sales_manager', 'hr_manager', 'finance_manager'].includes(user?.role) && (
-          <div onClick={() => window.location.href = '/settings'} style={{ position: 'relative', cursor: 'pointer', padding: '4px', marginLeft: '4px' }}>
+        {pendingApprovals > 0 && (
+          <div onClick={() => navigate('/approvals')} style={{ position: 'relative', cursor: 'pointer', padding: '4px', marginLeft: '4px' }}>
             <AlertCircle size={20} color="#f59e0b" />
             <span style={{
               position: 'absolute', top: '-4px', right: '-4px',
