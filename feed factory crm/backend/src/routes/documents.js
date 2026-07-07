@@ -131,7 +131,7 @@ router.get('/:entityType/:entityId', authenticate, async (req, res) => {
 // ============================================
 // DELETE DOCUMENT
 // ============================================
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, authorize('admin', 'owner'), async (req, res) => {
   const documentId = req.params.id;
 
   try {

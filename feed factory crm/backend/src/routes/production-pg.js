@@ -4,6 +4,7 @@ const { query, transaction } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { logActivity } = require('../utils/activity');
 const { journalProductionCompleted } = require('../utils/journal');
+const { checkAndCreateRequisition } = require('../services/autoReorderCheck');
 
 router.use(authenticate);
 
@@ -25,7 +26,7 @@ router.get('/production-orders', authenticate, async (req, res) => {
       SELECT
         po.id, po.order_number, po.quantity_kg, po.batch_number,
         po.status, po.production_date, po.completion_date,
-        po.actual_cost, po.notes, po.created_at,
+        po.actual_cost, po.notes, po.created_at, po.sales_order_id,
         ft.code as feed_code, ft.name_arabic as feed_name_arabic,
         ft.name_english as feed_name_english,
         so.order_number as sales_order_number,
@@ -306,7 +307,7 @@ router.put('/production-orders/:id/approve', authenticate, authorize('production
             VALUES ($1, $2, $3, $4, $5)
           `, [id, ri.raw_material_id, scaledQty, unitPrice, scaledQty * unitPrice]);
         }
-        console.log(`[PRODUCTION] Auto-created ${recipeItems.rows.length} material items for PO #${id}`);
+
       }
 
       await client.query(`UPDATE production_orders SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
@@ -321,8 +322,8 @@ router.put('/production-orders/:id/approve', authenticate, authorize('production
   }
 });
 
-// PUT start production order - production_manager, warehouse_manager, admin, owner
-router.put('/production-orders/:id/start', authenticate, authorize('production_mgr', 'warehouse_manager', 'admin', 'owner'), async (req, res) => {
+// PUT start production order - production_manager, admin, owner
+router.put('/production-orders/:id/start', authenticate, authorize('production_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
@@ -342,8 +343,9 @@ router.put('/production-orders/:id/start', authenticate, authorize('production_m
 
       const order = orderResult.rows[0];
 
-      // If starting from approved status, consume raw materials
-      if (order.status === 'approved') {
+      // If materials not yet deducted, consume raw materials
+      const deductedMaterialIds = [];
+      if (!order.materials_deducted) {
         // Get planned materials
         const materialsResult = await client.query(`
           SELECT 
@@ -385,6 +387,7 @@ router.put('/production-orders/:id/start', authenticate, authorize('production_m
                   updated_at = CURRENT_TIMESTAMP
               WHERE id = $2
             `, [actualQty, material.raw_material_id]);
+            deductedMaterialIds.push(material.raw_material_id);
 
             // Record inventory transaction
             await client.query(`
@@ -405,18 +408,19 @@ router.put('/production-orders/:id/start', authenticate, authorize('production_m
           }
         }
 
-        // Update order status to in_progress with actual cost
+        // Update order status to in_progress with actual cost and mark deducted
         const updateResult = await client.query(`
           UPDATE production_orders 
           SET status = 'in_progress', 
               actual_cost = $1,
+              materials_deducted = true,
               notes = COALESCE($2, notes),
               updated_at = CURRENT_TIMESTAMP
           WHERE id = $3
           RETURNING *
         `, [totalActualCost, notes, id]);
 
-        return updateResult.rows[0];
+        return { order: updateResult.rows[0], deductedMaterialIds };
       }
 
       // Simple status update for draft → in_progress
@@ -432,15 +436,29 @@ router.put('/production-orders/:id/start', authenticate, authorize('production_m
       return updateResult.rows[0];
     });
 
+    const startedOrder = result.order || result;
+    const startDeductions = result.deductedMaterialIds || [];
+
     res.json({
       success: true,
       message: 'Production started successfully',
-      order: result
+      order: startedOrder
     });
+
+    // Auto-reorder check — fire-and-forget
+    if (startDeductions.length > 0) {
+      try {
+        checkAndCreateRequisition(
+          startDeductions,
+          req.user?.id || 0,
+          'تم الإنشاء تلقائياً بسبب استهلاك المواد عند بدء الإنتاج'
+        ).catch(() => {});
+      } catch (e) { /* never blocks */ }
+    }
   } catch (error) {
     console.error('Error starting production order:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to start production order' 
+    res.status(500).json({
+      error: error.message || 'Failed to start production order'
     });
   }
 });
@@ -466,9 +484,10 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
       }
 
       const order = orderResult.rows[0];
+      const deductedMaterialIds = [];
 
-      // If coming from approved (not in_progress), we need to deduct stock too
-      if (order.status === 'approved') {
+      // If materials not yet deducted, deduct stock now
+      if (!order.materials_deducted) {
         const materialsResult = await client.query(`
           SELECT 
             poi.id, poi.raw_material_id, poi.planned_quantity,
@@ -503,6 +522,7 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = $2
           `, [actualQty, material.raw_material_id]);
+          deductedMaterialIds.push(material.raw_material_id);
 
           await client.query(`
             INSERT INTO inventory_transactions 
@@ -554,6 +574,7 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
           INSERT INTO inventory_transactions (raw_material_id, transaction_type, quantity, unit_price, total_cost, reference_id, reference_type, notes, created_by, created_at)
           VALUES (25, 'production', $1, (SELECT unit_price FROM raw_materials WHERE id = 25), $1 * (SELECT unit_price FROM raw_materials WHERE id = 25), $2, 'production', 'Bags used for packaging', $3, NOW())
         `, [-numBags, id, userId]);
+        deductedMaterialIds.push(25);
       }
 
       // Update order status
@@ -562,6 +583,7 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
         SET status = 'completed', 
             completion_date = CURRENT_DATE,
             actual_cost = COALESCE($1, actual_cost),
+            materials_deducted = true,
             quantity_kg = COALESCE($2, quantity_kg),
             notes = COALESCE($3, notes),
             updated_at = CURRENT_TIMESTAMP
@@ -588,7 +610,7 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
         }
       }
 
-      return { order: updatedOrder, salesOrderUpdated };
+      return { order: updatedOrder, salesOrderUpdated, deductedMaterialIds };
     });
 
     logActivity({
@@ -608,10 +630,21 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
         : 'Production order completed successfully.',
       order: result.order
     });
+
+    // Auto-reorder check — fire-and-forget
+    if (result.deductedMaterialIds && result.deductedMaterialIds.length > 0) {
+      try {
+        checkAndCreateRequisition(
+          result.deductedMaterialIds,
+          req.user?.id || 0,
+          'تم الإنشاء تلقائياً بسبب استهلاك المواد عند إكمال الإنتاج'
+        ).catch(() => {});
+      } catch (e) { /* never blocks */ }
+    }
   } catch (error) {
     console.error('Error completing production order:', error);
-    res.status(500).json({ 
-      error: error.message || 'Failed to complete production order' 
+    res.status(500).json({
+      error: error.message || 'Failed to complete production order'
     });
   }
 });

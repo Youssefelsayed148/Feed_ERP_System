@@ -4,6 +4,7 @@ const { query, transaction } = require('../config/database');
 const { authenticate: auth, authorize } = require('../middleware/auth');
 const { journalPayableCreated } = require('../utils/journal');
 const { logActivity } = require('../utils/activity');
+const { checkAndCreateRequisition } = require('../services/autoReorderCheck');
 
 // Ensure required columns exist (runtime schema safety for older DBs)
 (async () => {
@@ -197,7 +198,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // POST /api/grn - Create GRN from PO
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, authorize('purchasing_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { grn_number: req_grn, purchase_order_id: po_id, supplier_id, receipt_date, notes, items } = req.body;
     const grn_number = req_grn || await generateCode('GRN', 'goods_receipt_notes', 'grn_number');
@@ -259,7 +260,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // PUT /api/grn/:id/inspect - Inspect GRN (record received quantities)
-router.put('/:id/inspect', auth, async (req, res) => {
+router.put('/:id/inspect', auth, authorize('purchasing_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const { items, notes } = req.body;
@@ -511,71 +512,13 @@ router.put('/:id/approve', auth, authorize('admin', 'owner'), async (req, res) =
 
     // Auto-reorder check — fire-and-forget, never blocks GRN approval
     try {
-      const lowStockCheck = await query(`
-        SELECT rm.id, rm.name_arabic, rm.current_stock, rm.reorder_level,
-               rm.min_stock_level, rm.unit, rm.unit_price,
-               s.id as supplier_id, s.name as supplier_name,
-               sm.min_order_qty
-        FROM raw_materials rm
-        LEFT JOIN supplier_materials sm ON sm.raw_material_id = rm.id AND sm.is_preferred = true
-        LEFT JOIN suppliers s ON sm.supplier_id = s.id
-        WHERE rm.current_stock <= rm.reorder_level
-          AND rm.is_active = true
-          AND rm.id NOT IN (
-            SELECT DISTINCT ri.raw_material_id
-            FROM requisition_items ri
-            JOIN requisitions r ON r.id = ri.requisition_id
-            WHERE r.status IN ('draft', 'sent')
-              AND ri.raw_material_id IS NOT NULL
-          )
-      `);
-
-      if (lowStockCheck.rows.length > 0) {
-        const numRes = await query(
-          "SELECT COALESCE(MAX(CAST(SUBSTRING(requisition_number FROM 5) AS INTEGER)), 0) + 1 as next_num FROM requisitions WHERE requisition_number LIKE 'REQ-%'"
-        );
-        const reqNumber = `REQ-${String(numRes.rows[0].next_num).padStart(5, '0')}`;
-
-        let totalCost = 0;
-        const reqResult = await query(
-          `INSERT INTO requisitions (requisition_number, status, total_items, total_cost, notes, created_by)
-           VALUES ($1, 'draft', $2, 0, 'تم الإنشاء تلقائياً بسبب انخفاض المخزون بعد اعتماد GRN', $3) RETURNING id`,
-          [reqNumber, lowStockCheck.rows.length, userId]
-        );
-        const reqId = reqResult.rows[0].id;
-
-        for (const mat of lowStockCheck.rows) {
-          const shortage = Math.max(0, parseFloat(mat.reorder_level) - parseFloat(mat.current_stock));
-          const suggestedQty = Math.max(shortage, parseFloat(mat.min_order_qty || 0), 1);
-          const unitPrice = parseFloat(mat.unit_price || 0);
-          const itemTotal = suggestedQty * unitPrice;
-          totalCost += itemTotal;
-
-          await query(
-            `INSERT INTO requisition_items (requisition_id, raw_material_id, suggested_quantity, unit_price, total_cost, supplier_id, supplier_name, notes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-            [
-              reqId, mat.id, suggestedQty, unitPrice, itemTotal,
-              mat.supplier_id || null, mat.supplier_name || null,
-              `المخزون الحالي: ${mat.current_stock} ${mat.unit || 'kg'} — حد إعادة الطلب: ${mat.reorder_level} ${mat.unit || 'kg'}`
-            ]
-          );
-        }
-
-        await query('UPDATE requisitions SET total_cost = $1 WHERE id = $2', [totalCost, reqId]);
-
-        // Notify all owners and admins
-        await query(
-          `INSERT INTO notifications (user_id, type, title, message, module, created_at)
-           SELECT u.id, 'warning',
-             'تنبيه: مخزون منخفض — طلب احتياج تلقائي',
-             $1 || ' مادة تحتاج إعادة طلب — تم إنشاء ' || $2 || ' تلقائياً',
-             'inventory', NOW()
-           FROM users u WHERE u.role IN ('owner', 'admin')`,
-          [lowStockCheck.rows.length, reqNumber]
-        );
-
-        console.log(`[AUTO-REORDER] Created ${reqNumber} with ${lowStockCheck.rows.length} items after GRN approval`);
+      const result = await checkAndCreateRequisition(
+        null,
+        userId,
+        'تم الإنشاء تلقائياً بسبب انخفاض المخزون بعد اعتماد GRN'
+      );
+      if (result.created) {
+        // Auto-reorder requisition created successfully
       }
     } catch (reorderErr) {
       console.error('[AUTO-REORDER] Check failed (GRN approval not affected):', reorderErr.message);

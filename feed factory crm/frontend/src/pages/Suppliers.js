@@ -602,19 +602,31 @@ const SupplierFormModal = ({
 };
 
 // Supplier Detail Modal
-const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder, onDelete }) => {
+const SupplierDetailModal = ({ supplier, onClose, onEdit, onOrder, onDelete }) => {
+  const [suppliedMaterials, setSuppliedMaterials] = useState([]);
+  const [materialsLoading, setMaterialsLoading] = useState(false);
+
+  useEffect(() => {
+    const supplierId = supplier?.id || supplier?._id;
+    if (!supplierId) {
+      setSuppliedMaterials([]);
+      return;
+    }
+    setMaterialsLoading(true);
+    fetch(`${API_URL}/suppliers/${supplierId}/materials`, { headers: headers() })
+      .then(res => res.json())
+      .then(data => setSuppliedMaterials(data.materials || []))
+      .catch(() => setSuppliedMaterials([]))
+      .finally(() => setMaterialsLoading(false));
+  }, [supplier]);
+
   if (!supplier) return null;
-  
-  // Find materials supplied by this supplier (match by material code)
-  const suppliedMaterials = rawMaterials.filter(rm => 
-    supplier.materials.includes(rm.code)
-  );
-  
+
   // Find low stock materials (API fields: current_stock, min_stock_level)
-  const lowStockMaterials = suppliedMaterials.filter(rm => 
+  const lowStockMaterials = suppliedMaterials.filter(rm =>
     parseFloat(rm.current_stock || 0) <= parseFloat(rm.min_stock_level || 0)
   );
-  
+
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal modal-large" style={{ maxWidth: '800px' }}>
@@ -775,13 +787,16 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
             )}
             
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {suppliedMaterials.map((material) => (
+              {materialsLoading && (
+                <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>جاري تحميل المواد...</span>
+              )}
+              {!materialsLoading && suppliedMaterials.map((material) => (
                 <div
                   key={material.id || material._id}
                   style={{
                     padding: '12px',
                     borderRadius: '8px',
-                    border: '1px solid #e5e7eb',
+                    border: material.is_preferred ? '1px solid #3b82f6' : '1px solid #e5e7eb',
                     backgroundColor: parseFloat(material.current_stock || 0) <= parseFloat(material.min_stock_level || 0) ? '#fef3c7' : 'white',
                     minWidth: '200px'
                   }}
@@ -792,12 +807,27 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
                       <AlertCircle size={14} style={{ color: '#f59e0b' }} />
                     )}
                   </div>
+                  {material.is_preferred && (
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#3b82f6', marginBottom: '4px' }}>
+                      مورد مفضل
+                    </div>
+                  )}
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
                     {t('suppliers.stock')}: {formatNumber(parseFloat(material.current_stock || 0))} {material.unit || 'kg'}
                   </div>
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
                     {t('suppliers.min')}: {formatNumber(parseFloat(material.min_stock_level || 0))} {material.unit || 'kg'}
                   </div>
+                  {material.supplier_price != null && (
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      سعر المورد: {formatCurrency(parseFloat(material.supplier_price))}
+                    </div>
+                  )}
+                  {material.lead_time_days != null && (
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                      مهلة التوريد: {material.lead_time_days} يوم
+                    </div>
+                  )}
                   <button
                     className="btn btn-sm btn-primary"
                     style={{ marginTop: '8px', width: '100%' }}
@@ -808,7 +838,7 @@ const SupplierDetailModal = ({ supplier, rawMaterials, onClose, onEdit, onOrder,
                   </button>
                 </div>
               ))}
-              {suppliedMaterials.length === 0 && (
+              {!materialsLoading && suppliedMaterials.length === 0 && (
                 <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>
                   {t('suppliers.noMaterialsLinked')}
                 </span>
@@ -1916,7 +1946,6 @@ const Suppliers = () => {
       {showModal && modalMode === 'view' && selectedSupplier && (
         <SupplierDetailModal
           supplier={selectedSupplier}
-          rawMaterials={rawMaterials}
           onClose={() => { setShowModal(false); setSelectedSupplier(null); }}
           onEdit={(supplier) => { openEditModal(supplier); }}
           onOrder={openOrderModal}

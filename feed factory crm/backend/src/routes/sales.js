@@ -4,7 +4,7 @@ const { query, transaction } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { notifyRole, notifyUser } = require('../utils/notify');
 const { logActivity } = require('../utils/activity');
-const { journalInvoiceCreated } = require('../utils/journal');
+const { journalInvoiceCreated, journalPaymentReceived } = require('../utils/journal');
 
 const generateCode = async (prefix, tableName, codeColumn) => {
   const year = new Date().getFullYear();
@@ -423,7 +423,7 @@ router.get('/orders/:id/items', authenticate, authorize(...salesRoles), async (r
 
 // Create new order
 router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) => {
-  const { clientId, items, deliveryDate, notes, discountAmount = 0, taxAmount = 0 } = req.body;
+  const { clientId, items, deliveryDate, notes, discountAmount = 0, taxAmount = 0, paymentType } = req.body;
   const createdBy = req.user.id;
   
   if (!clientId || !items || !Array.isArray(items) || items.length === 0) {
@@ -465,15 +465,18 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
     const order = await transaction(async (client) => {
       // Check client credit limit
       const clientResult = await client.query(
-        'SELECT credit_limit, current_balance FROM clients WHERE id = $1',
+        'SELECT credit_limit, current_balance, payment_terms FROM clients WHERE id = $1',
         [clientId]
       );
-      
+
       if (clientResult.rows.length === 0) {
         throw new Error('Client not found');
       }
-      
-      const { credit_limit, current_balance } = clientResult.rows[0];
+
+      const { credit_limit, current_balance, payment_terms } = clientResult.rows[0];
+      const paymentMethod = paymentType === 'cash' || paymentType === 'credit'
+        ? paymentType
+        : (payment_terms === 'cash' ? 'cash' : 'credit');
 
       // Calculate totals — price per ton from feed_pricing, quantity in bags
       let totalAmount = 0;
@@ -537,9 +540,9 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
 
       // Create order
       const orderResult = await client.query(
-        `INSERT INTO sales_orders (order_number, client_id, status, total_amount, discount_amount, tax_amount, final_amount, delivery_date, notes, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-        [orderNumber, clientId, orderStatus, totalAmount, discountAmount, taxAmount, finalAmount, deliveryDate, finalNotes, createdBy]
+        `INSERT INTO sales_orders (order_number, client_id, status, total_amount, discount_amount, tax_amount, final_amount, delivery_date, notes, created_by, payment_method)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+        [orderNumber, clientId, orderStatus, totalAmount, discountAmount, taxAmount, finalAmount, deliveryDate, finalNotes, createdBy, paymentMethod]
       );
       
       const newOrder = orderResult.rows[0];
@@ -581,233 +584,24 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
 
     notifyRole('sales_manager', {
       module: 'sales', type: 'order_pending_approval',
-      title: `Order ${order.order_number} Pending Approval`,
-      message: `New sales order ${order.order_number} for client #${clientId} needs approval`,
+      title: `طلب ${order.order_number} بانتظار الاعتماد`,
+      message: `طلب مبيعات جديد ${order.order_number} للعميل #${clientId} بحاجة للاعتماد`,
       referenceId: order.id, referenceType: 'sales_order'
     });
     notifyRole('owner', {
       module: 'sales', type: 'order_pending_approval',
-      title: `Order ${order.order_number} Pending Approval`,
-      message: `New sales order ${order.order_number} created, pending manager approval`,
+      title: `طلب ${order.order_number} بانتظار الاعتماد`,
+      message: `تم إنشاء طلب مبيعات جديد ${order.order_number}، بانتظار اعتماد المدير`,
       referenceId: order.id, referenceType: 'sales_order'
     });
     notifyRole('admin', {
       module: 'sales', type: 'order_pending_approval',
-      title: `Order ${order.order_number} Pending Approval`,
-      message: `New sales order ${order.order_number} needs approval`,
+      title: `طلب ${order.order_number} بانتظار الاعتماد`,
+      message: `طلب مبيعات جديد ${order.order_number} بحاجة للاعتماد`,
       referenceId: order.id, referenceType: 'sales_order'
     });
   } catch (error) {
     console.error('Error creating order:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Approve order (Sales Manager only)
-router.put('/orders/:id/approve', authenticate, authorize(...managerRoles), async (req, res) => {
-  const orderId = req.params.id;
-  const approvedBy = req.user.id;
-
-  try {
-    const result = await transaction(async (client) => {
-      // 1. Update order status (jump directly to processing per simplified flow)
-      const orderResult = await client.query(
-        `UPDATE sales_orders
-         SET status = 'processing', approved_by = $1, approved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $2 AND status = 'pending_approval'
-         RETURNING *`,
-        [approvedBy, orderId]
-      );
-
-      if (orderResult.rows.length === 0) {
-        throw new Error('Order not found or not pending approval');
-      }
-
-      const order = orderResult.rows[0];
-
-      // 2. Check if invoice already exists
-      const existingInvoice = await client.query(
-        'SELECT id FROM invoices WHERE order_id = $1',
-        [orderId]
-      );
-
-      let invoice = null;
-      if (existingInvoice.rows.length === 0) {
-        // Get client payment terms for due date calculation
-        const clientRes = await client.query(
-          'SELECT payment_terms FROM clients WHERE id = $1',
-          [order.client_id]
-        );
-        const paymentTerms = clientRes.rows[0]?.payment_terms || 'cash';
-        // Extract number of days from terms like "21 days", "30 days", "cash"
-        const daysMatch = paymentTerms.match(/(\d+)/);
-        const creditDays = daysMatch ? parseInt(daysMatch[1]) : 0;
-
-        // Generate invoice number
-        const invoiceNumber = await generateCode('INV', 'invoices', 'invoice_number');
-
-        // Create invoice with due date based on CURRENT_DATE + credit days (PG handles timezone)
-        const invResult = await client.query(
-          `INSERT INTO invoices (invoice_number, order_id, client_id, amount, balance_due, due_date, notes, created_by, created_at)
-           VALUES ($1, $2, $3, $4, $4, CURRENT_DATE + INTERVAL '${creditDays} days', $5, $6, CURRENT_DATE) RETURNING *`,
-          [invoiceNumber, orderId, order.client_id, order.final_amount, `Auto-generated from ${order.order_number}`, approvedBy]
-        );
-        invoice = invResult.rows[0];
-
-        // Create invoice items
-        const invItemsResult = await client.query(
-          `SELECT soi.*, ft.name_arabic as feed_name
-           FROM sales_order_items soi
-           JOIN feed_types ft ON soi.feed_type_id = ft.id
-           WHERE soi.order_id = $1`,
-          [orderId]
-        );
-        for (const item of invItemsResult.rows) {
-          await client.query(
-            `INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, total_price)
-             VALUES ($1, $2, $3, $4, $5)`,
-            [invoice.id, `${item.feed_name} (${item.package_size}kg)`, item.quantity, item.unit_price, item.total_price]
-          );
-        }
-
-        // Update client balance
-        await client.query(
-          `UPDATE clients SET current_balance = current_balance + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
-          [parseFloat(order.final_amount), order.client_id]
-        );
-
-        // Create client expected payment
-        await client.query(
-          `INSERT INTO client_expected_payments (client_id, amount, expected_date, description, status)
-           VALUES ($1, $2, CURRENT_DATE + INTERVAL '${creditDays} days', $3, 'expected')`,
-          [order.client_id, order.final_amount, `Invoice ${invoiceNumber}`]
-        );
-
-        // Auto-record payment for cash orders
-        if (paymentTerms === 'cash' && invoice) {
-          await client.query(
-            `INSERT INTO client_payment_history (client_id, invoice_id, amount, date, description, method, collected_by)
-             VALUES ($1, $2, $3, CURRENT_DATE, $4, 'cash', $5)`,
-            [order.client_id, invoice.id, order.final_amount, `Cash payment for invoice ${invoiceNumber}`, approvedBy]
-          );
-          await client.query(
-            `UPDATE invoices SET status = 'paid', balance_due = 0, paid_amount = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
-            [order.final_amount, invoice.id]
-          );
-          await client.query(
-            `UPDATE clients SET current_balance = GREATEST(current_balance - $1, 0), updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
-            [parseFloat(order.final_amount), order.client_id]
-          );
-          await client.query(
-            `UPDATE client_expected_payments SET status = 'paid', updated_at = CURRENT_TIMESTAMP WHERE client_id = $1 AND description = $2`,
-            [order.client_id, `Invoice ${invoiceNumber}`]
-          );
-        }
-      }
-
-      return { order, invoice };
-    });
-
-    const { order, invoice } = result;
-
-    // Auto-create production orders (outside transaction — failure must not roll back approval)
-    try {
-      const items = await query(
-        'SELECT * FROM sales_order_items WHERE order_id = $1',
-        [order.id]
-      );
-      for (const item of items.rows) {
-        const quantityKg = parseFloat(item.quantity) * 1000;
-        const numberOfBags = item.package_size > 0
-          ? Math.ceil(quantityKg / item.package_size)
-          : 0;
-        const orderNumber = `PRD-${Date.now()}-${item.id}`;
-        await query(
-          `INSERT INTO production_orders
-           (order_number, feed_type_id, quantity_kg, status, production_date,
-            sales_order_id, package_size, number_of_bags, created_by, created_at, updated_at)
-           VALUES ($1, $2, $3, 'pending', CURRENT_DATE, $4, $5, $6, $7, NOW(), NOW())`,
-          [orderNumber, item.feed_type_id, quantityKg, order.id,
-           item.package_size, numberOfBags, req.user.id]
-        );
-      }
-    } catch (prodErr) {
-      console.error('Failed to create production order:', prodErr.message);
-    }
-
-    // Create journal entry outside transaction (non-critical)
-    if (invoice) {
-      try {
-        const clientRes = await query('SELECT name_arabic FROM clients WHERE id = $1', [order.client_id]);
-        await journalInvoiceCreated({ ...invoice, client_name: clientRes.rows[0]?.name_arabic || '' });
-      } catch (e) {
-        console.error('[JOURNAL] Failed to create entry for invoice:', e.message);
-      }
-    }
-
-    // Log activity
-    logActivity({
-      userId: approvedBy, action: 'approve', module: 'sales',
-      description: `Approved sales order ${order.order_number}` + (invoice ? ` and created invoice ${invoice.invoice_number}` : ''),
-      entityId: order.id, entityType: 'sales_order',
-      oldStatus: 'pending_approval', newStatus: 'processing',
-      amount: parseFloat(order.final_amount)
-    });
-
-    res.json({
-      success: true,
-      order,
-      invoice,
-      message: invoice ? 'Order approved and invoice created' : 'Order approved (invoice already exists)'
-    });
-
-    // Update approval request if exists
-    try {
-      const { query } = require('../config/database');
-      await query(
-        `UPDATE approval_requests SET status = 'approved', approver_id = $1, updated_at = NOW()
-         WHERE module_name = 'sales_orders' AND request_id = $2 AND status = 'pending'`,
-        [approvedBy, orderId]
-      );
-    } catch (e) {}
-
-    notifyRole('sales_rep', {
-      module: 'sales', type: 'order_approved',
-      title: `Order ${order.order_number} Approved`,
-      message: `Sales order ${order.order_number} has been approved${invoice ? ` and invoiced ${invoice.invoice_number}` : ''}`,
-      referenceId: order.id, referenceType: 'sales_order'
-    });
-  } catch (error) {
-    console.error('Error approving order:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Reject order (Sales Manager only)
-router.put('/orders/:id/reject', authenticate, authorize(...managerRoles), async (req, res) => {
-  const orderId = req.params.id;
-  const { reason } = req.body;
-  
-  if (!reason) {
-    return res.status(400).json({ success: false, error: 'Rejection reason is required' });
-  }
-  
-  try {
-    const result = await query(
-      `UPDATE sales_orders 
-       SET status = 'rejected', rejection_reason = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2 AND status = 'pending_approval'
-       RETURNING *`,
-      [reason, orderId]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Order not found or not pending approval' });
-    }
-    
-    res.json({ success: true, order: result.rows[0], message: 'Order rejected' });
-  } catch (error) {
-    console.error('Error rejecting order:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

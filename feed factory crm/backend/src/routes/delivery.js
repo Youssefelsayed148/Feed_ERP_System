@@ -1,9 +1,27 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { query, transaction } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { logActivity } = require('../utils/activity');
 const { sendWhatsAppMessage, isWhatsAppConfigured } = require('./whatsapp');
+
+const DELIVERY_PHOTOS_DIR = path.join(__dirname, '..', '..', 'uploads', 'deliveries');
+
+const photoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(DELIVERY_PHOTOS_DIR, String(req.params.id));
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`);
+  }
+});
+const uploadPhoto = multer({ storage: photoStorage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Security fix 2026-06-22: most of the driver-journey routes below
 // (pickup, in-transit, arrived, send-otp, verify-otp, upload-photo,
@@ -410,7 +428,7 @@ router.post('/:id/accept', authenticate, async (req, res) => {
     if (deliveryRes.rowCount === 0) return res.status(404).json({ error: 'Delivery not found' });
     const delivery = deliveryRes.rows[0];
 
-    if (delivery.driver_id !== req.user.id && delivery.driver_id?.toString() !== req.user.id) {
+    if (!canActOnDelivery(delivery, req.user)) {
       return res.status(403).json({ error: 'Not authorized to accept this delivery' });
     }
 
@@ -514,7 +532,7 @@ router.post('/:id/send-otp', authenticate, async (req, res) => {
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
     await query(
-      `UPDATE delivery_assignments SET otp_code = $1, otp_sent_at = NOW(), otp_verified = false WHERE id = $2`,
+      `UPDATE delivery_assignments SET otp_code = $1, otp_sent_at = NOW(), otp_verified = false, otp_attempts = 0 WHERE id = $2`,
       [otpCode, req.params.id]
     );
 
@@ -531,14 +549,9 @@ router.post('/:id/send-otp', authenticate, async (req, res) => {
     }
 
     res.json({
-      message: sentViaWhatsApp ? 'OTP sent to client via WhatsApp' : 'OTP generated (WhatsApp not sent — see sentViaWhatsApp flag)',
+      message: sentViaWhatsApp ? 'OTP sent to client via WhatsApp' : 'OTP generated (WhatsApp not configured)',
       sentViaWhatsApp,
       sendError: sentViaWhatsApp ? null : sendError,
-      // Still returned as a fallback for display when WhatsApp isn't
-      // configured or the real send fails — same behavior as before this
-      // fix in that case, but now the frontend knows which happened via
-      // the sentViaWhatsApp flag instead of assuming.
-      otpCode: otpCode,
       sentAt: new Date().toISOString()
     });
   } catch (error) {
@@ -556,37 +569,44 @@ router.post('/:id/verify-otp', authenticate, async (req, res) => {
     }
 
     const deliveryRes = await query(
-      `SELECT otp_code, otp_sent_at, driver_id FROM delivery_assignments WHERE id = $1`,
+      `SELECT otp_code, otp_sent_at, otp_attempts, driver_id FROM delivery_assignments WHERE id = $1`,
       [req.params.id]
     );
     if (deliveryRes.rowCount === 0) return res.status(404).json({ error: 'Delivery not found' });
     if (!canActOnDelivery(deliveryRes.rows[0], req.user)) {
       return res.status(403).json({ error: 'Not authorized to act on this delivery' });
     }
-    const { otp_code, otp_sent_at } = deliveryRes.rows[0];
+    const { otp_code, otp_sent_at, otp_attempts } = deliveryRes.rows[0];
 
     if (!otp_code) {
       return res.status(400).json({ error: 'No OTP was sent for this delivery' });
+    }
+    if (otp_attempts >= 5) {
+      return res.status(429).json({ error: 'Too many failed attempts. Please request a new OTP.' });
     }
     const expired = otp_sent_at && (Date.now() - new Date(otp_sent_at).getTime()) > 10 * 60 * 1000;
     if (expired) {
       return res.status(400).json({ error: 'OTP has expired, please request a new one' });
     }
     if (String(otpCode).trim() !== String(otp_code).trim()) {
-      return res.status(400).json({ error: 'Invalid OTP code' });
+      await query(
+        `UPDATE delivery_assignments SET otp_attempts = otp_attempts + 1 WHERE id = $1`,
+        [req.params.id]
+      );
+      const remaining = 5 - (otp_attempts + 1);
+      return res.status(400).json({ error: `Invalid OTP code. ${remaining} attempt(s) remaining.` });
     }
 
-    await query(`UPDATE delivery_assignments SET otp_verified = true WHERE id = $1`, [req.params.id]);
+    await query(`UPDATE delivery_assignments SET otp_verified = true, otp_attempts = 0 WHERE id = $1`, [req.params.id]);
     res.json({ message: 'OTP verified successfully', verified: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// Upload delivery proof photo — kept for any direct callers, though the
-// frontend currently bundles photos into POST /:id/confirm instead.
-// Now actually persists the URL rather than just echoing it back.
-router.post('/:id/upload-photo', authenticate, async (req, res) => {
+// Upload delivery proof photo — accepts multipart file uploads.
+// Returns the persisted relative URL which can be stored and used for display.
+router.post('/:id/upload-photo', authenticate, uploadPhoto.single('photo'), async (req, res) => {
   try {
     const deliveryRes = await query('SELECT driver_id FROM delivery_assignments WHERE id = $1', [req.params.id]);
     if (deliveryRes.rowCount === 0) return res.status(404).json({ error: 'Delivery not found' });
@@ -594,15 +614,16 @@ router.post('/:id/upload-photo', authenticate, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to update this delivery' });
     }
 
-    const { photoUrl } = req.body;
-    if (!photoUrl) {
-      return res.status(400).json({ error: 'Photo URL is required' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'Photo file is required' });
     }
+
+    const relativePath = `/uploads/deliveries/${req.params.id}/${req.file.filename}`;
     await query(
       `UPDATE delivery_assignments SET photo_urls = array_append(COALESCE(photo_urls, '{}'), $1) WHERE id = $2`,
-      [photoUrl, req.params.id]
+      [relativePath, req.params.id]
     );
-    res.json({ message: 'Photo uploaded successfully', photoUrl });
+    res.json({ message: 'Photo uploaded successfully', photoUrl: relativePath });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -616,19 +637,24 @@ router.post('/:id/confirm', authenticate, async (req, res) => {
     // so received_by/delivery_notes were always undefined and the entire
     // deliveryProof bundle (GPS location, signature, photos) the frontend
     // already captures was received and silently discarded.
-    const { receivedBy, deliveryNotes, status, deliveryProof } = req.body;
+    const { receivedBy, deliveryNotes, status, deliveryProof, deliveredItems } = req.body;
     const receivedByName = receivedBy?.name || null;
     const otpVerifiedFlag = receivedBy?.otpVerified || false;
     const gps = deliveryProof?.gpsLocation || null;
     const photos = Array.isArray(deliveryProof?.photos) ? deliveryProof.photos : null;
     const signature = deliveryProof?.signature || null;
 
-    const deliveryRes = await query('SELECT vehicle_id, order_id, driver_id FROM delivery_assignments WHERE id = $1', [req.params.id]);
+    const deliveryRes = await query('SELECT vehicle_id, order_id, driver_id, otp_verified FROM delivery_assignments WHERE id = $1', [req.params.id]);
     if (deliveryRes.rowCount === 0) return res.status(404).json({ error: 'Delivery not found' });
     const delivery = deliveryRes.rows[0];
     if (!canActOnDelivery(delivery, req.user)) {
       return res.status(403).json({ error: 'Not authorized to confirm this delivery' });
     }
+
+    // STAGE 2: OTP enforcement disabled — re-enable when OTP is reintroduced
+    // if (!delivery.otp_verified) {
+    //   return res.status(400).json({ error: 'OTP must be verified before confirming delivery' });
+    // }
 
     const newStatus = status === 'partial' ? 'partial' : status === 'rejected' ? 'rejected' : 'delivered';
 
@@ -653,6 +679,24 @@ router.post('/:id/confirm', authenticate, async (req, res) => {
 
     if (delivery.vehicle_id) {
       await query("UPDATE vehicles SET status = 'available' WHERE id = $1", [delivery.vehicle_id]);
+    }
+
+    if (Array.isArray(deliveredItems) && deliveredItems.length > 0) {
+      for (const item of deliveredItems) {
+        await query(
+          `INSERT INTO delivery_item_confirmations (delivery_assignment_id, item_name, ordered_qty, delivered_qty, rejected_qty, rejection_reason, condition)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            req.params.id,
+            item.itemName || item.feedType?.name || null,
+            parseFloat(item.orderedQty) || 0,
+            parseFloat(item.deliveredQty) || 0,
+            parseFloat(item.rejectedQty) || 0,
+            item.rejectionReason || null,
+            item.condition || null
+          ]
+        );
+      }
     }
 
     // This is the proof-backed delivery confirmation (GPS, OTP, photo,

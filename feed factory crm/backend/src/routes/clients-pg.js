@@ -88,9 +88,11 @@ router.get('/', async (req, res) => {
         c.id, c.code, c.name_arabic, c.name_english,
         c.type, c.status, c.credit_limit,
         c.current_balance, c.phone, c.payment_terms,
+        c.product_focus, c.credit_class,
         c.is_active, c.created_at,
         COALESCE(SUM(cl.amount) FILTER (WHERE cl.status = 'pending'), 0) as total_pending,
-        COUNT(cl.id) FILTER (WHERE cl.status = 'pending') as pending_count
+        COUNT(cl.id) FILTER (WHERE cl.status = 'pending') as pending_count,
+        COALESCE(MAX(GREATEST(CURRENT_DATE - cl.due_date, 0)) FILTER (WHERE cl.status = 'pending'), 0) as max_aging_days
       FROM clients c
       LEFT JOIN client_liabilities cl ON c.id = cl.client_id
       WHERE c.is_active = true
@@ -434,19 +436,27 @@ router.get('/:id/account', async (req, res) => {
       [id]
     );
 
-    // Get liabilities
+    // Get liabilities — aging_days computed live from today vs due_date, not stored
     const liabilitiesResult = await query(
-      `SELECT * FROM client_liabilities WHERE client_id = $1 ORDER BY due_date DESC`,
+      `SELECT *, CASE WHEN status = 'pending' THEN GREATEST(CURRENT_DATE - due_date, 0) ELSE NULL END AS aging_days
+       FROM client_liabilities WHERE client_id = $1 ORDER BY due_date DESC`,
       [id]
     );
 
-    // Summary — total_paid from payment history (single source of truth)
+    // Summary — total_paid from payment history (single source of truth);
+    // total_pending = sales-order-based pending PLUS standalone pending client_liabilities (not tied to an order)
     const summaryResult = await query(
       `SELECT
         COUNT(DISTINCT so.id) as total_orders,
         COALESCE(SUM(so.final_amount), 0) as total_amount,
         COALESCE((SELECT SUM(amount) FROM client_payment_history WHERE client_id = $1 AND description NOT LIKE '%liability%'), 0) as total_paid,
-        GREATEST(COALESCE(SUM(so.final_amount), 0) - COALESCE((SELECT SUM(amount) FROM client_payment_history WHERE client_id = $1 AND description NOT LIKE '%liability%'), 0), 0) as total_pending
+        COALESCE((SELECT SUM(amount) FROM client_liabilities WHERE client_id = $1 AND status = 'pending'), 0) as total_liabilities,
+        GREATEST(
+          COALESCE(SUM(so.final_amount), 0)
+          - COALESCE((SELECT SUM(amount) FROM client_payment_history WHERE client_id = $1 AND description NOT LIKE '%liability%'), 0)
+          + COALESCE((SELECT SUM(amount) FROM client_liabilities WHERE client_id = $1 AND status = 'pending'), 0),
+          0
+        ) as total_pending
        FROM sales_orders so
        WHERE so.client_id = $1`,
       [id]
@@ -723,7 +733,7 @@ router.post('/:id/liabilities/:liabilityId/payments', async (req, res) => {
 });
 
 // DELETE liability
-router.delete('/:id/liabilities/:liabilityId', async (req, res) => {
+router.delete('/:id/liabilities/:liabilityId', authorize('admin', 'owner'), async (req, res) => {
   try {
     const { liabilityId } = req.params;
     await query('DELETE FROM client_liabilities WHERE id = $1', [liabilityId]);
@@ -774,7 +784,7 @@ router.post('/:id/expected-payments/:paymentId/mark-received', async (req, res) 
 });
 
 // DELETE expected payment
-router.delete('/:id/expected-payments/:paymentId', async (req, res) => {
+router.delete('/:id/expected-payments/:paymentId', authorize('admin', 'owner'), async (req, res) => {
   try {
     const { paymentId } = req.params;
     await query('DELETE FROM client_expected_payments WHERE id = $1', [paymentId]);

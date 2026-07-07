@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { query, transaction } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
+const { getLowStockMaterialsWithSuggestions } = require('../services/autoReorderCheck');
 
 // ============================================
 // LOW STOCK REQUISITION GENERATION
@@ -27,44 +28,11 @@ router.get('/', authenticate, async (req, res) => {
 // Preview low stock items (without creating requisition)
 router.get('/preview', authenticate, async (req, res) => {
   try {
-    const lowStockResult = await query(`
-      SELECT rm.*, s.id as supplier_id, s.name as supplier_name, s.contact_person, s.email, s.phone
-      FROM raw_materials rm
-      LEFT JOIN supplier_materials sm ON sm.raw_material_id = rm.id AND sm.is_preferred = true LEFT JOIN suppliers s ON sm.supplier_id = s.id
-      WHERE rm.current_stock < rm.reorder_level
-      ORDER BY (rm.reorder_level - rm.current_stock) DESC
-    `);
+    const items = await getLowStockMaterialsWithSuggestions();
 
-    if (lowStockResult.rows.length === 0) {
+    if (items.length === 0) {
       return res.json({ success: true, items: [], message: 'No materials below reorder level' });
     }
-
-    // Calculate suggested quantities based on actual shortage
-    const items = lowStockResult.rows.map(material => {
-      const shortage = Math.max(0, parseFloat(material.reorder_level) - parseFloat(material.current_stock));
-      const minOrder = parseFloat(material.min_order_qty) || 0;
-      const suggestedQty = Math.max(shortage, minOrder);
-      const unitPrice = parseFloat(material.unit_price) || 0;
-      const itemTotal = suggestedQty * unitPrice;
-
-      return {
-        raw_material_id: material.id,
-        material_name: material.name_arabic || material.name_english || material.name || '',
-        material_code: material.code,
-        current_stock: parseFloat(material.current_stock || 0),
-        reorder_level: parseFloat(material.reorder_level || 0),
-        min_order_qty: parseFloat(material.min_order_qty || 0),
-        suggested_quantity: suggestedQty,
-        unit_price: unitPrice,
-        total_cost: itemTotal,
-        unit: material.unit || 'kg',
-        supplier_id: material.supplier_id,
-        supplier_name: material.supplier_name,
-        supplier_contact: material.contact_person,
-        supplier_email: material.email,
-        supplier_phone: material.phone
-      };
-    });
 
     // Group by supplier
     const bySupplier = {};
@@ -97,20 +65,13 @@ router.post('/generate', authenticate, async (req, res) => {
   const createdBy = req.user.id;
 
   try {
+    const items = await getLowStockMaterialsWithSuggestions();
+
+    if (items.length === 0) {
+      throw new Error('No materials below reorder level');
+    }
+
     const requisition = await transaction(async (client) => {
-      // Find raw materials below reorder level
-      const lowStockResult = await client.query(`
-        SELECT rm.*, s.id as supplier_id, s.name as supplier_name, s.contact_person, s.email, s.phone
-        FROM raw_materials rm
-        LEFT JOIN supplier_materials sm ON sm.raw_material_id = rm.id AND sm.is_preferred = true LEFT JOIN suppliers s ON sm.supplier_id = s.id
-        WHERE rm.current_stock < rm.reorder_level
-        ORDER BY (rm.reorder_level - rm.current_stock) DESC
-      `);
-
-      if (lowStockResult.rows.length === 0) {
-        throw new Error('No materials below reorder level');
-      }
-
       // Generate requisition number
       const reqNumberResult = await client.query(
         "SELECT COALESCE(MAX(CAST(SUBSTRING(requisition_number FROM 5) AS INTEGER)), 0) + 1 as next_num FROM requisitions WHERE requisition_number LIKE 'REQ-%'"
@@ -123,28 +84,23 @@ router.post('/generate', authenticate, async (req, res) => {
       const reqResult = await client.query(
         `INSERT INTO requisitions (requisition_number, status, total_items, total_cost, notes, created_by)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [reqNumber, 'draft', lowStockResult.rows.length, 0, 'Auto-generated from low stock levels', createdBy]
+        [reqNumber, 'draft', items.length, 0, 'Auto-generated from low stock levels', createdBy]
       );
       const requisition = reqResult.rows[0];
 
       // Create requisition items
-      for (const material of lowStockResult.rows) {
-        const shortage = Math.max(0, parseFloat(material.reorder_level) - parseFloat(material.current_stock));
-        const minOrder = parseFloat(material.min_order_qty) || 0;
-        const suggestedQty = Math.max(shortage, minOrder);
-        const unitPrice = parseFloat(material.unit_price) || 0;
-        const itemTotal = suggestedQty * unitPrice;
-        totalCost += itemTotal;
+      for (const material of items) {
+        totalCost += material.total_cost;
 
         await client.query(
           `INSERT INTO requisition_items (requisition_id, raw_material_id, suggested_quantity, unit_price, total_cost, supplier_id, supplier_name, notes)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
             requisition.id,
-            material.id,
-            suggestedQty,
-            unitPrice,
-            itemTotal,
+            material.raw_material_id,
+            material.suggested_quantity,
+            material.unit_price,
+            material.total_cost,
             material.supplier_id || null,
             material.supplier_name || null,
             `Current stock: ${material.current_stock} kg, Reorder level: ${material.reorder_level} kg`
@@ -216,7 +172,7 @@ router.post('/:id/send', authenticate, authorize('purchasing_mgr', 'admin', 'own
       // Update any existing rows that have NULL status to 'pending'
       await query(`UPDATE requisition_items SET status = 'pending' WHERE status IS NULL`);
     } catch (e) {
-      console.log('[REQ SEND] Schema check:', e.message);
+      // schema safety check — silent
     }
 
     // First check requisition exists and has items
@@ -232,7 +188,6 @@ router.post('/:id/send', authenticate, authorize('purchasing_mgr', 'admin', 'own
       "SELECT COUNT(*) as cnt FROM requisition_items WHERE requisition_id = $1 AND status = 'pending'",
       [reqId]
     );
-    console.log(`[REQ SEND] Requisition #${reqId}: ${itemCheck.rows[0].cnt} pending items found`);
 
     const result = await transaction(async (client) => {
       // Get requisition items grouped by supplier
@@ -261,15 +216,12 @@ router.post('/:id/send', authenticate, authorize('purchasing_mgr', 'admin', 'own
         supplierGroups[supplierId].items.push(item);
       }
 
-      console.log(`[REQ SEND] Supplier groups: ${Object.keys(supplierGroups).length} (keys: ${Object.keys(supplierGroups).join(', ')})`);
       const createdPOs = [];
 
       // Create purchase order for each supplier group (including unassigned)
       for (const groupKey of Object.keys(supplierGroups)) {
         const group = supplierGroups[groupKey];
         const supplierId = group.supplier_id;
-
-        console.log(`[REQ SEND] Creating PO for supplier #${supplierId || 'unassigned'} (${group.items.length} items)`);
 
         // Generate PO number
         const poNumberResult = await client.query(
@@ -290,7 +242,6 @@ router.post('/:id/send', authenticate, authorize('purchasing_mgr', 'admin', 'own
           [poNumber, supplierId, 'draft', poTotal, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], `Generated from requisition REQ-${reqId}`, createdBy]
         );
         const po = poResult.rows[0];
-        console.log(`[REQ SEND] PO created: ${po.po_number} (id=${po.id})`);
 
           // Create PO items
           for (const item of group.items) {
@@ -316,7 +267,6 @@ router.post('/:id/send', authenticate, authorize('purchasing_mgr', 'admin', 'own
         [reqId]
       );
 
-      console.log(`[REQ SEND] Done: ${createdPOs.length} PO(s) created`);
       return createdPOs;
     });
 

@@ -63,4 +63,62 @@ router.post('/auto-checkout', authenticate, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// POST /api/location/log — driver location ping (drivers with active deliveries only)
+router.post('/log', authenticate, async (req, res) => {
+  try {
+    const { latitude, longitude, accuracy, context, delivery_id } = req.body;
+
+    if (req.user.role !== 'driver') {
+      return res.json({ success: true, skipped: true, reason: 'not_driver' });
+    }
+
+    await query(
+      `INSERT INTO driver_locations (driver_user_id, delivery_id, latitude, longitude, accuracy, context)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [req.user.id, delivery_id || null, latitude, longitude, accuracy || null, context || null]
+    );
+
+    res.json({ success: true, logged: true });
+  } catch (e) {
+    console.error('[location] Failed to log location:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /api/location/users — latest known location per driver
+router.get('/users', authenticate, async (req, res) => {
+  try {
+    const { delivery_id } = req.query;
+    let sql;
+    let params = [];
+
+    if (delivery_id) {
+      sql = `
+        SELECT dl.driver_user_id, dl.delivery_id, dl.latitude, dl.longitude, dl.accuracy,
+               dl.context, dl.created_at, COALESCE(e.name, u.name) as driver_name
+        FROM driver_locations dl
+        JOIN users u ON u.id = dl.driver_user_id
+        LEFT JOIN employees e ON e.user_id = u.id OR e.id = u.id
+        WHERE dl.delivery_id = $1
+        ORDER BY dl.created_at DESC`;
+      params = [delivery_id];
+    } else {
+      sql = `
+        SELECT DISTINCT ON (dl.driver_user_id)
+               dl.driver_user_id, dl.delivery_id, dl.latitude, dl.longitude, dl.accuracy,
+               dl.context, dl.created_at, COALESCE(e.name, u.name) as driver_name
+        FROM driver_locations dl
+        JOIN users u ON u.id = dl.driver_user_id
+        LEFT JOIN employees e ON e.user_id = u.id OR e.id = u.id
+        ORDER BY dl.driver_user_id, dl.created_at DESC`;
+    }
+
+    const result = await query(sql, params);
+    res.json({ success: true, locations: result.rows });
+  } catch (e) {
+    console.error('[location] Failed to fetch locations:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

@@ -5,7 +5,7 @@ import { t, getLang } from '../utils/i18n';
 import {
   Factory, Plus, Search, Play, CheckCircle, Clock, AlertCircle,
   Package, TrendingUp, DollarSign, ChevronRight, ArrowRight, X, ChefHat,
-  TrendingDown, ShoppingCart
+  TrendingDown, ShoppingCart, Truck
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -78,6 +78,7 @@ const Production = () => {
             totalCost: parseFloat(o.actual_cost) || 0,
             notes: o.notes || '',
             salesOrderNumber: o.sales_order_number || null,
+            salesOrderId: o.sales_order_id || null,
             clientName: o.client_name || null
           }));
           setOrders(mapped);
@@ -338,6 +339,35 @@ const Production = () => {
     }
   };
 
+  // Handle sending linked sales order to delivery
+  const handleSendToDelivery = async (order) => {
+    if (!order.salesOrderId) {
+      setMessage({ type: 'error', text: 'لا يوجد طلب مبيعات مرتبط' });
+      return false;
+    }
+    try {
+      const response = await fetch(`${API_URL}/orders/${order.salesOrderId}/send-to-delivery`, {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({})
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'تم إرسال الطلب للتوصيل بنجاح' });
+        await fetchData();
+        return true;
+      } else {
+        setMessage({ type: 'error', text: 'فشل الإرسال: ' + (data.error || '') });
+        return false;
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: error.message });
+      return false;
+    } finally {
+      setTimeout(() => setMessage(null), 5000);
+    }
+  };
+
   // Handle viewing order details
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
@@ -587,6 +617,14 @@ const Production = () => {
                           onClick={() => handleCompleteProduction(order)}
                         >
                           <CheckCircle size={14} /> جاهز للتسليم
+                        </button>
+                      )}
+                      {order.status === 'completed' && order.salesOrderId && (
+                        <button
+                          className="btn btn-sm btn-primary"
+                          onClick={() => handleSendToDelivery(order)}
+                        >
+                          <Truck size={14} /> إرسال للتوصيل
                         </button>
                       )}
                       <button
@@ -1010,6 +1048,17 @@ const Production = () => {
                     }}
                   >
                     <CheckCircle size={18} /> جاهز للتسليم
+                  </button>
+                )}
+                {selectedOrder.status === 'completed' && selectedOrder.salesOrderId && (
+                  <button
+                    className="btn btn-primary"
+                    onClick={async () => {
+                      const success = await handleSendToDelivery(selectedOrder);
+                      if (success) setShowDetailModal(false);
+                    }}
+                  >
+                    <Truck size={18} /> إرسال للتوصيل
                   </button>
                 )}
               </div>

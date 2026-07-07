@@ -7,15 +7,14 @@ const { authenticate: auth } = require('../middleware/auth');
 router.post('/reminders', auth, async (req, res) => {
   try {
     const { machine_id, vehicle_id, type, title, description, due_date, cost, notes } = req.body;
-    const targetId = machine_id || vehicle_id;
-    if (!targetId) {
+    if (!machine_id && !vehicle_id) {
       return res.status(400).json({ error: 'machine_id or vehicle_id is required' });
     }
 
     const result = await query(`
-      INSERT INTO maintenance_reminders (machine_id, type, description, due_date, status, notes, cost)
-      VALUES ($1, $2, $3, $4, 'scheduled', $5, $6) RETURNING *
-    `, [targetId, type || 'preventive', title || description || 'صيانة مجدولة', due_date, notes || null, cost || 0]);
+      INSERT INTO maintenance_reminders (machine_id, vehicle_id, type, description, due_date, status, notes, cost)
+      VALUES ($1, $2, $3, $4, $5, 'scheduled', $6, $7) RETURNING *
+    `, [machine_id || null, vehicle_id || null, type || 'preventive', title || description || 'صيانة مجدولة', due_date, notes || null, cost || 0]);
 
     res.status(201).json({ success: true, reminder: result.rows[0] });
   } catch (error) {
@@ -31,12 +30,13 @@ router.get('/reminders', auth, async (req, res) => {
 
     let sql = `
       SELECT
-        ms.id, ms.machine_id, ms.type, ms.description, ms.due_date,
+        ms.id, ms.machine_id, ms.vehicle_id, ms.type, ms.description, ms.due_date,
         ms.status, ms.notes, ms.completed_at, ms.cost,
-        m.code as machine_code,
-        COALESCE(NULLIF(m.name_arabic, ''), m.name_english) as machine_name
+        COALESCE(m.code, v.plate_number) as machine_code,
+        COALESCE(NULLIF(m.name_arabic, ''), m.name_english, v.make) as machine_name
       FROM maintenance_reminders ms
       LEFT JOIN machines m ON m.id = ms.machine_id
+      LEFT JOIN vehicles v ON v.id = ms.vehicle_id
       WHERE 1=1
     `;
     const params = [];
@@ -84,12 +84,13 @@ router.get('/reminders/due', auth, async (req, res) => {
   try {
     const result = await query(`
       SELECT
-        mr.id, mr.machine_id, mr.type, mr.description, mr.due_date,
+        mr.id, mr.machine_id, mr.vehicle_id, mr.type, mr.description, mr.due_date,
         mr.status, mr.notes, mr.completed_at, mr.cost,
-        COALESCE(NULLIF(m.name_arabic, ''), m.name_english) as machine_name,
-        m.code as machine_code
+        COALESCE(NULLIF(m.name_arabic, ''), m.name_english, v.make) as machine_name,
+        COALESCE(m.code, v.plate_number) as machine_code
       FROM maintenance_reminders mr
       LEFT JOIN machines m ON m.id = mr.machine_id
+      LEFT JOIN vehicles v ON v.id = mr.vehicle_id
       WHERE mr.due_date <= NOW() + INTERVAL '7 days'
         AND mr.status IN ('scheduled', 'pending')
       ORDER BY mr.due_date ASC

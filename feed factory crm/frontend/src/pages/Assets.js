@@ -207,6 +207,21 @@ export default function Assets() {
     }
   };
 
+  const fetchVehicleHistory = async (vehicleId) => {
+    try {
+      const response = await fetch(`${API_URL}/assets/vehicles/${vehicleId}/maintenance-history`, { headers: headers() });
+      const data = await response.json();
+      if (data.success && data.history) {
+        const vehicle = vehicles.find(v => v._id === vehicleId);
+        if (vehicle) {
+          setSelectedMachine({ ...vehicle, maintenanceHistory: data.history });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching vehicle history:', error);
+    }
+  };
+
   const handleOpenScheduleMaintenance = async () => {
     setScheduleMaintenanceForm({
       assetType: 'machine',
@@ -953,14 +968,21 @@ export default function Assets() {
                       >
                         <Calendar className="w-3 h-3" /> جدولة
                       </button>
-                      <button
-                        className="btn btn-success"
-                        style={{ padding: '6px 12px', fontSize: '0.85em' }}
-                        onClick={() => { setSelectedMachine(veh); setShowRecordModal(true); }}
-                      >
-                        <Check className="w-3 h-3" /> تسجيل
-                      </button>
-                      {canDeleteAssets && (
+                        <button
+                          className="btn btn-success"
+                          style={{ padding: '6px 12px', fontSize: '0.85em' }}
+                          onClick={() => { setSelectedMachine(veh); setShowRecordModal(true); }}
+                        >
+                          <Check className="w-3 h-3" /> تسجيل
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '6px 12px', fontSize: '0.85em' }}
+                          onClick={() => { setSelectedMachine(veh); fetchVehicleHistory(veh._id); setShowHistoryModal(true); }}
+                        >
+                          <History className="w-3 h-3" /> السجل
+                        </button>
+                        {canDeleteAssets && (
                         <button
                           onClick={() => setAssetDeleteTarget({ type: 'vehicle', id: veh.id || veh._id, name: veh.name, code: veh.code })}
                           style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '13px' }}

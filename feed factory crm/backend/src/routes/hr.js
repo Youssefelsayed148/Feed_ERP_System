@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -33,7 +33,8 @@ router.get('/employees', authenticate, async (req, res) => {
     const { department, status } = req.query;
     let sql = `
       SELECT
-        u.id, u.name, u.email, u.role, u.phone, u.department,
+        u.id, COALESCE(e.name, u.name) as name, u.email, u.role, u.phone,
+        COALESCE(e.department, u.department) as department,
         u.module_permissions, u.is_active,
         e.id as employee_id, e.salary, e.title, e.position,
         e.status, e.hire_date as "joinDate", e.notes, e.documents,
@@ -42,20 +43,20 @@ router.get('/employees', authenticate, async (req, res) => {
         NULL::text AS iban,
         NULL::text AS avatar
       FROM users u
-      LEFT JOIN employees e ON e.user_id = u.id
+      LEFT JOIN employees e ON e.user_id = u.id OR e.id = u.id
       WHERE 1=1
     `;
     const params = [];
     if (department) {
       params.push(department);
-      sql += ` AND u.department = $${params.length}`;
+      sql += ` AND COALESCE(e.department, u.department) = $${params.length}`;
     }
     if (status === 'inactive') {
       sql += ` AND u.is_active = false`;
     } else {
       sql += ` AND u.is_active = true`;
     }
-    sql += ` ORDER BY u.name`;
+    sql += ` ORDER BY COALESCE(e.name, u.name)`;
 
     const result = await query(sql, params);
     res.json({ employees: result.rows, total: result.rowCount });
@@ -69,11 +70,12 @@ router.get('/employees/:id', authenticate, async (req, res) => {
   try {
     const result = await query(`
       SELECT
-        u.*,
+        u.*, COALESCE(e.name, u.name) as name,
+        COALESCE(e.department, u.department) as department,
         e.id as employee_id, e.salary, e.title, e.position,
         e.status as emp_status, e.hire_date as "joinDate", e.notes, e.documents
       FROM users u
-      LEFT JOIN employees e ON e.user_id = u.id
+      LEFT JOIN employees e ON e.user_id = u.id OR e.id = u.id
       WHERE u.id = $1
     `, [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
@@ -86,14 +88,33 @@ router.get('/employees/:id', authenticate, async (req, res) => {
 
 router.post('/employees', authenticate, async (req, res) => {
   try {
-    const columns = Object.keys(req.body).filter(k => k !== 'id');
-    const values = columns.map(k => req.body[k]);
-    const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
+    const userData = {};
+    const userFields = ['name', 'email', 'phone', 'department'];
+    const { firstName, lastName, arabicName, designation, department, email, phone, salary, joinDate } = req.body;
+
+    userData.name = firstName && lastName ? `${firstName} ${lastName}` : (req.body.name || '');
+    if (email) userData.email = email;
+    if (phone) userData.phone = phone;
+    if (department) userData.department = department;
+
+    const cols = Object.keys(userData).filter(k => k !== 'id');
+    const vals = cols.map(k => userData[k]);
+    const placeholders = cols.map((_, i) => `$${i + 1}`).join(', ');
     const result = await query(
-      `INSERT INTO users (${columns.join(', ')}, is_active) VALUES (${placeholders}, true) RETURNING *`,
-      [...values]
+      `INSERT INTO users (${cols.join(', ')}, is_active) VALUES (${placeholders}, true) RETURNING *`,
+      [...vals]
     );
-    res.status(201).json(result.rows[0]);
+    const user = result.rows[0];
+
+    if (arabicName || designation) {
+      await query(
+        `INSERT INTO employees (user_id, name, title, position, department, salary, hire_date, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')`,
+        [user.id, arabicName || userData.name, designation || null, designation || null, department || null, parseFloat(salary) || 0, joinDate || null]
+      );
+    }
+
+    res.status(201).json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -104,8 +125,8 @@ router.put('/employees/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // id is users.id — lookup the employees row by user_id
-    const empResult = await query('SELECT id FROM employees WHERE user_id = $1', [id]);
+    // id is users.id — lookup the employees row by user_id or direct id match
+    const empResult = await query('SELECT id FROM employees WHERE user_id = $1 OR id = $1', [id]);
     if (empResult.rowCount === 0) return res.status(404).json({ error: 'Employee not found' });
     const employeeId = empResult.rows[0].id;
 
@@ -115,7 +136,7 @@ router.put('/employees/:id', authenticate, async (req, res) => {
     Object.keys(req.body).forEach(k => { if (usersAllowed.includes(k)) usersUpdates[k] = req.body[k]; });
 
     // Build employees table updates
-    const empAllowed = ['salary', 'department', 'status', 'notes'];
+    const empAllowed = ['name', 'salary', 'department', 'status', 'notes'];
     const empUpdates = {};
     Object.keys(req.body).forEach(k => { if (empAllowed.includes(k)) empUpdates[k] = req.body[k]; });
     if (req.body.designation !== undefined) {
@@ -244,7 +265,7 @@ router.get('/employees/:id/documents/:docId/download', authenticate, async (req,
 });
 
 
-router.delete('/employees/:id/documents/:docId', authenticate, async (req, res) => {
+router.delete('/employees/:id/documents/:docId', authenticate, authorize('admin', 'owner'), async (req, res) => {
   try {
     const empRes = await query('SELECT documents FROM users WHERE id = $1', [req.params.id]);
     if (empRes.rowCount === 0) return res.status(404).json({ error: 'Not found' });
@@ -326,7 +347,8 @@ router.post('/leaves', authenticate, async (req, res) => {
 });
 
 // PUT /leaves/:id/approve - Approve leave request
-router.put('/leaves/:id/approve', authenticate, async (req, res) => {
+// TEMPORARY: gated to owner/admin only until department->manager role mapping exists for proper two-stage approval_requests routing.
+router.put('/leaves/:id/approve', authenticate, authorize('owner', 'admin'), async (req, res) => {
   try {
     const result = await query(
       `UPDATE leave_requests SET status = 'approved', approved_by = $2, approved_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *`,
@@ -340,7 +362,8 @@ router.put('/leaves/:id/approve', authenticate, async (req, res) => {
 });
 
 // PUT /leaves/:id/reject - Reject leave request
-router.put('/leaves/:id/reject', authenticate, async (req, res) => {
+// TEMPORARY: gated to owner/admin only until department->manager role mapping exists for proper two-stage approval_requests routing.
+router.put('/leaves/:id/reject', authenticate, authorize('owner', 'admin'), async (req, res) => {
   try {
     const result = await query(
       `UPDATE leave_requests SET status = 'rejected', approved_by = $2, approved_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *`,
@@ -504,7 +527,8 @@ router.get('/attendance', authenticate, async (req, res) => {
       { ar: 'القسم القانوني', en: ['Legal'] },
       { ar: 'المشتريات', en: ['Purchasing', 'Procurement'] },
       { ar: 'تقنية المعلومات', en: ['Information Technology', 'IT'] },
-      { ar: 'الموارد البشرية', en: ['HR', 'Human Resources'] }
+      { ar: 'الموارد البشرية', en: ['HR', 'Human Resources'] },
+      { ar: 'كافتيريا', en: ['operations'] }
     ];
     for (const mapping of deptMappings) {
       for (const enVal of mapping.en) {

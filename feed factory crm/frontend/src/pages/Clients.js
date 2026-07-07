@@ -40,6 +40,8 @@ export default function Clients() {
   const [showModal, setShowModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientStats, setClientStats] = useState(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   
   // Payment modal state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -95,10 +97,13 @@ export default function Clients() {
   const isOwner = currentUser.role === 'owner';
 
   useEffect(() => {
-    fetchClients();
     fetchStats();
     fetchFeedTypes();
-  }, [search, category, status]);
+  }, []);
+
+  useEffect(() => {
+    fetchClients();
+  }, [search, category, status, page]);
 
   const fetchClients = async () => {
     try {
@@ -107,13 +112,15 @@ export default function Clients() {
       if (search) params.append('search', search);
       if (category) params.append('type', category); // PostgreSQL uses 'type' not 'category'
       if (status) params.append('status', status);
-      
+      params.append('page', page);
+      params.append('limit', 20);
+
       const response = await fetch(`${API_URL}/clients?${params}`, { headers: headers() });
       const data = await response.json();
-      
+
       // PostgreSQL returns { clients: [], total, page, pages }
       let clientsData = data.clients || [];
-      
+
       // Map PostgreSQL field names to component expectations
       clientsData = clientsData.map(c => ({
         ...c,
@@ -126,8 +133,9 @@ export default function Clients() {
         paymentType: c.payment_terms === 'cash' ? 'cash' : (c.payment_terms ? 'credit' : 'cash'),
         assignedTo: c.assigned_to || c.assignedTo || null
       }));
-      
+
       setClients(clientsData);
+      setTotalPages(data.pages || 1);
     } catch (error) {
       console.error('Error fetching clients:', error);
       setClients([]);
@@ -345,16 +353,13 @@ export default function Clients() {
     return classes[clientStatus] || classes.active;
   };
 
-  const getPaymentBadge = (paymentType, creditPeriod) => {
-    if (paymentType === 'cash') {
-      return <span className="badge badge-primary">{t('common.cash')}</span>;
-    }
-    return (
-      <span className="badge badge-warning">
-        Credit {creditPeriod} {t('clients.days')}
-        </span>
-    );
-  };
+  const CREDIT_CLASS_LABELS = { regular: 'أجل منتظم', overdue: 'أجل متأخر', cash: 'كاش' };
+  const CREDIT_CLASS_VARIANTS = { cash: 'badge-primary', regular: 'badge-warning', overdue: 'badge-danger' };
+  const getCreditClassBadge = (creditClass) => (
+    <span className={`badge ${CREDIT_CLASS_VARIANTS[creditClass] || 'badge-warning'}`}>
+      {CREDIT_CLASS_LABELS[creditClass] || creditClass || '—'}
+    </span>
+  );
 
   // Role-based visibility check
   const canRecordPayment = () => {
@@ -578,7 +583,7 @@ export default function Clients() {
                 type="text"
                 placeholder={t('common.searchClients')}
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="form-input pl-10"
               />
             </div>
@@ -586,7 +591,7 @@ export default function Clients() {
           <div className="form-group mb-0">
             <select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => { setCategory(e.target.value); setPage(1); }}
               className="form-select"
             >
               <option value="">{t('clients.allCategories')}</option>
@@ -600,7 +605,7 @@ export default function Clients() {
           <div className="form-group mb-0">
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => { setStatus(e.target.value); setPage(1); }}
               className="form-select"
             >
               <option value="">{t('clients.allStatus')}</option>
@@ -622,15 +627,16 @@ export default function Clients() {
               <th className="text-right">{t('common.contact')}</th>
               <th className="text-right">{t('clients.creditLimit')}</th>
               <th className="text-right">{t('clients.paymentTerms')}</th>
+              <th className="text-right">الأقدمية</th>
               <th className="text-right">{t('common.status')}</th>
               <th className="text-right"></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" className="text-center py-4">{t('common.loading')}</td></tr>
+              <tr><td colSpan="8" className="text-center py-4">{t('common.loading')}</td></tr>
             ) : clients.length === 0 ? (
-              <tr><td colSpan="7" className="text-center py-4">{t('clients.noClients')}</td></tr>
+              <tr><td colSpan="8" className="text-center py-4">{t('clients.noClients')}</td></tr>
             ) : (
               clients.map((client) => (
                 <tr key={client._id}>
@@ -647,6 +653,8 @@ export default function Clients() {
                   </td>
                   <td>
                     <span className="badge capitalize">{{farm: t('clients.farm'), wholesale: t('clients.wholesale'), distributor: t('clients.distributor'), retail: t('clients.retail'), dealer: t('clients.dealer')}[client.category] || client.category}</span>
+                    {client.product_focus === 'broiler' && <span className="badge badge-info ml-1">تسمين</span>}
+                    {client.product_focus === 'layer' && <span className="badge badge-secondary ml-1">بياض</span>}
                   </td>
                   <td>
                     <p className="text-sm">{client.phone}</p>
@@ -660,11 +668,18 @@ export default function Clients() {
                     )}
                   </td>
                   <td>
-                    {getPaymentBadge(client.paymentType, client.creditPeriod)}
+                    {getCreditClassBadge(client.credit_class)}
                     {client.discount > 0 && (
                       <span className="badge badge-warning ml-2">
                         {client.discount}% OFF
                       </span>
+                    )}
+                  </td>
+                  <td>
+                    {client.max_aging_days > 0 ? (
+                      <span className="text-sm font-medium text-gray-700">{client.max_aging_days} يوم</span>
+                    ) : (
+                      <span className="text-gray-400">—</span>
                     )}
                   </td>
                   <td>
@@ -700,6 +715,27 @@ export default function Clients() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {!loading && clients.length > 0 && (
+        <div className="flex items-center justify-between mt-4">
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+          >
+            السابق
+          </button>
+          <span className="text-sm text-gray-600">صفحة {page} من {totalPages}</span>
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+          >
+            التالي
+          </button>
+        </div>
+      )}
 
       {/* Add Client Modal */}
       {showModal && (
@@ -1271,7 +1307,7 @@ export default function Clients() {
                       <DollarSign className="w-6 h-6 text-green-600" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-3 gap-4 mb-4">
                     <div className="bg-white rounded-lg p-3 shadow-sm">
                       <p className="text-sm text-gray-600">إجمالي المستحقات</p>
                       <p className="text-xl font-bold text-gray-900">
@@ -1285,6 +1321,20 @@ export default function Clients() {
                       </p>
                       <p className="text-xl font-bold text-red-600">
                         {formatCurrency((selectedClient.pendingInvoices || []).filter(i => i.status !== 'paid' && new Date(i.due_date) < new Date()).reduce((sum, i) => sum + parseFloat(i.balance_due || i.remainingAmount || 0), 0) || 0)}
+                      </p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 shadow-sm">
+                      <p className="text-sm text-gray-600 flex items-center gap-1">
+                        <Clock className="w-4 h-4 text-orange-500" />
+                        عمر المديونية
+                      </p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {(() => {
+                          const oldest = Math.max(0, ...(selectedClient.client.liabilities || [])
+                            .filter(l => l.status === 'pending')
+                            .map(l => parseInt(l.aging_days) || 0));
+                          return oldest > 0 ? `أقدم مستحق: ${oldest} يوم` : '—';
+                        })()}
                       </p>
                     </div>
                   </div>
@@ -1324,9 +1374,7 @@ export default function Clients() {
               <div className="card mb-6">
                 <h3 className="card-title">شروط الدفع</h3>
                 <div className="flex gap-4 flex-wrap">
-                  <span className={`badge ${selectedClient.client.paymentType === 'cash' ? 'badge-primary' : 'badge-warning'}`}>
-                    {selectedClient.client.paymentType === 'cash' ? 'نقدي' : `ائتمان ${selectedClient.client.creditPeriod} يوم`}
-                  </span>
+                  {getCreditClassBadge(selectedClient.client.credit_class)}
                   {selectedClient.client.creditLimit > 0 && (
                     <span className="badge">
                       الحد: {selectedClient.client.creditLimit}

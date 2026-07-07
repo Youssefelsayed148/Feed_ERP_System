@@ -74,11 +74,11 @@ const HR = () => {
   const [selectedEmployeeDocs, setSelectedEmployeeDocs] = useState([]);
   const [showDocModal, setShowDocModal] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [departmentFilter, setDepartmentFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
   
   const [newEmployee, setNewEmployee] = useState({
-    firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '',
+    firstName: '', lastName: '', arabicName: '', email: '', phone: '', dateOfBirth: '',
     address: '', city: '', country: '', nationality: '',
     department: '', designation: '', joinDate: '', salary: '',
     bankName: '', bankAccount: '', iban: '',
@@ -124,6 +124,7 @@ const HR = () => {
       ...emp,
       id: emp.id,
       _id: emp.id,
+      name: emp.name || '',
       firstName: nameParts[0] || '',
       lastName: nameParts.slice(1).join(' ') || '',
       designation: emp.position || emp.title || '',
@@ -168,7 +169,13 @@ const HR = () => {
   // Reactive department filter — runs immediately when departmentFilter changes
   useEffect(() => {
     if (allEmployees.length > 0) {
-      setEmployees(departmentFilter ? allEmployees.filter(e => e.department === departmentFilter) : allEmployees);
+      if (departmentFilter.length === 0) {
+        setEmployees(allEmployees);
+      } else {
+        setEmployees(allEmployees.filter(e =>
+          departmentFilter.some(d => e.department === d || translateDept(e.department) === d)
+        ));
+      }
     }
   }, [departmentFilter, allEmployees]);
 
@@ -185,6 +192,7 @@ const HR = () => {
       setEditEmployeeData({
         salary: selectedEmployee.salary || 0,
         phone: selectedEmployee.phone || '',
+        name: selectedEmployee.name || '',
         title: selectedEmployee.title || selectedEmployee.designation || '',
         position: selectedEmployee.position || selectedEmployee.designation || '',
         department: selectedEmployee.department || '',
@@ -407,8 +415,15 @@ const HR = () => {
     }
   };
 
-  const departments = ['الإدارة العامة', 'المالية', 'المبيعات', 'الإنتاج', 'اللوجستيات', 'الصيانة', 'القسم القانوني', 'المشتريات', 'تقنية المعلومات', 'الموارد البشرية'];
-  const designations = ['Branch Manager', 'Sales Director', 'Team Lead', 'Senior Agent', 'Agent', 'Marketing Manager', 'Admin Officer', 'Finance Manager', 'Developer', 'HR Manager'];
+  const departments = ['الإدارة العامة', 'المالية', 'المبيعات', 'الإنتاج', 'اللوجستيات', 'الصيانة', 'القسم القانوني', 'المشتريات', 'تقنية المعلومات', 'الموارد البشرية', 'كافتيريا'];
+  const designations = [
+    'رئيس مجلس الإدارة', 'نائب رئيس مجلس الإدارة', 'مدير الصيانة', 'محامي', 'مدير الشئون القانونية',
+    'رئيس محاسبين', 'محاسب مال و HR', 'محاسب فواتير مبيعات', 'محاسب مخازن ومشتريات',
+    'مسئول البوفية', 'طباخ', 'مدير المبيعات', 'مندوب مبيعات', 'سائق',
+    'مدير الإنتاج', 'مساعد مدير الإنتاج', 'مسئول المركزات', 'مشرف صالة الإنتاج',
+    'فني كنيول', 'فني مكبس', 'مشرف حركة التحميل', 'فني صيانة', 'كهربائي',
+    'مسئول المياه', 'مهندس تقنية معلومات'
+  ];
 
   const translateDesignation = (designation) => {
     const map = {
@@ -429,6 +444,7 @@ const HR = () => {
       'Finance Manager': 'مدير مالي',
       'Developer': 'مطور',
       'HR Manager': 'مدير الموارد البشرية',
+      'Chief Accountant': 'رئيس محاسبين',
     };
     return map[designation] || designation || '-';
   };
@@ -477,14 +493,17 @@ const HR = () => {
       'HR': 'الموارد البشرية',
       'Human Resources': 'الموارد البشرية',
       'Services': 'الخدمات',
-      'Warehouse': 'المخازن'
+      'Warehouse': 'المخازن',
+      'operations': 'كافتيريا',
+      'it': 'تقنية المعلومات',
+      'inventory': 'المشتريات'
     };
     return map[dept] || dept || '-';
   };
 
   const getDepartmentStats = () => {
     const stats = {};
-    const currentEmployees = employees;
+    const currentEmployees = allEmployees;
     departments.forEach(dept => {
       const deptEmployees = currentEmployees.filter(e => e.department === dept || translateDept(e.department) === dept);
       stats[dept] = {
@@ -561,7 +580,7 @@ const HR = () => {
       await hrService.createEmployee(newEmployee);
       setShowEmployeeModal(false);
       setNewEmployee({
-        firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '',
+        firstName: '', lastName: '', arabicName: '', email: '', phone: '', dateOfBirth: '',
         address: '', city: '', country: '', nationality: '',
         department: '', designation: '', joinDate: '', salary: '',
         bankName: '', bankAccount: '', iban: '',
@@ -583,6 +602,7 @@ const HR = () => {
       const payload = {
         salary: parseFloat(editEmployeeData.salary) || 0,
         phone: editEmployeeData.phone,
+        name: editEmployeeData.name,
         designation: editEmployeeData.title || editEmployeeData.position,
         department: editEmployeeData.department,
         status: editEmployeeData.status,
@@ -590,6 +610,7 @@ const HR = () => {
       const result = await hrService.updateEmployee(selectedEmployee.id, payload);
       if (result.error) {
         setEditEmployeeError(result.error || 'فشل تحديث بيانات الموظف');
+        alert('فشل تحديث بيانات الموظف: ' + (result.error || 'خطأ غير معروف'));
       } else {
         setIsEditingEmployee(false);
         setSelectedEmployee(prev => ({ ...prev, ...payload }));
@@ -847,14 +868,6 @@ const HR = () => {
             <p className="page-subtitle">{t('hr.teamSubtitle')}</p>
           </div>
           <div className="header-actions">
-            <select 
-              className="form-select header-select" 
-              value={departmentFilter} 
-              onChange={(e) => setDepartmentFilter(e.target.value)}
-            >
-              <option value="">{t('common.all')} {t('hr.departments')}</option>
-              {departments.map(d => <option key={d} value={d}>{getDepartmentLabel(d)}</option>)}
-            </select>
             {canManageEmployees && (
               <button className="btn btn-primary" onClick={() => setShowEmployeeModal(true)}>
                 <UserPlus size={18} /> {t('hr.addEmployee')}
@@ -867,13 +880,13 @@ const HR = () => {
         <div style={{ marginBottom: '20px' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
             <button
-              onClick={() => setDepartmentFilter('')}
+              onClick={() => setDepartmentFilter([])}
               style={{
                 padding: '7px 16px', borderRadius: '20px', border: '1.5px solid',
-                borderColor: departmentFilter === '' ? '#3b82f6' : '#e5e7eb',
-                background: departmentFilter === '' ? '#eff6ff' : 'white',
-                color: departmentFilter === '' ? '#1d4ed8' : '#6b7280',
-                fontWeight: departmentFilter === '' ? 600 : 400,
+                borderColor: departmentFilter.length === 0 ? '#3b82f6' : '#e5e7eb',
+                background: departmentFilter.length === 0 ? '#eff6ff' : 'white',
+                color: departmentFilter.length === 0 ? '#1d4ed8' : '#6b7280',
+                fontWeight: departmentFilter.length === 0 ? 600 : 400,
                 cursor: 'pointer', fontSize: '13px', transition: 'all 0.15s'
               }}
             >
@@ -881,11 +894,11 @@ const HR = () => {
             </button>
             {departments.map(dept => {
               const stats = departmentStats[dept] || { count: 0 };
-              const isActive = departmentFilter === dept;
+              const isActive = departmentFilter.includes(dept);
               return (
                 <button
                   key={dept}
-                  onClick={() => setDepartmentFilter(isActive ? '' : dept)}
+                  onClick={() => setDepartmentFilter(isActive ? departmentFilter.filter(d => d !== dept) : [...departmentFilter, dept])}
                   style={{
                     padding: '7px 16px', borderRadius: '20px', border: '1.5px solid',
                     borderColor: isActive ? '#3b82f6' : '#e5e7eb',
@@ -906,10 +919,10 @@ const HR = () => {
               );
             })}
           </div>
-          {departmentFilter && (
+          {departmentFilter.length > 0 && (
             <div style={{ marginTop: '8px', fontSize: '13px', color: '#6b7280' }}>
-              عرض موظفي قسم: <strong style={{ color: '#1d4ed8' }}>{getDepartmentLabel(departmentFilter)}</strong>
-              <button onClick={() => setDepartmentFilter('')} style={{ marginRight: '8px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}>✕ إلغاء التصفية</button>
+              عرض موظفي أقسام: <strong style={{ color: '#1d4ed8' }}>{departmentFilter.map(d => getDepartmentLabel(d)).join('، ')}</strong>
+              <button onClick={() => setDepartmentFilter([])} style={{ marginRight: '8px', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}>✕ إلغاء التصفية</button>
             </div>
           )}
         </div>
@@ -967,10 +980,10 @@ const HR = () => {
                     <td>
                       <div className="employee-cell">
                         <div className="avatar avatar-md">
-                          {emp.avatar || (emp.firstName?.[0] || '') + (emp.lastName?.[0] || '')}
+                          {emp.avatar || (emp.name?.[0] || emp.firstName?.[0] || '') + (emp.name?.split(' ').pop()?.[0] || emp.lastName?.[0] || '')}
                         </div>
                         <div className="employee-info">
-                          <div className="employee-name">{emp.firstName} {emp.lastName}</div>
+                          <div className="employee-name">{emp.name || (emp.firstName + ' ' + emp.lastName)}</div>
                           <div className="employee-id">ID: {emp.id}</div>
                         </div>
                       </div>
@@ -2614,6 +2627,10 @@ const HR = () => {
                     <input type="text" className="form-input" required value={newEmployee.lastName} onChange={(e) => setNewEmployee({...newEmployee, lastName: e.target.value})} />
                   </div>
                   <div className="form-group">
+                    <label className="form-label">الاسم بالعربي *</label>
+                    <input type="text" className="form-input" required value={newEmployee.arabicName} onChange={(e) => setNewEmployee({...newEmployee, arabicName: e.target.value})} placeholder="الاسم الكامل باللغة العربية" />
+                  </div>
+                  <div className="form-group">
                     <label className="form-label">{t('common.email')} *</label>
                     <input type="email" className="form-input" required value={newEmployee.email} onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})} />
                   </div>
@@ -2833,10 +2850,21 @@ const HR = () => {
             <div className="modal-body">
               <div className="employee-profile-header">
                 <div className="avatar avatar-xl">
-                  {selectedEmployee.avatar || selectedEmployee.firstName?.[0] + selectedEmployee.lastName?.[0]}
+                  {selectedEmployee.avatar || (selectedEmployee.name?.[0] || selectedEmployee.firstName?.[0] || '') + ((selectedEmployee.name?.split(' ').pop()?.[0]) || selectedEmployee.lastName?.[0] || '')}
                 </div>
                 <div className="employee-profile-info">
-                  <div className="employee-name">{selectedEmployee.firstName} {selectedEmployee.lastName}</div>
+                  {isEditingEmployee ? (
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={editEmployeeData.name}
+                      onChange={(e) => setEditEmployeeData(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="الاسم"
+                      style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: '4px' }}
+                    />
+                  ) : (
+                    <div className="employee-name">{selectedEmployee.name || (selectedEmployee.firstName + ' ' + selectedEmployee.lastName)}</div>
+                  )}
                   {isEditingEmployee ? (
                     <div className="form-group" style={{ marginTop: '8px', marginBottom: 0 }}>
                       <input

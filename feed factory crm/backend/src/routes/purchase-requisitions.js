@@ -114,13 +114,18 @@ router.put('/:id', authenticate, async (req, res) => {
 // DELETE /api/purchase-requisitions/:id - Delete requisition
 router.delete('/:id', authenticate, async (req, res) => {
   try {
-    const result = await query(
-      'DELETE FROM purchase_requisitions WHERE id = $1 RETURNING id',
-      [req.params.id]
-    );
-    if (result.rows.length === 0) {
+    const requisitionRes = await query('SELECT requested_by, status FROM purchase_requisitions WHERE id = $1', [req.params.id]);
+    if (requisitionRes.rows.length === 0) {
       return res.status(404).json({ error: 'Requisition not found' });
     }
+    const requisition = requisitionRes.rows[0];
+    const isManager = managerRoles.includes(req.user.role);
+    const isOwnPendingRequest = req.user.id === requisition.requested_by && requisition.status === 'pending';
+    if (!isManager && !isOwnPendingRequest) {
+      return res.status(403).json({ error: 'Not authorized to delete this requisition' });
+    }
+
+    await query('DELETE FROM purchase_requisitions WHERE id = $1', [req.params.id]);
     res.json({ success: true, message: 'Requisition deleted' });
   } catch (error) {
     console.error('Error deleting requisition:', error);

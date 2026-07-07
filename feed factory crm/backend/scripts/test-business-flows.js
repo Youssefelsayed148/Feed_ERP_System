@@ -58,8 +58,8 @@ async function testAuth() {
   
   // Try to login with a default user
   const login = await makeRequest('/api/auth/login', 'POST', {
-    email: 'owner@al-kheir.com',
-    password: 'password123'
+    email: process.env.TEST_LOGIN_EMAIL || 'owner@al-kheir.com',
+    password: process.env.TEST_LOGIN_PASSWORD
   });
   
   if (login.ok && login.data.token) {

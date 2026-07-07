@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 
 // Machines
 router.get('/machines', authenticate, async (req, res) => {
@@ -61,7 +61,7 @@ router.get('/machines/:id', authenticate, async (req, res) => {
   }
 });
 
-router.post('/machines', authenticate, async (req, res) => {
+router.post('/machines', authenticate, authorize('maintenance_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     // Accept both snake_case (API) and camelCase (frontend form)
     const code = req.body.code;
@@ -83,7 +83,7 @@ router.post('/machines', authenticate, async (req, res) => {
   }
 });
 
-router.put('/machines/:id', authenticate, async (req, res) => {
+router.put('/machines/:id', authenticate, authorize('maintenance_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     // Normalise camelCase → snake_case from frontend
     const body = { ...req.body };
@@ -131,7 +131,7 @@ router.get('/vehicles', authenticate, async (req, res) => {
            AND ms.status = 'completed') as last_maintenance_date,
         (SELECT MIN(mr.due_date)
          FROM maintenance_reminders mr
-         WHERE mr.machine_id = v.id AND mr.status IN ('scheduled', 'pending') AND mr.due_date >= CURRENT_DATE) as next_maintenance_date
+         WHERE mr.vehicle_id = v.id AND mr.status IN ('scheduled', 'pending') AND mr.due_date >= CURRENT_DATE) as next_maintenance_date
       FROM vehicles v
       LEFT JOIN users u ON v.driver_id = u.id
       WHERE v.is_active = true
@@ -173,7 +173,7 @@ router.get('/vehicles/:id', authenticate, async (req, res) => {
   }
 });
 
-router.post('/vehicles', authenticate, async (req, res) => {
+router.post('/vehicles', authenticate, authorize('logistics_coordinator', 'maintenance_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     // Accept both snake_case (API) and camelCase (frontend form)
     const code = req.body.code;
@@ -195,7 +195,7 @@ router.post('/vehicles', authenticate, async (req, res) => {
   }
 });
 
-router.put('/vehicles/:id', authenticate, async (req, res) => {
+router.put('/vehicles/:id', authenticate, authorize('logistics_coordinator', 'maintenance_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     // Normalise camelCase → snake_case from frontend
     const body = { ...req.body };
@@ -229,7 +229,7 @@ router.put('/vehicles/:id', authenticate, async (req, res) => {
 
 // POST /api/assets/machines/:id/record-maintenance
 // Inserts a completed maintenance job into maintenance_schedules.
-router.post('/machines/:id/record-maintenance', authenticate, async (req, res) => {
+router.post('/machines/:id/record-maintenance', authenticate, authorize('maintenance_mgr', 'maintenance_tech', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const { date, type, description, cost, hoursSpent, partsReplaced, performedBy } = req.body;
@@ -275,7 +275,7 @@ router.post('/machines/:id/record-maintenance', authenticate, async (req, res) =
 });
 
 // POST /api/assets/vehicles/:id/record-maintenance
-router.post('/vehicles/:id/record-maintenance', authenticate, async (req, res) => {
+router.post('/vehicles/:id/record-maintenance', authenticate, authorize('maintenance_mgr', 'maintenance_tech', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const { date, type, description, cost, hoursSpent, partsReplaced, performedBy } = req.body;
@@ -357,6 +357,44 @@ router.get('/machines/:id/maintenance-history', authenticate, async (req, res) =
   } catch (error) {
     console.error('Error fetching maintenance history:', error);
     res.status(500).json({ error: 'Failed to fetch maintenance history' });
+  }
+});
+
+// GET vehicle maintenance history
+router.get('/vehicles/:id/maintenance-history', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query(
+      `SELECT
+         ms.id, ms.scheduled_date, ms.type, ms.description, ms.status, ms.cost, ms.notes
+       FROM maintenance_schedules ms
+       WHERE ms.description LIKE $1 AND ms.machine_id IS NULL
+       ORDER BY ms.scheduled_date DESC`,
+      [`%[مركبة #${id}]%`]
+    );
+    const history = result.rows.map(r => {
+      const noteParts = (r.notes || '').split(' | ').reduce((acc, part) => {
+        if (part.startsWith('نفذ بواسطة: ')) acc.performedBy = part.replace('نفذ بواسطة: ', '');
+        if (part.startsWith('ساعات العمل: ')) acc.hoursSpent = part.replace('ساعات العمل: ', '');
+        if (part.startsWith('قطع الغيار: ')) acc.partsReplaced = part.replace('قطع الغيار: ', '').split(', ');
+        return acc;
+      }, {});
+      return {
+        _id: r.id,
+        date: r.scheduled_date,
+        type: r.type,
+        description: r.description,
+        status: r.status,
+        cost: r.cost,
+        performedBy: noteParts.performedBy || '',
+        hoursSpent: noteParts.hoursSpent || '',
+        partsReplaced: noteParts.partsReplaced || []
+      };
+    });
+    res.json({ success: true, history });
+  } catch (error) {
+    console.error('Error fetching vehicle maintenance history:', error);
+    res.status(500).json({ error: 'Failed to fetch vehicle maintenance history' });
   }
 });
 

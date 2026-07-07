@@ -66,6 +66,42 @@ const ROUTE_MODULES = {
   settings: null // owner/admin/ceo only — no modulePermission, per access doc
 };
 
+// Reverse map: modulePermission → default route path (used for landing redirects)
+const MODULE_TO_ROUTE = {
+  dashboard: '/dashboard',
+  sales: '/sales',
+  clients: '/clients',
+  orders: '/orders',
+  suppliers: '/suppliers',
+  purchase_orders: '/purchase-orders',
+  grn: '/grn',
+  inventory: '/inventory',
+  feed_recipes: '/feed-recipes',
+  production: '/production',
+  finance: '/finance',
+  receivables: '/finance/receivables',
+  payables: '/finance/payables',
+  expenses: '/finance/expenses',
+  accounting: '/accountant',
+  legal: '/legal',
+  assets: '/assets',
+  hr: '/hr',
+  payroll: '/hr/payroll',
+  delivery: '/delivery',
+  approvals: '/approvals',
+};
+
+const getUserLandingPath = (user) => {
+  if (!user) return '/login';
+  const role = user.role;
+  if (role === 'admin' || role === 'owner' || role === 'ceo') return '/dashboard';
+  const perms = user.modulePermissions || [];
+  if (perms.length === 0) return '/approvals';
+  const firstModule = perms[0];
+  if (firstModule === 'sales' && role === 'sales_rep') return '/sales-rep';
+  return MODULE_TO_ROUTE[firstModule] || '/approvals';
+};
+
 const APPROVAL_MANAGER_ROLES = ['sales_manager', 'finance_manager', 'purchasing_mgr', 'production_mgr', 'legal_mgr', 'maintenance_mgr'];
 
 const hasModuleAccess = (user, routePath) => {
@@ -89,9 +125,14 @@ const ProtectedRoute = ({ children, routePath }) => {
 
   const user = authService.getCurrentUser();
   if (routePath && !hasModuleAccess(user, routePath)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={getUserLandingPath(user)} replace />;
   }
   return children;
+};
+
+const LandingRedirect = () => {
+  const user = authService.getCurrentUser();
+  return <Navigate to={getUserLandingPath(user)} replace />;
 };
 
 function App() {
@@ -105,7 +146,7 @@ function App() {
               <Layout />
             </ProtectedRoute>
           }>
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<LandingRedirect />} />
             <Route path="dashboard" element={<ProtectedRoute routePath="dashboard"><Dashboard /></ProtectedRoute>} />
             <Route path="clients" element={<ProtectedRoute routePath="clients"><Clients /></ProtectedRoute>} />
             <Route path="orders" element={<ProtectedRoute routePath="orders"><Orders /></ProtectedRoute>} />

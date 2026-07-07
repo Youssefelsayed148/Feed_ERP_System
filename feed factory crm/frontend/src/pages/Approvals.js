@@ -347,7 +347,6 @@ export default function Approvals() {
 
                         {/* Structured fields parsed from notes + direct fields */}
                         {(() => {
-                          console.log('[Approvals] pending req:', req);
                           const parsed = parseNotes(req.notes);
                           const ref = parsed.ref || `${req.request_type.toUpperCase()}-${req.request_id}`;
                           const party = parsed.party

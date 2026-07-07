@@ -185,7 +185,9 @@ const Sidebar = () => {
     
     let menuItems = [];
     
-    menuItems.push({ path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), module: 'dashboard' });
+    if (role === 'admin' || role === 'owner' || role === 'ceo') {
+      menuItems.push({ path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), module: 'dashboard' });
+    }
     
     if (hasModulePermission('sales') || hasModulePermission('clients') || hasModulePermission('orders')) {
       if (hasModulePermission('sales')) {

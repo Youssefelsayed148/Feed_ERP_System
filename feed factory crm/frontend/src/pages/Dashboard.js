@@ -84,9 +84,9 @@ const Dashboard = () => {
 
   const handleApproveRequest = async (id) => {
     try {
-      await fetch(`${API_URL}/approvals/approve`, {
-        method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: id })
+      await fetch(`${API_URL}/approvals/${id}/approve`, {
+        method: 'PUT', headers: headers(),
+        body: JSON.stringify({})
       });
       fetchPendingApprovals();
     } catch (e) {}
@@ -96,9 +96,9 @@ const Dashboard = () => {
     const reason = prompt('Rejection reason:');
     if (!reason) return;
     try {
-      await fetch(`${API_URL}/approvals/reject`, {
-        method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: id, reason })
+      await fetch(`${API_URL}/approvals/${id}/reject`, {
+        method: 'PUT', headers: headers(),
+        body: JSON.stringify({ notes: reason })
       });
       fetchPendingApprovals();
     } catch (e) {}

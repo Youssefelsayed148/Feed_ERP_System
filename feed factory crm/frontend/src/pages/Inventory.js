@@ -34,13 +34,18 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState(null);
-  
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
   // Modal states
   const [showAddStockModal, setShowAddStockModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showMovementsModal, setShowMovementsModal] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [materialMovements, setMaterialMovements] = useState([]);
+  const [materialDetailData, setMaterialDetailData] = useState(null);
+  const [showMaterialDetailModal, setShowMaterialDetailModal] = useState(false);
+  const [showAddNewMaterialModal, setShowAddNewMaterialModal] = useState(false);
   const [requisitions, setRequisitions] = useState([]);
   const [expandedRows, setExpandedRows] = useState({});
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -63,7 +68,7 @@ export default function Inventory() {
 
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+  }, [activeTab, page]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -71,13 +76,14 @@ export default function Inventory() {
       if (activeTab === 'raw') {
         // Fetch from PostgreSQL
         const [materialsRes, statsRes] = await Promise.all([
-          fetch(`${API_URL}/raw-materials`, { headers: headers() }),
+          fetch(`${API_URL}/raw-materials?page=${page}&limit=20`, { headers: headers() }),
           fetch(`${API_URL}/dashboard`, { headers: headers() })
         ]);
         const materials = await materialsRes.json();
         const statsData = await statsRes.json();
-        // PostgreSQL returns array directly
+        // PostgreSQL returns { materials: [], total, page, pages }
         const materialsData = Array.isArray(materials) ? materials : materials.materials || [];
+        setTotalPages(materials.pages || 1);
         // Map API fields (id, name_arabic, current_stock, unit_price, min_stock_level, stock_status)
         // to frontend expectations (_id, name, quantity, costPerUnit, minimumStock, status)
         const mappedMaterials = materialsData.map(m => ({
@@ -234,8 +240,9 @@ export default function Inventory() {
           setRequisitions(reqRes.requisitions || []);
         }
         // Fetch raw-materials directly to get min_stock_level for red/orange color coding
+        // Uses a high limit (not the raw-tab page state) since this needs the full list to compute low-stock accurately
         try {
-          const matRes = await fetch(`${API_URL}/raw-materials`, { headers: headers() });
+          const matRes = await fetch(`${API_URL}/raw-materials?limit=1000`, { headers: headers() });
           const matData = await matRes.json();
           const mats = Array.isArray(matData) ? matData : (matData.materials || []);
           const lowStock = mats
@@ -325,6 +332,26 @@ export default function Inventory() {
       setMaterialMovements(res.ok ? (await res.json()).recent_transactions || [] : []);
     } catch(e) { setMaterialMovements([]); }
     setShowMovementsModal(true);
+  };
+
+  const handleMaterialNameClick = async (material, e) => {
+    e.stopPropagation();
+    setSelectedMaterial(material);
+    try {
+      const res = await fetch(`${API_URL}/raw-materials/${material.id || material._id}`, { headers: headers() });
+      if (res.ok) {
+        const data = await res.json();
+        setMaterialDetailData(data);
+        setMaterialMovements(data.recent_transactions || []);
+      } else {
+        setMaterialDetailData(null);
+        setMaterialMovements([]);
+      }
+    } catch(e) {
+      setMaterialDetailData(null);
+      setMaterialMovements([]);
+    }
+    setShowMaterialDetailModal(true);
   };
 
   const getStatusColor = (status) => {
@@ -417,21 +444,12 @@ export default function Inventory() {
     return `${quantity} ${unit || 'كجم'}`;
   };
 
-  // ADD STOCK MODAL COMPONENT
+  // ADD STOCK MODAL COMPONENT — existing material only
   const AddStockModal = () => {
     const [formData, setFormData] = useState({
       materialId: '',
-      isNewMaterial: false,
-      newMaterialName: '',
-      newMaterialCode: '',
-      newMaterialCategory: 'grain',
       quantity: '',
-      unit: 'kg',
       costPerUnit: '',
-      supplier: '',
-      supplierId: '',
-      batchNumber: '',
-      expiryDate: '',
       notes: ''
     });
     const [submitting, setSubmitting] = useState(false);
@@ -440,157 +458,54 @@ export default function Inventory() {
     const handleSubmit = async (e) => {
       e.preventDefault();
       const errors = {};
-      if (formData.isNewMaterial) {
-        if (!formData.newMaterialName.trim()) errors.material = 'اختر الخامة أو أدخل اسمها';
-      } else {
-        if (!formData.materialId) errors.material = 'اختر الخامة أو أدخل اسمها';
-      }
+      if (!formData.materialId) errors.material = 'اختر الخامة';
       if (!formData.quantity || parseFloat(formData.quantity) <= 0) errors.quantity = 'الكمية يجب أن تكون أكبر من صفر';
       if (!formData.costPerUnit || parseFloat(formData.costPerUnit) <= 0) errors.costPerUnit = 'تكلفة الوحدة مطلوبة';
       if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
       setFormErrors({});
       setSubmitting(true);
-      
+
       try {
-        if (formData.isNewMaterial) {
-          // Create new material with stock
-          const response = await fetch(`${API_URL}/raw-materials`, {
-            method: 'POST',
-            headers: headers(),
-            body: JSON.stringify({
-              name: formData.newMaterialName,
-              code: formData.newMaterialCode,
-              category: formData.newMaterialCategory,
-              quantity: parseFloat(formData.quantity),
-              unit: formData.unit,
-              costPerUnit: parseFloat(formData.costPerUnit),
-              supplier: formData.supplier,
-              supplierId: formData.supplierId,
-              batchNumber: formData.batchNumber,
-              expiryDate: formData.expiryDate,
-              notes: formData.notes
-            })
+        const response = await fetch(`${API_URL}/raw-materials/${formData.materialId}/stock`, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({
+            quantity: parseFloat(formData.quantity),
+            unit_price: parseFloat(formData.costPerUnit),
+            transaction_type: 'purchase',
+            notes: formData.notes || t('inventory.manualStockAddition')
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          broadcastInventoryUpdate('stockAdded', {
+            materialId: formData.materialId,
+            quantity: parseFloat(formData.quantity),
+            result
           });
-          
-          if (response.ok) {
-            const result = await response.json();
-            broadcastInventoryUpdate('newMaterial', result);
-            alert(t('inventory.stockAdded'));
-            setShowAddStockModal(false);
-            fetchData();
-          } else {
-            const errorData = await response.json();
-            alert(`${t('inventory.failedAddStock')}: ${errorData.message || t('common.unknownError')}`);
-          }
+          alert(t('inventory.stockAdded'));
+          setShowAddStockModal(false);
+          fetchData();
         } else {
-          // Add stock to existing material
-          const response = await fetch(`${API_URL}/raw-materials/${formData.materialId}/stock`, {
-            method: 'POST',
-            headers: headers(),
-            body: JSON.stringify({
-              quantity: parseFloat(formData.quantity),
-              unit_price: parseFloat(formData.costPerUnit),
-              transaction_type: 'purchase',
-              notes: formData.notes || t('inventory.manualStockAddition')
-            })
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            broadcastInventoryUpdate('stockAdded', { 
-              materialId: formData.materialId,
-              quantity: parseFloat(formData.quantity),
-              result
-            });
-            alert(t('inventory.stockAdded'));
-            setShowAddStockModal(false);
-            fetchData();
-          } else {
-            const errorData = await response.json();
-            alert(`Failed to add stock: ${errorData.message || 'Unknown error'}`);
-          }
+          const errorData = await response.json();
+          alert(`Failed to add stock: ${errorData.message || 'Unknown error'}`);
         }
       } catch (error) {
         console.error('Error adding stock:', error);
-        // Demo mode - update locally
-        if (formData.isNewMaterial) {
-          const newMaterial = {
-            _id: 'rm-' + Date.now(),
-            name: formData.newMaterialName,
-            code: formData.newMaterialCode,
-            category: formData.newMaterialCategory,
-            quantity: parseFloat(formData.quantity),
-            unit: formData.unit,
-            costPerUnit: parseFloat(formData.costPerUnit),
-            minimumStock: 1000,
-            status: 'active'
-          };
-          setRawMaterials([...rawMaterials, newMaterial]);
-          // Add stock movement
-          const newMovement = {
-            _id: 'sm-' + Date.now(),
-            materialName: formData.newMaterialName,
-            materialCode: formData.newMaterialCode,
-            movementType: 'NEW_MATERIAL',
-            quantity: parseFloat(formData.quantity),
-            unitCost: parseFloat(formData.costPerUnit),
-            totalValue: parseFloat(formData.quantity) * parseFloat(formData.costPerUnit),
-            reference: formData.batchNumber || 'MANUAL-ENTRY',
-            supplier: formData.supplier || 'N/A',
-            performedBy: 'Demo User',
-            timestamp: new Date().toISOString()
-          };
-          setStockMovements(prev => {
-            const updated = [newMovement, ...prev];
-            broadcastInventoryUpdate('stockMovement', newMovement);
-            return updated;
-          });
-          alert(t('inventory.stockAddedDemo'));
-        } else {
-          const material = rawMaterials.find(m => m._id === formData.materialId);
-          const oldQuantity = material?.quantity || 0;
-          const addedQuantity = parseFloat(formData.quantity);
-          const newQuantity = oldQuantity + addedQuantity;
-          
-          const updatedMaterials = rawMaterials.map(m => 
-            m._id === formData.materialId ? { 
-              ...m, 
-              quantity: newQuantity,
-              costPerUnit: formData.costPerUnit ? parseFloat(formData.costPerUnit) : m.costPerUnit
-            } : m
-          );
-          setRawMaterials(updatedMaterials);
-          
-          // Add stock movement record
-          const newMovement = {
-            _id: 'sm-' + Date.now(),
-            materialName: material?.name || 'Unknown',
-            materialCode: material?.code || 'N/A',
-            movementType: 'PURCHASE',
-            quantity: addedQuantity,
-            unitCost: parseFloat(formData.costPerUnit) || material?.costPerUnit || 0,
-            totalValue: addedQuantity * (parseFloat(formData.costPerUnit) || material?.costPerUnit || 0),
-            reference: formData.batchNumber || 'MANUAL-ENTRY',
-            supplier: formData.supplier || 'N/A',
-            performedBy: 'Demo User',
-            timestamp: new Date().toISOString()
-          };
-          setStockMovements(prev => {
-            const updated = [newMovement, ...prev];
-            broadcastInventoryUpdate('stockMovement', newMovement);
-            return updated;
-          });
-          
-          // Update stats
-          broadcastInventoryUpdate('materialUpdate', { 
-            materialId: formData.materialId, 
-            oldQuantity, 
-            newQuantity,
-            materialName: material?.name 
-          });
-          
-          alert(`Stock added successfully! ${material?.name}: ${oldQuantity} → ${newQuantity} ${material?.unit} (Demo Mode)`);
-        }
+        const material = rawMaterials.find(m => m._id === formData.materialId);
+        const oldQuantity = material?.quantity || 0;
+        const addedQuantity = parseFloat(formData.quantity);
+        const newQuantity = oldQuantity + addedQuantity;
+        const updatedMaterials = rawMaterials.map(m =>
+          m._id === formData.materialId ? {
+            ...m,
+            quantity: newQuantity,
+            costPerUnit: formData.costPerUnit ? parseFloat(formData.costPerUnit) : m.costPerUnit
+          } : m
+        );
+        setRawMaterials(updatedMaterials);
+        alert(`Stock added (Demo Mode)! ${material?.name}: ${oldQuantity} → ${newQuantity} ${material?.unit}`);
         setShowAddStockModal(false);
       } finally {
         setSubmitting(false);
@@ -601,27 +516,21 @@ export default function Inventory() {
       <div className="modal-overlay">
         <div className="modal modal-large">
           <div className="modal-header">
-            <h2 className="modal-title">{t('inventory.addRawMaterial')}</h2>
+            <h2 className="modal-title">{t('inventory.addStock')}</h2>
             <button className="modal-close" onClick={() => { setFormErrors({}); setShowAddStockModal(false); }}>
               <X className="w-6 h-6" />
             </button>
           </div>
-          
           <form onSubmit={handleSubmit}>
             <div className="modal-body" style={{ overflowY: 'auto', maxHeight: '60vh' }}>
-              {/* Material Selection */}
               <div className="form-group">
                 <label className="form-label">الخامة <span style={{ color: '#ef4444' }}>*</span></label>
-                <select 
+                <select
                   className="form-select"
                   style={{ border: formErrors.material ? '1px solid #ef4444' : undefined }}
-                  value={formData.isNewMaterial ? 'new' : formData.materialId}
+                  value={formData.materialId}
                   onChange={(e) => {
-                    if (e.target.value === 'new') {
-                      setFormData({ ...formData, isNewMaterial: true, materialId: '' });
-                    } else {
-                      setFormData({ ...formData, isNewMaterial: false, materialId: e.target.value });
-                    }
+                    setFormData({ ...formData, materialId: e.target.value });
                     if (formErrors.material) setFormErrors({ ...formErrors, material: undefined });
                   }}
                 >
@@ -629,83 +538,24 @@ export default function Inventory() {
                   {rawMaterials.map(m => (
                     <option key={m._id} value={m._id}>{m.name} ({m.code}) - Current: {m.quantity} {m.unit}</option>
                   ))}
-                  <option value="new">+ إنشاء خامة جديدة</option>
                 </select>
                 {formErrors.material && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{formErrors.material}</small>}
               </div>
-              
-              {/* New Material Fields */}
-              {formData.isNewMaterial && (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div className="form-group">
-                    <label className="form-label">اسم الخامة <span style={{ color: '#ef4444' }}>*</span></label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.newMaterialName}
-                      onChange={(e) => setFormData({ ...formData, newMaterialName: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">كود الخامة <span style={{ color: '#ef4444' }}>*</span></label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={formData.newMaterialCode}
-                      onChange={(e) => setFormData({ ...formData, newMaterialCode: e.target.value })}
-                      placeholder="مثال: RM-CORN-002"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">الفئة <span style={{ color: '#ef4444' }}>*</span></label>
-                    <select
-                      className="form-select"
-                      value={formData.newMaterialCategory}
-                      onChange={(e) => setFormData({ ...formData, newMaterialCategory: e.target.value })}
-                    >
-                      <option value="grain">{t('inventory.grain')}</option>
-                      <option value="protein">{t('inventory.protein')}</option>
-                      <option value="fiber">{t('inventory.fiber')}</option>
-                      <option value="mineral">{t('inventory.mineral')}</option>
-                      <option value="oil">زيت</option>
-                      <option value="additive">{t('inventory.additive')}</option>
-                      <option value="other">{t('common.other')}</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-              
-              {/* Quantity and Unit */}
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">{t('common.quantity')} <span style={{ color: '#ef4444' }}>*</span></label>
-                  <input
-                    type="number"
-                    step="1"
-                    className="form-input"
-                    style={{ border: formErrors.quantity ? '1px solid #ef4444' : undefined }}
-                    value={formData.quantity}
-                    onChange={(e) => {
-                      setFormData({ ...formData, quantity: e.target.value });
-                      if (formErrors.quantity) setFormErrors({ ...formErrors, quantity: undefined });
-                    }}
-                  />
-                  {formErrors.quantity && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{formErrors.quantity}</small>}
-                </div>
-                <div className="form-group">
-                  <label className="form-label">{t('common.unit')}</label>
-                  <select
-                    className="form-select"
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  >
-                    <option value="kg">{t('common.kg')}</option>
-                    <option value="ton">{t('common.tons')}</option>
-                  </select>
-                </div>
+              <div className="form-group">
+                <label className="form-label">{t('common.quantity')} <span style={{ color: '#ef4444' }}>*</span></label>
+                <input
+                  type="number"
+                  step="1"
+                  className="form-input"
+                  style={{ border: formErrors.quantity ? '1px solid #ef4444' : undefined }}
+                  value={formData.quantity}
+                  onChange={(e) => {
+                    setFormData({ ...formData, quantity: e.target.value });
+                    if (formErrors.quantity) setFormErrors({ ...formErrors, quantity: undefined });
+                  }}
+                />
+                {formErrors.quantity && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{formErrors.quantity}</small>}
               </div>
-              
-              {/* Unit Cost */}
               <div className="form-group">
                 <label className="form-label">{t('inventory.unitCostPerKg')} <span style={{ color: '#ef4444' }}>*</span></label>
                 <input
@@ -723,53 +573,6 @@ export default function Inventory() {
                 {formErrors.costPerUnit && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{formErrors.costPerUnit}</small>}
                 <small className="form-help">يؤثر على تقييم المخزون باستخدام طريقة متوسط التكلفة المرجح</small>
               </div>
-              
-              {/* Supplier */}
-              <div className="form-group">
-                <label className="form-label">{t('common.supplier')}</label>
-                <select
-                  className="form-select"
-                  value={formData.supplierId}
-                  onChange={(e) => {
-                    const supplier = suppliers.find(s => s._id === e.target.value);
-                    setFormData({ 
-                      ...formData, 
-                      supplierId: e.target.value,
-                      supplier: supplier?.name || ''
-                    });
-                  }}
-                >
-                  <option key="placeholder-supplier" value="">اختر المورد</option>
-                  {suppliers.map(s => (
-                    <option key={s._id || s.id || s.code || s.name} value={s._id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Batch Number and Expiry */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">{t('inventory.batchNumber')}</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.batchNumber}
-                    onChange={(e) => setFormData({ ...formData, batchNumber: e.target.value })}
-                    placeholder="Optional tracking number"
-                  />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">تاريخ الانتهاء</label>
-                  <input
-                    type="date"
-                    className="form-input"
-                    value={formData.expiryDate}
-                    onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-                  />
-                </div>
-              </div>
-              
-              {/* Notes */}
               <div className="form-group">
                 <label className="form-label">{t('common.notes')}</label>
                 <textarea
@@ -781,13 +584,191 @@ export default function Inventory() {
                 />
               </div>
             </div>
-            
             <div className="modal-footer">
               <button type="button" className="btn btn-secondary" onClick={() => { setFormErrors({}); setShowAddStockModal(false); }}>
                 {t('common.cancel')}
               </button>
               <button type="submit" className="btn btn-success" disabled={submitting}>
                 {submitting ? t('inventory.adding') : t('inventory.addStock')}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // ADD NEW MATERIAL MODAL COMPONENT
+  const AddNewMaterialModal = () => {
+    const [formData, setFormData] = useState({
+      nameArabic: '',
+      nameEnglish: '',
+      category: 'grain',
+      unit: 'kg',
+      unitPrice: '',
+      currentStock: 0,
+      reorderLevel: 0,
+      minStockLevel: 0,
+      restockQuantity: '',
+      preferredSupplierId: ''
+    });
+    const [submitting, setSubmitting] = useState(false);
+    const [formErrors, setFormErrors] = useState({});
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      const errors = {};
+      if (!formData.nameArabic.trim()) errors.nameArabic = 'اسم الخامة بالعربية مطلوب';
+      if (!formData.category) errors.category = 'الفئة مطلوبة';
+      if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
+      setFormErrors({});
+      setSubmitting(true);
+
+      try {
+        const response = await fetch(`${API_URL}/raw-materials`, {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({
+            name_arabic: formData.nameArabic,
+            name_english: formData.nameEnglish,
+            category: formData.category,
+            unit: formData.unit,
+            unit_price: parseFloat(formData.unitPrice) || 0,
+            current_stock: parseFloat(formData.currentStock) || 0,
+            reorder_level: parseFloat(formData.reorderLevel) || 0,
+            min_stock_level: parseFloat(formData.minStockLevel) || 0,
+            restock_quantity: formData.restockQuantity ? parseFloat(formData.restockQuantity) : null,
+            preferred_supplier_id: formData.preferredSupplierId || null
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.material) {
+            setRawMaterials(prev => [{
+              _id: result.material.id,
+              id: result.material.id,
+              name: result.material.name_arabic || result.material.name_english || '',
+              nameArabic: result.material.name_arabic || '',
+              nameEnglish: result.material.name_english || '',
+              code: result.material.code,
+              category: result.material.category,
+              unit: result.material.unit || 'kg',
+              quantity: parseFloat(result.material.current_stock || 0),
+              current_stock: result.material.current_stock,
+              costPerUnit: parseFloat(result.material.unit_price || 0),
+              unit_price: result.material.unit_price,
+              minimumStock: parseFloat(result.material.min_stock_level || 0),
+              min_stock_level: result.material.min_stock_level,
+              status: 'active'
+            }, ...prev]);
+          }
+          alert('تم إضافة المادة الجديدة بنجاح');
+          setShowAddNewMaterialModal(false);
+          fetchData();
+        } else {
+          const errorData = await response.json();
+          alert(`فشل إضافة المادة: ${errorData.error || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error('Error adding new material:', error);
+        alert('فشل إضافة المادة: ' + (error.message || 'Unknown error'));
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    return (
+      <div className="modal-overlay">
+        <div className="modal modal-large">
+          <div className="modal-header">
+            <h2 className="modal-title">إضافة مادة جديدة</h2>
+            <button className="modal-close" onClick={() => { setFormErrors({}); setShowAddNewMaterialModal(false); }}>
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit}>
+            <div className="modal-body" style={{ overflowY: 'auto', maxHeight: '60vh' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">اسم الخامة (عربي) <span style={{ color: '#ef4444' }}>*</span></label>
+                  <input type="text" className="form-input" style={{ border: formErrors.nameArabic ? '1px solid #ef4444' : undefined }}
+                    value={formData.nameArabic} onChange={(e) => setFormData({ ...formData, nameArabic: e.target.value })} />
+                  {formErrors.nameArabic && <small style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>{formErrors.nameArabic}</small>}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">اسم الخامة (إنجليزي)</label>
+                  <input type="text" className="form-input"
+                    value={formData.nameEnglish} onChange={(e) => setFormData({ ...formData, nameEnglish: e.target.value })} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">الفئة <span style={{ color: '#ef4444' }}>*</span></label>
+                  <select className="form-select" value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
+                    <option value="grain">{t('inventory.grain')}</option>
+                    <option value="protein">{t('inventory.protein')}</option>
+                    <option value="fiber">{t('inventory.fiber')}</option>
+                    <option value="mineral">{t('inventory.mineral')}</option>
+                    <option value="oil">زيت</option>
+                    <option value="additive">{t('inventory.additive')}</option>
+                    <option value="other">{t('common.other')}</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">الوحدة</label>
+                  <select className="form-select" value={formData.unit} onChange={(e) => setFormData({ ...formData, unit: e.target.value })}>
+                    <option value="kg">kg</option>
+                    <option value="ton">ton</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">سعر الوحدة</label>
+                  <input type="number" step="0.01" className="form-input"
+                    value={formData.unitPrice} onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">المخزون الحالي</label>
+                  <input type="number" step="1" className="form-input"
+                    value={formData.currentStock} onChange={(e) => setFormData({ ...formData, currentStock: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">حد إعادة الطلب</label>
+                  <input type="number" step="1" className="form-input"
+                    value={formData.reorderLevel} onChange={(e) => setFormData({ ...formData, reorderLevel: e.target.value })} />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">الحد الأدنى للمخزون</label>
+                  <input type="number" step="1" className="form-input"
+                    value={formData.minStockLevel} onChange={(e) => setFormData({ ...formData, minStockLevel: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">كمية إعادة التخزين</label>
+                  <input type="number" step="1" className="form-input"
+                    value={formData.restockQuantity} onChange={(e) => setFormData({ ...formData, restockQuantity: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">المورد المفضل</label>
+                  <select className="form-select" value={formData.preferredSupplierId}
+                    onChange={(e) => setFormData({ ...formData, preferredSupplierId: e.target.value })}>
+                    <option value="">—</option>
+                    {suppliers.map(s => (
+                      <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => { setFormErrors({}); setShowAddNewMaterialModal(false); }}>
+                {t('common.cancel')}
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={submitting}>
+                {submitting ? t('common.saving') : 'إضافة المادة'}
               </button>
             </div>
           </form>
@@ -1151,6 +1132,165 @@ export default function Inventory() {
     }
   };
 
+  // MATERIAL DETAIL MODAL COMPONENT
+  const MaterialDetailModal = ({ material, movements, onClose }) => {
+    const [editForm, setEditForm] = useState({
+      unit_price: material.unit_price || '',
+      reorder_level: material.reorder_level || '',
+      min_stock_level: material.min_stock_level || '',
+      restock_quantity: material.restock_quantity || ''
+    });
+    const [saving, setSaving] = useState(false);
+    const [availableSuppliers, setAvailableSuppliers] = useState([]);
+    const [preferredSupplierId, setPreferredSupplierId] = useState(material.preferred_supplier_id || '');
+
+    useEffect(() => {
+      fetch(`${API_URL}/raw-materials/${material.id}/available-suppliers`, { headers: headers() })
+        .then(res => res.json())
+        .then(data => {
+          const list = data.suppliers || [];
+          setAvailableSuppliers(list);
+          if (!material.preferred_supplier_id) {
+            const preferred = list.find(s => s.is_preferred);
+            if (preferred) setPreferredSupplierId(preferred.id);
+          }
+        })
+        .catch(() => setAvailableSuppliers([]));
+    }, [material.id]);
+
+    const handleSave = async () => {
+      setSaving(true);
+      try {
+        const response = await fetch(`${API_URL}/raw-materials/${material.id}`, {
+          method: 'PUT',
+          headers: headers(),
+          body: JSON.stringify({
+            unit_price: editForm.unit_price !== '' ? parseFloat(editForm.unit_price) : undefined,
+            reorder_level: editForm.reorder_level !== '' ? parseFloat(editForm.reorder_level) : undefined,
+            min_stock_level: editForm.min_stock_level !== '' ? parseFloat(editForm.min_stock_level) : undefined,
+            restock_quantity: editForm.restock_quantity !== '' ? parseFloat(editForm.restock_quantity) : null,
+            preferred_supplier_id: preferredSupplierId || null
+          })
+        });
+        if (response.ok) {
+          alert('تم الحفظ بنجاح');
+          fetchData();
+        } else {
+          const data = await response.json();
+          alert('فشل الحفظ: ' + (data.error || 'Unknown error'));
+        }
+      } catch (e) {
+        alert('فشل الحفظ');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    return (
+      <div className="modal-overlay" onClick={onClose}>
+        <div className="modal modal-large" onClick={e => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2 className="modal-title">{material.name_arabic || material.name || ''}</h2>
+            <button className="modal-close" onClick={onClose}><X className="w-5 h-5" /></button>
+          </div>
+          <div className="modal-body" style={{ overflowY: 'auto', maxHeight: '70vh' }}>
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ marginBottom: '12px', color: '#1e293b', fontSize: '16px', fontWeight: 600 }}>تفاصيل المادة</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-group">
+                  <label className="form-label">سعر الوحدة</label>
+                  <input type="number" step="0.01" className="form-input"
+                    value={editForm.unit_price} onChange={(e) => setEditForm({ ...editForm, unit_price: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">حد إعادة الطلب</label>
+                  <input type="number" step="1" className="form-input"
+                    value={editForm.reorder_level} onChange={(e) => setEditForm({ ...editForm, reorder_level: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">الحد الأدنى للمخزون</label>
+                  <input type="number" step="1" className="form-input"
+                    value={editForm.min_stock_level} onChange={(e) => setEditForm({ ...editForm, min_stock_level: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">كمية إعادة التخزين</label>
+                  <input type="number" step="1" className="form-input"
+                    value={editForm.restock_quantity} onChange={(e) => setEditForm({ ...editForm, restock_quantity: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">المورد المفضل</label>
+                  {availableSuppliers.length > 0 ? (
+                    <select className="form-select" value={preferredSupplierId}
+                      onChange={(e) => setPreferredSupplierId(e.target.value)}>
+                      <option value="">—</option>
+                      {availableSuppliers.map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="form-input" style={{ background: '#f8fafc', display: 'flex', alignItems: 'center' }}>
+                      <span style={{ color: '#6b7280' }}>لا يوجد مورد مسجل لهذه المادة</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{ marginTop: '12px' }}>
+                <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                  {saving ? t('common.saving') : t('common.save')}
+                </button>
+              </div>
+            </div>
+            {material.used_in_recipes && material.used_in_recipes.length > 0 && (
+              <div style={{ marginBottom: '24px' }}>
+                <h3 style={{ marginBottom: '12px', color: '#1e293b', fontSize: '16px', fontWeight: 600 }}>تستخدم في الوصفات</h3>
+                <table className="table">
+                  <thead><tr><th>الوصفة</th><th>نوع العلف</th><th>الكمية (كجم)</th></tr></thead>
+                  <tbody>
+                    {material.used_in_recipes.map((r, i) => (
+                      <tr key={i}><td>{r.recipe_name}</td><td>{r.feed_type_name || '—'}</td><td>{r.quantity_kg}</td></tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div>
+              <h3 style={{ marginBottom: '12px', color: '#1e293b', fontSize: '16px', fontWeight: 600 }}>{t('inventory.movements')}</h3>
+              {movements.length > 0 ? (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>{t('common.date')}</th>
+                      <th>{t('inventory.type')}</th>
+                      <th>{t('common.quantity')}</th>
+                      <th>{t('common.reference')}</th>
+                      <th>{t('common.notes')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movements.map((m, i) => (
+                      <tr key={m.id || i}>
+                        <td>{formatDate(m.created_at)}</td>
+                        <td><span className={`badge ${m.transaction_type === 'production' ? 'badge-info' : m.transaction_type === 'purchase' ? 'badge-success' : 'badge-warning'}`}>{m.transaction_type}</span></td>
+                        <td style={{ color: m.quantity < 0 ? '#ef4444' : '#10b981', fontWeight: 600 }}>{m.quantity}</td>
+                        <td>{m.reference_id ? `#${m.reference_id}` : '-'}</td>
+                        <td>{m.notes || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#6b7280' }}><p>{t('common.noData')}</p></div>
+              )}
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button className="btn btn-secondary" onClick={onClose}>{t('common.close')}</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="page-container">
       <div className="page-header">
@@ -1161,16 +1301,23 @@ export default function Inventory() {
         <div style={{ display: 'flex', gap: '12px' }}>
           {activeTab === 'raw' && (
             <>
-              <button 
+              <button
                 onClick={() => setShowAddStockModal(true)}
                 className="btn btn-success"
               >
                 <PlusCircle className="w-5 h-5" />
                 {t('inventory.addStock')}
               </button>
-              <button 
-                onClick={() => setShowTransferModal(true)}
+              <button
+                onClick={() => setShowAddNewMaterialModal(true)}
                 className="btn btn-primary"
+              >
+                <Plus className="w-5 h-5" />
+                إضافة مادة جديدة
+              </button>
+              <button
+                onClick={() => setShowTransferModal(true)}
+                className="btn btn-secondary"
               >
                 <ArrowLeftRight className="w-5 h-5" />
                 {t('inventory.transferStock')}
@@ -1368,8 +1515,8 @@ export default function Inventory() {
                 <tr><td colSpan="6" className="text-center">{t('inventory.noMaterials')}</td></tr>
               ) : rawMaterials.map((mat) => (
                 <tr key={mat._id} onClick={() => handleMaterialClick(mat)} style={{ cursor: 'pointer' }}>
-                  <td>
-                    <p className="font-medium">{mat.name}</p>
+                  <td onClick={(e) => handleMaterialNameClick(mat, e)} style={{ cursor: 'pointer' }}>
+                    <p className="font-medium" style={{ color: '#2563eb', textDecoration: 'underline' }}>{mat.name}</p>
                     <p style={{ fontSize: '0.875rem', color: '#64748b' }}>{mat.code}</p>
                   </td>
                   <td className="capitalize">{getCategoryLabel(mat.category)}</td>
@@ -2077,9 +2224,31 @@ export default function Inventory() {
           </>
         )}
       </div>
-      
+
+      {/* Pagination (raw materials tab only) */}
+      {activeTab === 'raw' && !loading && rawMaterials.length > 0 && (
+        <div className="flex items-center justify-between mt-4">
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page <= 1}
+          >
+            السابق
+          </button>
+          <span className="text-sm text-gray-600">صفحة {page} من {totalPages}</span>
+          <button
+            className="btn btn-outline btn-sm"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+          >
+            التالي
+          </button>
+        </div>
+      )}
+
       {/* Render Modals */}
       {showAddStockModal && <AddStockModal />}
+      {showAddNewMaterialModal && <AddNewMaterialModal />}
       {showTransferModal && <TransferStockModal />}
       
       {/* Material Movements Modal */}
@@ -2125,6 +2294,15 @@ export default function Inventory() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Material Detail Modal */}
+      {showMaterialDetailModal && materialDetailData && (
+        <MaterialDetailModal
+          material={materialDetailData}
+          movements={materialMovements}
+          onClose={() => setShowMaterialDetailModal(false)}
+        />
       )}
     </div>
   );

@@ -45,3 +45,4 @@ coverage/
 *.snapshot
 *.swp
 feed factory crm/data_archive/*.tar.gz
+feed factory crm/backend/uploads/

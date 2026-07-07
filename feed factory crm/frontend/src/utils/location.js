@@ -6,6 +6,18 @@ const headers = () => {
   return token ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
 };
 
+const getUser = () => {
+  try {
+    const raw = localStorage.getItem('user');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+};
+
+const isDriver = () => {
+  const user = getUser();
+  return user?.role === 'driver';
+};
+
 // Calculate distance between two coordinates in meters (Haversine)
 function getDistance(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -19,27 +31,38 @@ function getDistance(lat1, lon1, lat2, lon2) {
 let lastAttendanceAction = null;
 let geofenceCheckInterval = null;
 
-export const captureLocation = async (context = 'page_load') => {
+let driverLocationInterval = null;
+let activeDeliveryId = null;
+
+export const captureLocation = async (context = 'page_load', deliveryId = null) => {
   if (!navigator.geolocation) return;
+  if (!isDriver()) return;
+
   try {
     const pos = await new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
         enableHighAccuracy: true, timeout: 10000, maximumAge: 300000
       });
     });
-    
+
     const lat = pos.coords.latitude;
     const lng = pos.coords.longitude;
-    
-    // Log location
+    const dId = deliveryId || activeDeliveryId;
+
+    // Log location — only if this is a driver
     await fetch(`${API_URL}/location/log`, {
       method: 'POST', headers: headers(),
-      body: JSON.stringify({ latitude: lat, longitude: lng, accuracy: pos.coords.accuracy, context })
+      body: JSON.stringify({
+        latitude: lat, longitude: lng,
+        accuracy: pos.coords.accuracy,
+        context,
+        delivery_id: dId || null
+      })
     });
-    
+
     // Check geofence for auto attendance
     checkGeofence(lat, lng);
-    
+
     return { lat, lng };
   } catch (e) { return null; }
 };
@@ -78,13 +101,34 @@ const checkGeofence = async (lat, lng) => {
   } catch (e) { /* silently fail */ }
 };
 
-// Start periodic geofence check (every 2 minutes)
+// Start periodic geofence check (every 2 minutes) — drivers only
 export const startGeofenceTracking = () => {
+  if (!isDriver()) return () => {};
   if (geofenceCheckInterval) clearInterval(geofenceCheckInterval);
   geofenceCheckInterval = setInterval(() => {
     captureLocation('geofence_check');
-  }, 120000); // 2 minutes
+  }, 120000);
   return () => { if (geofenceCheckInterval) clearInterval(geofenceCheckInterval); };
+};
+
+// Start periodic location logging for driver during an active delivery
+export const startDriverDeliveryTracking = (deliveryId) => {
+  if (!isDriver() || !deliveryId) return () => {};
+  stopDriverDeliveryTracking();
+  activeDeliveryId = deliveryId;
+  driverLocationInterval = setInterval(() => {
+    captureLocation('delivery_tracking', deliveryId);
+  }, 120000);
+  return () => stopDriverDeliveryTracking();
+};
+
+// Stop driver delivery tracking and clear the active delivery
+export const stopDriverDeliveryTracking = () => {
+  if (driverLocationInterval) {
+    clearInterval(driverLocationInterval);
+    driverLocationInterval = null;
+  }
+  activeDeliveryId = null;
 };
 
 export const getEmployeeLocations = async () => {

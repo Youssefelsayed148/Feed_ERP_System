@@ -1,7 +1,8 @@
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
 
-const SECRET = process.env.JWT_SECRET || 'feed-factory-secret-key-2026';
+const SECRET = process.env.JWT_SECRET;
+if (!SECRET) throw new Error('JWT_SECRET environment variable is required');
 
 const authenticate = async (req, res, next) => {
   try {

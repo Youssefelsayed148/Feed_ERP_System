@@ -185,7 +185,7 @@ router.post('/send', authenticate, async (req, res) => {
     await query(`
       INSERT INTO notifications (user_id, title, message, type, reference_id, is_read)
       VALUES ($1, $2, $3, 'whatsapp', $4, true)
-    `, [req.user.id, `To: ${to}`, message, reference_id || to]);
+    `, [req.user.id, `إلى: ${to}`, message, reference_id || to]);
 
     res.json({
       configured: isConfigured(),
@@ -216,7 +216,7 @@ router.post('/webhook', async (req, res) => {
     await query(`
       INSERT INTO notifications (user_id, title, message, type, reference_id, is_read)
       VALUES (NULL, $1, $2, 'whatsapp', $3, false)
-    `, [`From: ${from}`, message, from]);
+    `, [`من: ${from}`, message, from]);
 
     res.json({ success: true, received: true });
   } catch (error) {

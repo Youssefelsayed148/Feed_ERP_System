@@ -117,7 +117,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // POST /api/purchase-orders - Create PO
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, authorize('purchasing_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     // Ensure unit column exists on purchase_order_items
     await query(`ALTER TABLE purchase_order_items ADD COLUMN IF NOT EXISTS unit VARCHAR(10) DEFAULT 'kg'`);
@@ -188,21 +188,21 @@ router.post('/', auth, async (req, res) => {
 
     notifyRole('purchasing_mgr', {
       module: 'procurement', type: 'po_created',
-      title: `New Purchase Order ${poNumber}`,
-      message: `PO ${poNumber} created for ${finalTotal} EGP`,
+      title: `أمر شراء جديد ${poNumber}`,
+      message: `تم إنشاء أمر الشراء ${poNumber} بقيمة ${finalTotal} ج.م`,
       referenceId: result.id, referenceType: 'purchase_order'
     });
     if (status === 'draft' || status === 'pending_approval') {
       notifyRole('owner', {
         module: 'procurement', type: 'po_pending_approval',
-        title: `PO ${poNumber} Pending Approval`,
-        message: `Purchase order ${poNumber} for ${finalTotal} EGP needs approval`,
+        title: `أمر الشراء ${poNumber} بانتظار الاعتماد`,
+        message: `أمر الشراء ${poNumber} بقيمة ${finalTotal} ج.م بحاجة للاعتماد`,
         referenceId: result.id, referenceType: 'purchase_order'
       });
       notifyRole('admin', {
         module: 'procurement', type: 'po_pending_approval',
-        title: `PO ${poNumber} Pending Approval`,
-        message: `Purchase order ${poNumber} for ${finalTotal} EGP needs approval`,
+        title: `أمر الشراء ${poNumber} بانتظار الاعتماد`,
+        message: `أمر الشراء ${poNumber} بقيمة ${finalTotal} ج.م بحاجة للاعتماد`,
         referenceId: result.id, referenceType: 'purchase_order'
       });
     }
@@ -213,7 +213,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // PUT /api/purchase-orders/:id - Update PO
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, authorize('purchasing_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const { supplier_id, supplierId, deliveryDate, delivery_date, notes, items } = req.body;
@@ -302,14 +302,14 @@ router.put('/:id/approve', auth, authorize('admin', 'owner'), async (req, res) =
 
     notifyRole('purchasing_mgr', {
       module: 'procurement', type: 'po_approved',
-      title: `PO ${po.po_number} Approved`,
-      message: `Purchase order ${po.po_number} has been approved — pending inventory receipt`,
+      title: `تم اعتماد أمر الشراء ${po.po_number}`,
+      message: `تم اعتماد أمر الشراء ${po.po_number} — بانتظار استلام المخزون`,
       referenceId: po.id, referenceType: 'purchase_order'
     });
     notifyRole('production_mgr', {
       module: 'production', type: 'po_approved',
-      title: `PO ${po.po_number} Approved — Incoming Stock`,
-      message: `Purchase order ${po.po_number} approved, materials inbound`,
+      title: `أمر الشراء ${po.po_number} معتمد — مخزون قادم`,
+      message: `تم اعتماد أمر الشراء ${po.po_number}، المواد في الطريق`,
       referenceId: po.id, referenceType: 'purchase_order'
     });
   } catch (error) {
@@ -339,7 +339,7 @@ router.put('/:id/reject', auth, authorize('admin', 'owner'), async (req, res) =>
 });
 
 // PUT /api/purchase-orders/:id/cancel - Cancel PO
-router.put('/:id/cancel', auth, async (req, res) => {
+router.put('/:id/cancel', auth, authorize('purchasing_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(`
@@ -359,7 +359,7 @@ router.put('/:id/cancel', auth, async (req, res) => {
 });
 
 // PUT /api/purchase-orders/:id/submit - Submit for approval
-router.put('/:id/submit', auth, async (req, res) => {
+router.put('/:id/submit', auth, authorize('purchasing_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const result = await query(`
@@ -389,14 +389,14 @@ router.put('/:id/submit', auth, async (req, res) => {
 
     notifyRole('owner', {
       module: 'procurement', type: 'po_pending_approval',
-      title: `PO ${po.po_number} Pending Approval`,
-        message: `Purchase order ${po.po_number} for ${parseFloat(po.total_amount).toFixed(2)} EGP needs approval`,
+      title: `أمر الشراء ${po.po_number} بانتظار الاعتماد`,
+        message: `أمر الشراء ${po.po_number} بقيمة ${parseFloat(po.total_amount).toFixed(2)} ج.م بحاجة للاعتماد`,
         referenceId: po.id, referenceType: 'purchase_order'
       });
       notifyRole('admin', {
         module: 'procurement', type: 'po_pending_approval',
-        title: `PO ${po.po_number} Pending Approval`,
-        message: `Purchase order ${po.po_number} for ${parseFloat(po.total_amount).toFixed(2)} EGP needs approval`,
+        title: `أمر الشراء ${po.po_number} بانتظار الاعتماد`,
+        message: `أمر الشراء ${po.po_number} بقيمة ${parseFloat(po.total_amount).toFixed(2)} ج.م بحاجة للاعتماد`,
       referenceId: po.id, referenceType: 'purchase_order'
     });
   } catch (error) {
@@ -406,7 +406,7 @@ router.put('/:id/submit', auth, async (req, res) => {
 });
 
 // POST /api/purchase-orders/:id/send-whatsapp - Send PO via WhatsApp
-router.post('/:id/send-whatsapp', auth, async (req, res) => {
+router.post('/:id/send-whatsapp', auth, authorize('purchasing_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const poResult = await query(`

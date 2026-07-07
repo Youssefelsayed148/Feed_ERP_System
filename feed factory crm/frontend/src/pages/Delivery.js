@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { formatCurrency, formatDate, formatNumber } from '../utils/formatters';
 import { t } from '../utils/i18n';
 import { authService } from '../services/api';
+import { captureLocation, startDriverDeliveryTracking, stopDriverDeliveryTracking } from '../utils/location';
 import { 
   Truck, Plus, MapPin, Package, 
   Check, X, Play, Clock, Route, User,
@@ -130,6 +131,21 @@ export default function Delivery() {
   useEffect(() => {
     fetchData();
   }, [activeTab, userRole]);
+
+  // Start/stop driver location tracking when active delivery status changes
+  useEffect(() => {
+    if (getUserRole() !== 'driver') return;
+    const activeDeliveries = deliveries.filter(d =>
+      ['accepted', 'picked_up', 'in_transit', 'arrived'].includes(d.status)
+    );
+    if (activeDeliveries.length > 0) {
+      const deliveryId = activeDeliveries[0]._id || activeDeliveries[0].id;
+      startDriverDeliveryTracking(deliveryId);
+    } else {
+      stopDriverDeliveryTracking();
+    }
+    return () => stopDriverDeliveryTracking();
+  }, [deliveries]);
 
   // Capture real GPS location when confirmation modal opens
   useEffect(() => {
@@ -377,10 +393,8 @@ export default function Delivery() {
       });
       
       if (response.ok) {
-        const result = await response.json();
         setOtpSent(true);
-        setOtpCode(result.otpCode); // For demo, in production don't show this
-        alert(`تم إرسال OTP: ${result.otpCode}`);
+        alert('تم إرسال رمز التحقق إلى العميل');
       }
     } catch (error) {
       console.error('Error sending OTP:', error);
@@ -414,32 +428,42 @@ export default function Delivery() {
   };
 
   // Photo upload with cleanup
-  const handlePhotoUpload = (e) => {
+  const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (uploadedPhotos.length + files.length > 3) {
       alert('الحد الأقصى 3 صور');
       return;
     }
-    
-    const newPhotos = files.map((file) => URL.createObjectURL(file));
-    setUploadedPhotos([...uploadedPhotos, ...newPhotos]);
+
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('photo', file);
+      try {
+        const response = await fetch(`${API_URL}/delivery/${selectedDelivery._id}/upload-photo`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+          body: formData
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setUploadedPhotos(prev => [...prev, result.photoUrl]);
+        } else {
+          alert('فشل رفع الصورة');
+        }
+      } catch (error) {
+        console.error('Error uploading photo:', error);
+        alert('فشل رفع الصورة');
+      }
+    }
   };
 
   const removePhoto = (index) => {
-    const url = uploadedPhotos[index];
-    if (url && url.startsWith('blob:')) {
-      URL.revokeObjectURL(url);
-    }
     setUploadedPhotos(uploadedPhotos.filter((_, i) => i !== index));
   };
 
   // Cleanup all blob URLs on modal close
   const cleanupPhotos = () => {
-    uploadedPhotos.forEach(url => {
-      if (url && url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
-      }
-    });
+    setUploadedPhotos([]);
   };
 
   // Confirmation modal handlers
@@ -447,7 +471,7 @@ export default function Delivery() {
     setSelectedDelivery(delivery);
     setConfirmationData({
       status: 'completed',
-      receivedBy: { name: '', phone: delivery.client?.phone || '', otpVerified: false },
+      receivedBy: { name: delivery.client?.name || '', phone: delivery.client?.phone || '', otpVerified: false },
       deliveredItems: delivery.items?.map(item => ({
         itemId: item._id,
         itemName: item.feedType?.name,
@@ -1329,16 +1353,12 @@ export default function Delivery() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">الاسم <span style={{ color: '#ef4444' }}>*</span></label>
-                    <input
-                      type="text"
-                      className="form-input"
-                      value={confirmationData.receivedBy.name}
-                      onChange={(e) => setConfirmationData(prev => ({
-                        ...prev,
-                        receivedBy: { ...prev.receivedBy, name: e.target.value }
-                      }))}
-                      placeholder={t('delivery.receiverName')}
-                    />
+                    <div style={{
+                      padding: '10px 14px', background: '#f3f4f6', borderRadius: '8px',
+                      fontSize: '15px', fontWeight: 600, color: '#111827', border: '1px solid #e5e7eb'
+                    }}>
+                      {confirmationData.receivedBy.name || '—'}
+                    </div>
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label className="form-label">{t('common.phone')}</label>
@@ -1355,7 +1375,8 @@ export default function Delivery() {
                   </div>
                 </div>
 
-                {/* OTP Verification */}
+                {/* STAGE 2: OTP disabled for now — hide UI entirely */}
+                {false && (
                 <div style={{ marginTop: '12px', padding: '12px', background: '#f9fafb', borderRadius: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
                     <button
@@ -1394,6 +1415,8 @@ export default function Delivery() {
                     </div>
                   )}
                 </div>
+                )}
+                {/* END STAGE 2 OTP block */}
               </div>
 
               {/* Proof Section */}
@@ -1610,7 +1633,7 @@ export default function Delivery() {
               <button 
                 className="btn btn-success" 
                 onClick={handleConfirmDelivery}
-                disabled={!confirmationData.receivedBy.name || confirmationData.deliveredItems.some(item => item.deliveredQty < 0)}
+                 disabled={!confirmationData.receivedBy.name /* STAGE 2: otpVerified check removed */ || confirmationData.deliveredItems.some(item => item.deliveredQty < 0)}
               >
                 <CheckCircle2 className="w-4 h-4" />
                 تأكيد التوصيل

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 
 let tableInitialized = false;
 
@@ -155,7 +155,7 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // DELETE /api/partners/:id - Soft delete partner
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, authorize('admin', 'owner'), async (req, res) => {
   try {
     await ensureTable();
     const result = await query(`

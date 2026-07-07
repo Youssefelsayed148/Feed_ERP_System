@@ -237,10 +237,20 @@ const Sales = () => {
     }
   };
 
-  // Approve order (Manager only)
+  // Approve order (Manager only) — routes through the generic two-stage approval workflow
   const approveOrder = async (orderId) => {
     try {
-      const result = await salesService.approveOrder(orderId);
+      const pendingRes = await fetch(`${API_URL}/approvals/pending`, { headers: headers() });
+      const pendingData = await pendingRes.json();
+      const match = (pendingData.requests || []).find(r => r.module_name === 'sales_orders' && r.request_id === orderId);
+      if (!match) {
+        alert('لا يوجد طلب موافقة معلق يمكنك اعتماده لهذا الطلب من هنا');
+        return;
+      }
+      const response = await fetch(`${API_URL}/approvals/${match.id}/approve`, {
+        method: 'PUT', headers: headers(), body: JSON.stringify({})
+      });
+      const result = await response.json();
       if (result.success) {
         fetchAllData();
       } else {
@@ -255,7 +265,17 @@ const Sales = () => {
   // Reject order (Manager only)
   const rejectOrder = async (orderId, reason) => {
     try {
-      const result = await salesService.rejectOrder(orderId, reason);
+      const pendingRes = await fetch(`${API_URL}/approvals/pending`, { headers: headers() });
+      const pendingData = await pendingRes.json();
+      const match = (pendingData.requests || []).find(r => r.module_name === 'sales_orders' && r.request_id === orderId);
+      if (!match) {
+        alert('لا يوجد طلب موافقة معلق يمكن رفضه لهذا الطلب من هنا');
+        return;
+      }
+      const response = await fetch(`${API_URL}/approvals/${match.id}/reject`, {
+        method: 'PUT', headers: headers(), body: JSON.stringify({ notes: reason })
+      });
+      const result = await response.json();
       if (result.success) {
         fetchAllData();
       }
@@ -1227,7 +1247,7 @@ const OrderStatusBadge = ({ status }) => {
     confirmed: t('common.statuses.confirmed'),
     processing: t('common.statuses.processing'),
     ready_for_delivery: t('orders.readyForDelivery'),
-    in_transit: t('common.statuses.in_progress'),
+    in_transit: t('orders.in_transit'),
     delivered: t('common.statuses.delivered'),
     rejected: t('common.statuses.cancelled'),
     cancelled: t('common.statuses.cancelled')

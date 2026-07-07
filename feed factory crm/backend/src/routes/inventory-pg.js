@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { query, transaction } = require('../config/database');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
+const { checkAndCreateRequisition } = require('../services/autoReorderCheck');
 
 // ============================================================
 // All routes require authentication
@@ -11,13 +12,16 @@ router.use(authenticate);
 // GET all raw materials
 router.get('/raw-materials', async (req, res) => {
   try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (page - 1) * limit;
+
     const result = await query(`
-      SELECT 
+      SELECT
         rm.id, rm.code, rm.name_arabic, rm.name_english,
         rm.category, rm.unit, rm.unit_price,
         rm.min_stock_level, rm.reorder_level, rm.current_stock,
         rm.is_active,
-        CASE 
+        CASE
           WHEN rm.current_stock <= rm.min_stock_level THEN 'critical'
           WHEN rm.current_stock <= rm.reorder_level THEN 'low'
           ELSE 'normal'
@@ -25,7 +29,10 @@ router.get('/raw-materials', async (req, res) => {
       FROM raw_materials rm
       WHERE rm.is_active = true
       ORDER BY rm.category, rm.name_arabic
-    `);
+      LIMIT $1 OFFSET $2
+    `, [limit, offset]);
+
+    const countResult = await query(`SELECT COUNT(*) FROM raw_materials rm WHERE rm.is_active = true`);
 
     // Add display_unit and per-ton pricing for bulk materials
     // Bulk categories (grain, protein, fiber) are traded in tons
@@ -38,14 +45,19 @@ router.get('/raw-materials', async (req, res) => {
         display_unit: isBulk ? 'ton' : (rm.unit || 'kg'),
         price_per_ton: parseFloat(rm.unit_price) * 1000,
         current_stock_tons: isBulk ? parseFloat(rm.current_stock) / 1000 : null,
-        current_stock_display: isBulk 
-          ? (parseFloat(rm.current_stock) / 1000).toFixed(3) 
+        current_stock_display: isBulk
+          ? (parseFloat(rm.current_stock) / 1000).toFixed(3)
           : parseFloat(rm.current_stock).toFixed(2),
         unit_display: isBulk ? 'ton' : (rm.unit || 'kg')
       };
     });
 
-    res.json(rows);
+    res.json({
+      materials: rows,
+      total: parseInt(countResult.rows[0].count),
+      page: parseInt(page),
+      pages: Math.ceil(parseInt(countResult.rows[0].count) / limit)
+    });
   } catch (error) {
     console.error('Error fetching raw materials:', error);
     res.status(500).json({ error: 'Failed to fetch raw materials' });
@@ -126,10 +138,164 @@ router.get('/raw-materials/:id', async (req, res) => {
     const material = result.rows[0];
     material.recent_transactions = transactionsResult.rows;
 
+    // Get recipes that use this material
+    const recipesResult = await query(`
+      SELECT
+        fr.id as recipe_id,
+        fr.name as recipe_name,
+        ft.name_arabic as feed_type_name,
+        fri.quantity_kg
+      FROM feed_recipe_items fri
+      JOIN feed_recipes fr ON fr.id = fri.recipe_id
+      LEFT JOIN feed_types ft ON ft.id = fr.feed_type_id
+      WHERE fri.raw_material_id = $1
+      ORDER BY fr.name
+    `, [id]);
+    material.used_in_recipes = recipesResult.rows;
+
+    // Get linked suppliers via supplier_materials
+    const suppliersResult = await query(`
+      SELECT s.id, s.name, sm.is_preferred, sm.unit_price, sm.lead_time_days
+      FROM supplier_materials sm
+      JOIN suppliers s ON s.id = sm.supplier_id
+      WHERE sm.raw_material_id = $1
+      ORDER BY sm.is_preferred DESC
+    `, [id]);
+    material.linked_suppliers = suppliersResult.rows || [];
+
     res.json(material);
   } catch (error) {
     console.error('Error fetching raw material:', error);
     res.status(500).json({ error: 'Failed to fetch raw material' });
+  }
+});
+
+// GET suppliers linked to a specific raw material (scoped list for the preferred-supplier
+// selector — never the full unscoped suppliers list)
+router.get('/raw-materials/:id/available-suppliers', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await query(`
+      SELECT s.id, s.name, sm.is_preferred
+      FROM supplier_materials sm
+      JOIN suppliers s ON s.id = sm.supplier_id
+      WHERE sm.raw_material_id = $1
+      ORDER BY sm.is_preferred DESC, s.name ASC
+    `, [id]);
+    res.json({ success: true, suppliers: result.rows });
+  } catch (error) {
+    console.error('Error fetching available suppliers:', error);
+    res.status(500).json({ error: 'Failed to fetch available suppliers' });
+  }
+});
+
+// PUT update raw material metadata (owner/admin only)
+router.put('/raw-materials/:id', authenticate, authorize('admin', 'owner'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const allowed = [
+      'name_arabic', 'name_english', 'unit_price',
+      'reorder_level', 'min_stock_level', 'restock_quantity',
+      'preferred_supplier_id'
+    ];
+    const updates = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+    if (updates.preferred_supplier_id !== undefined && updates.preferred_supplier_id !== null) {
+      const linkCheck = await query(
+        'SELECT 1 FROM supplier_materials WHERE raw_material_id = $1 AND supplier_id = $2',
+        [id, updates.preferred_supplier_id]
+      );
+      if (linkCheck.rows.length === 0) {
+        return res.status(400).json({ error: 'Selected supplier is not linked to this material — add them via supplier_materials first' });
+      }
+    }
+    const setClause = Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const values = Object.values(updates);
+    values.push(id);
+    const result = await query(
+      `UPDATE raw_materials SET ${setClause}, updated_at = CURRENT_TIMESTAMP WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Raw material not found' });
+    }
+    res.json({ success: true, material: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating raw material:', error);
+    res.status(500).json({ error: error.message || 'Failed to update raw material' });
+  }
+});
+
+// POST create new raw material (owner/admin only)
+router.post('/raw-materials', authenticate, authorize('admin', 'owner'), async (req, res) => {
+  try {
+    const {
+      name_arabic, name_english, category, unit, unit_price,
+      current_stock, reorder_level, min_stock_level,
+      restock_quantity, preferred_supplier_id
+    } = req.body;
+
+    if (!name_arabic || !category) {
+      return res.status(400).json({ error: 'name_arabic and category are required' });
+    }
+
+    // Auto-generate code: RM-XXX sequential
+    const lastResult = await query(
+      "SELECT code FROM raw_materials WHERE code LIKE 'RM-%' ORDER BY id DESC LIMIT 1"
+    );
+    const lastCode = lastResult.rows[0]?.code || 'RM-000';
+    const num = parseInt(lastCode.replace(/\D/g, '')) + 1;
+    const code = `RM-${String(num).padStart(3, '0')}`;
+
+    const material = await transaction(async (client) => {
+      const inserted = await client.query(
+        `INSERT INTO raw_materials
+         (code, name_arabic, name_english, category, unit, unit_price, current_stock,
+          reorder_level, min_stock_level, restock_quantity, preferred_supplier_id, is_active)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
+         RETURNING *`,
+        [
+          code, name_arabic, name_english || null, category,
+          unit || 'kg', unit_price || 0, current_stock || 0,
+          reorder_level || 0, min_stock_level || 0,
+          restock_quantity || null, preferred_supplier_id || null
+        ]
+      );
+      const newMaterial = inserted.rows[0];
+
+      // A brand-new material normally has no supplier_materials rows yet, so there's
+      // nothing to validate preferred_supplier_id against — allow it through as the
+      // initial assignment. Only enforce the link check if rows already exist for it.
+      if (preferred_supplier_id) {
+        const existingLinks = await client.query(
+          'SELECT 1 FROM supplier_materials WHERE raw_material_id = $1',
+          [newMaterial.id]
+        );
+        if (existingLinks.rows.length > 0) {
+          const linkCheck = await client.query(
+            'SELECT 1 FROM supplier_materials WHERE raw_material_id = $1 AND supplier_id = $2',
+            [newMaterial.id, preferred_supplier_id]
+          );
+          if (linkCheck.rows.length === 0) {
+            const err = new Error('Selected supplier is not linked to this material — add them via supplier_materials first');
+            err.statusCode = 400;
+            throw err;
+          }
+        }
+      }
+
+      return newMaterial;
+    });
+
+    res.status(201).json({ success: true, material });
+  } catch (error) {
+    console.error('Error creating raw material:', error);
+    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to create raw material' });
   }
 });
 
@@ -188,6 +354,18 @@ router.post('/raw-materials/:id/stock', async (req, res) => {
       message: 'Stock updated successfully',
       material: result
     });
+
+    // Auto-reorder check on deductions — fire-and-forget
+    const qty = parseFloat(req.body.quantity);
+    if (qty < 0) {
+      try {
+        checkAndCreateRequisition(
+          [parseInt(req.params.id)],
+          req.user?.id || 0,
+          'تم الإنشاء تلقائياً بسبب خصم مخزون يدوي'
+        ).catch(() => {});
+      } catch (e) { /* never blocks */ }
+    }
   } catch (error) {
     console.error('Error updating stock:', error);
     res.status(500).json({ error: 'Failed to update stock' });
@@ -300,8 +478,8 @@ router.post('/transfer', async (req, res) => {
       return material;
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: 'Transfer recorded',
       material: {
         id: result.id,
@@ -310,6 +488,15 @@ router.post('/transfer', async (req, res) => {
       },
       quantity: qty
     });
+
+    // Auto-reorder check — fire-and-forget
+    try {
+      checkAndCreateRequisition(
+        [parseInt(raw_material_id)],
+        req.user?.id || 0,
+        'تم الإنشاء تلقائياً بسبب تحويل مخزون'
+      ).catch(() => {});
+    } catch (e) { /* never blocks */ }
   } catch (error) {
     console.error('Error recording transfer:', error);
     res.status(500).json({ error: error.message || 'Failed to record transfer' });

@@ -564,10 +564,10 @@ router.post('/:id/reminders', authenticate, async (req, res) => {
     try {
       const supplierRes = await query('SELECT name FROM suppliers WHERE id = $1', [payable.supplier_id]);
       const supName = supplierRes.rows[0]?.name || 'Supplier';
-      const reminderMsg = message || `🔔 Reminder: Payment of EGP ${(parseFloat(payable.balance)/100).toFixed(2)} due for ${supName} on ${payable.due_date}`;
+      const reminderMsg = message || `🔔 تذكير: دفعة بقيمة ${(parseFloat(payable.balance)/100).toFixed(2)} ج.م مستحقة لـ ${supName} في ${payable.due_date}`;
       await query(
         `INSERT INTO notifications (role, module, type, title, message, reference_id, reference_type, is_read, created_at)
-         VALUES ('finance_manager', 'finance', 'payable_reminder', 'Payment Reminder', $1, $2, 'supplier_payable', false, NOW())`,
+         VALUES ('finance_manager', 'finance', 'payable_reminder', 'تذكير بالدفع', $1, $2, 'supplier_payable', false, NOW())`,
         [reminderMsg, payableId]
       );
     } catch (notifErr) {

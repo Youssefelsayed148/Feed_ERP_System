@@ -3,6 +3,7 @@ const router = express.Router();
 const { query } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { journalSalesOrderApproved } = require('../utils/journal');
+const { advanceApproval } = require('./approvals');
 const adminOnly = authorize('owner', 'admin');
 
 const generateCode = async (prefix, tableName, codeColumn) => {
@@ -423,25 +424,54 @@ router.put('/:id/status', authenticate, adminOnly, async (req, res) => {
       return res.status(400).json({ error: 'Invalid status. Note: "delivered" can no longer be set here — it is only set by the delivery confirmation flow (POST /api/delivery/:id/confirm), which captures proof of delivery.' });
     }
 
+    // Guard: ready_for_delivery and in_transit must be triggered from Production, not Sales
+    if (status === 'ready_for_delivery' || status === 'in_transit') {
+      return res.status(403).json({ error: 'هذا التحويل يتم فقط من صفحة الإنتاج — لا يمكن تحديث الحالة من المبيعات' });
+    }
+
     // Per access doc: approval/rejection AND confirmation require sales_manager+.
-    // 'processing' and 'ready_for_delivery' are fulfillment-tracking steps open
-    // to any authenticated sales staff (no approval decision needed).
+    // Delegated entirely to the shared approval_requests workflow (approvals.js)
+    // so invoice/production-order/journal side effects live in exactly one place.
     const approvalTierStatuses = ['approved', 'rejected', 'confirmed'];
     if (approvalTierStatuses.includes(status)) {
       const role = req.user.role;
       if (!['sales_manager', 'admin', 'owner'].includes(role)) {
         return res.status(403).json({ error: 'ليس لديك صلاحية لهذا الإجراء — يحتاج موافقة مدير المبيعات' });
       }
+
+      const arResult = await query(
+        `SELECT * FROM approval_requests WHERE module_name = 'sales_orders' AND request_id = $1 AND status = 'pending'`,
+        [req.params.id]
+      );
+      if (arResult.rows.length === 0) {
+        return res.status(404).json({ error: 'No pending approval request found for this order' });
+      }
+
+      const outcome = await advanceApproval({
+        approvalId: arResult.rows[0].id,
+        userId: req.user.id,
+        role,
+        notes,
+        action: status === 'rejected' ? 'reject' : 'approve'
+      });
+      if (outcome.statusCode >= 400) {
+        return res.status(outcome.statusCode).json(outcome.body);
+      }
+
+      const updatedOrder = await query(`SELECT * FROM sales_orders WHERE id = $1`, [req.params.id]);
+      const o = updatedOrder.rows[0];
+      return res.json({
+        id: o.id, orderNumber: o.order_number, clientId: o.client_id, status: o.status,
+        totalAmount: parseFloat(o.total_amount), finalAmount: parseFloat(o.final_amount),
+        deliveryDate: o.delivery_date, notes: o.notes, rejectionReason: o.rejection_reason,
+        approvedAt: o.approved_at, updatedAt: o.updated_at
+      });
     }
-    
+
     const updates = [status];
     let sql = `UPDATE sales_orders SET status = $1`;
     let paramIdx = 2;
-    
-    if (status === 'approved' || status === 'confirmed') {
-      sql += `, approved_at = NOW(), approved_by = $${paramIdx++}`;
-      updates.push(req.user.id);
-    }
+
     if (status === 'ready_for_delivery') {
       sql += `, ready_at = NOW(), ready_by = $${paramIdx++}`;
       updates.push(req.user.id);
@@ -450,33 +480,17 @@ router.put('/:id/status', authenticate, adminOnly, async (req, res) => {
       sql += `, notes = COALESCE(notes, '') || ' | Cancellation: ' || $${paramIdx++}`;
       updates.push(notes || '');
     }
-    if (status === 'rejected') {
-      sql += `, rejection_reason = $${paramIdx++}`;
-      updates.push(notes || '');
-    }
-    
+
     sql += `, updated_at = NOW() WHERE id = $${paramIdx++} RETURNING *`;
     updates.push(req.params.id);
-    
+
     const result = await query(sql, updates);
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Order not found' });
     }
-    
-    const o = result.rows[0];
 
-    // Sync approval_requests when order is approved or rejected
-    if (status === 'approved' || status === 'confirmed' || status === 'rejected') {
-      try {
-        const arStatus = status === 'rejected' ? 'rejected' : 'approved';
-        await query(
-          `UPDATE approval_requests SET status = $1, approver_id = $2, updated_at = NOW()
-           WHERE module_name = 'sales_orders' AND request_id = $3 AND status = 'pending'`,
-          [arStatus, req.user.id, req.params.id]
-        );
-      } catch (e) { console.error('[APPROVAL] Failed to sync approval_requests for SO:', e.message); }
-    }
+    const o = result.rows[0];
 
     // Auto-create production orders when status changes to 'processing'
     if (status === 'processing') {
@@ -590,7 +604,7 @@ router.put('/:id/status', authenticate, adminOnly, async (req, res) => {
 // Role scope confirmed 2026-06-21: owner/admin only for now. sales_manager
 // was removed pending a decision on broader role assignment (logistics
 // coordinator, etc.) — re-add here if/when that's decided.
-router.post('/:id/send-to-delivery', authenticate, adminOnly, async (req, res) => {
+router.post('/:id/send-to-delivery', authenticate, authorize('owner', 'admin', 'production_mgr'), async (req, res) => {
   try {
     const orderRes = await query('SELECT id, order_number, status FROM sales_orders WHERE id = $1', [req.params.id]);
     if (orderRes.rowCount === 0) return res.status(404).json({ error: 'Order not found' });

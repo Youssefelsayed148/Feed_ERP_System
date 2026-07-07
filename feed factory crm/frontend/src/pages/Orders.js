@@ -132,7 +132,7 @@ const fetchOrders = async () => {
           status: o.status || 'draft',
           createdAt: o.created_at || o.createdAt,
           deliveryDate: o.delivery_date || o.deliveryDate,
-          paymentType: o.client_payment_terms === 'cash' ? 'cash' : 'credit',
+          paymentType: o.payment_method || (o.client_payment_terms === 'cash' ? 'cash' : 'credit'),
           creditPeriod: o.client_payment_terms ? (parseInt(o.client_payment_terms.match(/\d+/)?.[0]) || 0) : 0,
           invoice: o.invoice_id ? {
             _id: o.invoice_id,
@@ -708,6 +708,7 @@ const fetchOrders = async () => {
       pending_approval: 'badge badge-warning', confirmed: 'badge badge-primary',
       approved: 'badge badge-success', processing: 'badge badge-warning',
       ready: 'badge badge-info', ready_for_delivery: 'badge badge-info',
+      in_transit: 'badge badge-info',
       delivered: 'badge badge-success', invoiced: 'badge badge-primary',
       cancelled: 'badge badge-danger', paid: 'badge badge-success',
       completed: 'badge badge-success', overdue: 'badge badge-danger',
@@ -721,6 +722,7 @@ const fetchOrders = async () => {
       pending_approval: t('common.statuses.pending_approval'), confirmed: t('common.statuses.confirmed'),
       approved: t('common.statuses.approved'), processing: t('common.statuses.processing'),
       ready: t('common.statuses.ready'), ready_for_delivery: t('orders.readyForDelivery'),
+      in_transit: t('orders.in_transit'),
       delivered: t('common.statuses.delivered'), invoiced: t('common.statuses.invoiced'),
       cancelled: t('common.statuses.cancelled'), paid: t('common.statuses.paid'),
       completed: t('common.statuses.completed'), overdue: t('common.statuses.overdue'),
@@ -804,7 +806,7 @@ const fetchOrders = async () => {
           <option value="processing">{t('orders.processing')}</option>
           <option value="ready_for_delivery">{t('orders.readyForDelivery')}</option>
           <option value="ready">{t('orders.ready')}</option>
-          <option value="in_transit">{t('orders.in_transit') || 'في الطريق'}</option>
+          <option value="in_transit">{t('orders.in_transit')}</option>
           <option value="delivered">{t('orders.delivered')}</option>
           <option value="cancelled">{t('orders.cancelled')}</option>
         </select>
@@ -898,18 +900,6 @@ const fetchOrders = async () => {
                         <span style={{ fontSize: '12px', padding: '4px 10px', background: '#fffbeb', color: '#d97706', border: '1px solid #fde68a', borderRadius: '8px', fontWeight: 500 }}>
                           بانتظار الاعتماد
                         </span>
-                      )}
-                      {/* جاهز للتسليم — للمدير فقط */}
-                      {order.status === 'processing' && canConfirmOrders && (
-                        <button onClick={() => updateOrderStatus(order._id, 'ready_for_delivery')} className="btn btn-sm btn-primary">
-                          جاهز للتسليم
-                        </button>
-                      )}
-                      {/* إرسال للتوصيل — للمدير والمالك */}
-                      {order.status === 'ready_for_delivery' && canSendToDelivery && (
-                        <button onClick={() => sendOrderToDelivery(order._id)} className="btn btn-sm btn-success">
-                          إرسال للتوصيل
-                        </button>
                       )}
                       {/* عرض الفاتورة أو إنشاؤها */}
                       {!order.invoice && order.status !== 'cancelled' && order.status !== 'draft' && canApproveOrders && (
