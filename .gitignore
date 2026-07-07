@@ -4,7 +4,7 @@ node_modules/
 .pnp.js
 
 # Build
-frontend/build/
+**/frontend/build/
 dist/
 
 # Environment
@@ -46,3 +46,11 @@ coverage/
 *.swp
 feed factory crm/data_archive/*.tar.gz
 feed factory crm/backend/uploads/
+REBUILD_PLAN.md
+alkhair-clients*.md
+schema_diagnostic_output.txt
+system-status.json
+system-final-status.json
+.analysis_report.py
+backend/scripts/*.sql
+backend/scripts/test-*.js
