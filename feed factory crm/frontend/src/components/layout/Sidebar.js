@@ -14,7 +14,7 @@ import { useDispatch } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
 import { authService, notificationsService } from '../../services/api';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const getAuthToken = () => localStorage.getItem('token');
 const headers = () => ({
   'Content-Type': 'application/json',

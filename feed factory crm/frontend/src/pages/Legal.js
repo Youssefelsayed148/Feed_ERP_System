@@ -8,7 +8,7 @@ import {
   Folder, Files, Archive, Tag, Calendar, Lock, Circle, Users
 } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const getAuthToken = () => localStorage.getItem('token');
 
 const headers = () => ({

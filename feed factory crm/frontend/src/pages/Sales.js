@@ -38,7 +38,7 @@ import PaymentModal from '../components/PaymentModal';
 import ReminderModal from '../components/ReminderModal';
 import OrderDetailModal from '../components/OrderDetailModal';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const getAuthToken = () => localStorage.getItem('token');
 const headers = () => ({
   'Content-Type': 'application/json',

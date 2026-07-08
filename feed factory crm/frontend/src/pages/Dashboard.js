@@ -12,7 +12,7 @@ import { formatCurrency, formatNumber } from '../utils/formatters';
 import { t } from '../utils/i18n';
 import { authService } from '../services/api';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const getAuthToken = () => localStorage.getItem('token');
 
 const headers = () => ({

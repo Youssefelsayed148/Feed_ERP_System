@@ -3,7 +3,7 @@ import { FileText, Upload, X, Download, Trash2, FileImage, FileSpreadsheet } fro
 import { documentService } from '../services/api';
 import { t } from '../utils/i18n';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const getAuthToken = () => localStorage.getItem('token');
 
 const headers = () => ({

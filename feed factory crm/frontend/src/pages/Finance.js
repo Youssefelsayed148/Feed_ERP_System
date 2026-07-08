@@ -23,7 +23,7 @@ import { payrollService } from '../services/api';
 // - btn, btn-success, btn-outline, btn-sm
 // - badge, badge-success, badge-warning, badge-danger, badge-info
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const getAuthToken = () => localStorage.getItem('token');
 
 const headers = () => ({

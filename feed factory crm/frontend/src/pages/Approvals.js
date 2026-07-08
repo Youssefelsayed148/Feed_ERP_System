@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { authService } from '../services/api';
 
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const getAuthToken = () => localStorage.getItem('token');
 const headers = () => ({
   'Content-Type': 'application/json',
