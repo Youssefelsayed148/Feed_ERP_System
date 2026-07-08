@@ -84,14 +84,14 @@ const checkGeofence = async (lat, lng) => {
     // Only act if state changed
     const now = new Date().toISOString();
     if (isInside && lastAttendanceAction !== 'checkin') {
-      await fetch(`${API_URL}/attendance/auto-checkin`, {
+      await fetch(`${API_URL}/location/auto-checkin`, {
         method: 'POST', headers: headers(),
         body: JSON.stringify({ latitude: lat, longitude: lng, distance: Math.round(distance) })
       });
       lastAttendanceAction = 'checkin';
       console.log('Auto clock-in at factory');
     } else if (!isInside && lastAttendanceAction === 'checkin') {
-      await fetch(`${API_URL}/attendance/auto-checkout`, {
+      await fetch(`${API_URL}/location/auto-checkout`, {
         method: 'POST', headers: headers(),
         body: JSON.stringify({ latitude: lat, longitude: lng, distance: Math.round(distance) })
       });
