@@ -1403,18 +1403,18 @@ router.get('/red-flags', authenticate, authorize(...salesRoles), async (req, res
           COALESCE(oi.days_overdue_min, 0) as days_overdue_min,
           COALESCE(oi.days_overdue_max, 0) as days_overdue_max,
           CASE
-            WHEN COALESCE(oi.overdue_amount, 0) >= c.credit_limit * 0.8 THEN 'critical'
-            WHEN COALESCE(oi.overdue_amount, 0) >= c.credit_limit * 0.5 THEN 'high'
+            WHEN COALESCE(oi.overdue_amount, 0) > 0 AND COALESCE(oi.overdue_amount, 0) >= c.credit_limit * 0.8 THEN 'critical'
+            WHEN COALESCE(oi.overdue_amount, 0) > 0 AND COALESCE(oi.overdue_amount, 0) >= c.credit_limit * 0.5 THEN 'high'
             WHEN COALESCE(oi.overdue_count, 0) > 0 THEN 'warning'
             ELSE 'none'
           END as severity,
           CASE
-            WHEN COALESCE(oi.overdue_amount, 0) >= c.credit_limit * 0.8 THEN
-              'متأخر: ج.م ' || TO_CHAR(COALESCE(oi.overdue_amount, 0) / 100, 'FM999,999,999.00') || ' (' || COALESCE(oi.days_overdue_max, 0) || ' يوم تأخير)'
-            WHEN COALESCE(oi.overdue_amount, 0) >= c.credit_limit * 0.5 THEN
-              'متأخر: ج.م ' || TO_CHAR(COALESCE(oi.overdue_amount, 0) / 100, 'FM999,999,999.00') || ' (' || COALESCE(oi.days_overdue_max, 0) || ' يوم تأخير)'
+            WHEN COALESCE(oi.overdue_amount, 0) > 0 AND COALESCE(oi.overdue_amount, 0) >= c.credit_limit * 0.8 THEN
+              'متأخر: ج.م ' || TO_CHAR(COALESCE(oi.overdue_amount, 0), 'FM999,999,999.00') || ' (' || COALESCE(oi.days_overdue_max, 0) || ' يوم تأخير)'
+            WHEN COALESCE(oi.overdue_amount, 0) > 0 AND COALESCE(oi.overdue_amount, 0) >= c.credit_limit * 0.5 THEN
+              'متأخر: ج.م ' || TO_CHAR(COALESCE(oi.overdue_amount, 0), 'FM999,999,999.00') || ' (' || COALESCE(oi.days_overdue_max, 0) || ' يوم تأخير)'
             WHEN COALESCE(oi.overdue_count, 0) > 0 THEN
-              COALESCE(oi.overdue_count, 0) || ' فاتورة متأخرة: ج.م ' || TO_CHAR(COALESCE(oi.overdue_amount, 0) / 100, 'FM999,999,999.00')
+              COALESCE(oi.overdue_count, 0) || ' فاتورة متأخرة: ج.م ' || TO_CHAR(COALESCE(oi.overdue_amount, 0), 'FM999,999,999.00')
             ELSE 'لا توجد مشاكل'
           END as message
         FROM clients c
