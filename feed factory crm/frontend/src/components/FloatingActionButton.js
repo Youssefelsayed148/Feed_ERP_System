@@ -8,6 +8,7 @@ import {
   X,
   Bell
 } from 'lucide-react';
+import { t } from '../utils/i18n';
 
 /**
  * FloatingActionButton Component
@@ -34,7 +35,7 @@ const FloatingActionButton = ({
   const actions = [
     {
       id: 'order',
-      label: 'New Order',
+      label: t('sales.newOrder'),
       icon: ShoppingCart,
       color: '#3b82f6',
       onClick: () => {
@@ -45,7 +46,7 @@ const FloatingActionButton = ({
     },
     {
       id: 'client',
-      label: 'New Client',
+      label: t('common.newClient'),
       icon: UserPlus,
       color: '#10b981',
       onClick: () => {
@@ -56,7 +57,7 @@ const FloatingActionButton = ({
     },
     {
       id: 'invoice',
-      label: 'New Invoice',
+      label: t('common.createInvoice'),
       icon: FileText,
       color: '#f59e0b',
       onClick: () => {
@@ -67,7 +68,7 @@ const FloatingActionButton = ({
     },
     {
       id: 'payment',
-      label: 'Record Payment',
+      label: t('common.recordPayment'),
       icon: CreditCard,
       color: '#8b5cf6',
       onClick: () => {
@@ -78,7 +79,7 @@ const FloatingActionButton = ({
     },
     {
       id: 'reminder',
-      label: 'Add Reminder',
+      label: t('common.addReminder'),
       icon: Bell,
       color: '#ec4899',
       onClick: () => {

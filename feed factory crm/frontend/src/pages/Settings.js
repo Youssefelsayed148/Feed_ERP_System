@@ -10,41 +10,41 @@ import { t } from '../utils/i18n';
 
 // Available modules for permissions
 const AVAILABLE_MODULES = [
-  { id: 'sales', name: 'Sales', category: 'Sales' },
-  { id: 'clients', name: 'Clients', category: 'Sales' },
-  { id: 'orders', name: 'Orders', category: 'Sales' },
-  { id: 'inventory', name: 'Inventory', category: 'Production' },
-  { id: 'feed_recipes', name: 'Feed Recipes', category: 'Production' },
-  { id: 'production', name: 'Production', category: 'Production' },
-  { id: 'finance', name: 'Finance Dashboard', category: 'Finance' },
-  { id: 'receivables', name: 'Receivables', category: 'Finance' },
-  { id: 'payables', name: 'Payables', category: 'Finance' },
-  { id: 'expenses', name: 'Expenses', category: 'Finance' },
-  { id: 'accounting', name: 'Accounting', category: 'Finance' },
-  { id: 'suppliers', name: 'Suppliers', category: 'Purchasing' },
-  { id: 'purchase_orders', name: 'Purchase Orders', category: 'Purchasing' },
-  { id: 'grn', name: 'Goods Receipt (GRN)', category: 'Purchasing' },
-  { id: 'hr', name: 'HR', category: 'HR' },
-  { id: 'payroll', name: 'Payroll', category: 'HR' },
-  { id: 'delivery', name: 'Delivery', category: 'Operations' },
-  { id: 'assets', name: 'Assets', category: 'Operations' },
-  { id: 'legal', name: 'Legal Dept', category: 'Operations' },
-  { id: 'reports', name: 'Reports', category: 'Operations' },
-  { id: 'settings', name: 'Settings', category: 'Admin' }
+  { id: 'sales', name: t('nav.sales'), category: t('settings.permissionCategories.Sales') },
+  { id: 'clients', name: t('nav.clients'), category: t('settings.permissionCategories.Sales') },
+  { id: 'orders', name: t('nav.orders'), category: t('settings.permissionCategories.Sales') },
+  { id: 'inventory', name: t('nav.inventory'), category: t('settings.permissionCategories.Production') },
+  { id: 'feed_recipes', name: t('nav.feedRecipes'), category: t('settings.permissionCategories.Production') },
+  { id: 'production', name: t('nav.production'), category: t('settings.permissionCategories.Production') },
+  { id: 'finance', name: t('nav.finance'), category: t('settings.permissionCategories.Finance') },
+  { id: 'receivables', name: t('nav.receivables'), category: t('settings.permissionCategories.Finance') },
+  { id: 'payables', name: t('nav.payables'), category: t('settings.permissionCategories.Finance') },
+  { id: 'expenses', name: t('nav.expenses'), category: t('settings.permissionCategories.Finance') },
+  { id: 'accounting', name: t('nav.accounting'), category: t('settings.permissionCategories.Finance') },
+  { id: 'suppliers', name: t('nav.suppliers'), category: t('settings.permissionCategories.Purchasing') },
+  { id: 'purchase_orders', name: t('nav.purchaseOrders'), category: t('settings.permissionCategories.Purchasing') },
+  { id: 'grn', name: t('nav.grn'), category: t('settings.permissionCategories.Purchasing') },
+  { id: 'hr', name: t('nav.hr'), category: t('settings.permissionCategories.HR') },
+  { id: 'payroll', name: t('nav.payroll'), category: t('settings.permissionCategories.HR') },
+  { id: 'delivery', name: t('nav.delivery'), category: t('settings.permissionCategories.Operations') },
+  { id: 'assets', name: t('nav.assets'), category: t('settings.permissionCategories.Operations') },
+  { id: 'legal', name: t('nav.legal'), category: t('settings.permissionCategories.Operations') },
+  { id: 'reports', name: t('settings.permissionCategories.Operations'), category: t('settings.permissionCategories.Operations') },
+  { id: 'settings', name: t('nav.settings'), category: t('settings.permissionCategories.Admin') }
 ];
 
 // User roles
 const USER_ROLES = [
-  { id: 'admin', name: 'Administrator', description: 'Full system access' },
-  { id: 'sales_manager', name: 'Sales Manager', description: 'Manage sales team and clients' },
-  { id: 'sales_rep', name: 'Sales Representative', description: 'Sales and client management' },
-  { id: 'finance', name: 'Finance Manager', description: 'Financial operations' },
-  { id: 'production', name: 'Production Manager', description: 'Production and inventory' },
-  { id: 'purchasing', name: 'Purchasing Manager', description: 'Suppliers and purchasing' },
-  { id: 'hr', name: 'HR Manager', description: 'Human resources' },
-  { id: 'delivery', name: 'Delivery Manager', description: 'Delivery operations' },
-  { id: 'owner', name: 'Owner', description: 'Business owner access' },
-  { id: 'ceo', name: 'CEO', description: 'Executive access' }
+  { id: 'admin', name: 'Administrator', description: t('settings.roleDescriptions.fullAccess') },
+  { id: 'sales_manager', name: t('settings.roleNames.salesManager'), description: t('settings.roleDescriptions.manageSales') },
+  { id: 'sales_rep', name: t('settings.roleNames.salesRep'), description: t('settings.roleDescriptions.salesClient') },
+  { id: 'finance', name: t('settings.roleNames.finance'), description: t('settings.roleDescriptions.financialOps') },
+  { id: 'production', name: t('settings.roleNames.production'), description: t('settings.roleDescriptions.productionInventory') },
+  { id: 'purchasing', name: t('settings.roleNames.purchasing'), description: t('settings.roleDescriptions.suppliersPurchasing') },
+  { id: 'hr', name: t('settings.roleNames.hr'), description: t('settings.roleDescriptions.hr') },
+  { id: 'delivery', name: t('settings.roleNames.delivery'), description: t('settings.roleDescriptions.deliveryOps') },
+  { id: 'owner', name: t('settings.roleNames.owner'), description: t('settings.roleDescriptions.businessOwner') },
+  { id: 'ceo', name: 'CEO', description: t('settings.roleDescriptions.executiveAccess') }
 ];
 
 // User Management Component
@@ -100,18 +100,18 @@ const UserManagement = () => {
 
   const validateForm = () => {
     const errors = {};
-    if (!userForm.firstName.trim()) errors.firstName = 'First name is required';
-    if (!userForm.lastName.trim()) errors.lastName = 'Last name is required';
+    if (!userForm.firstName.trim()) errors.firstName = t('settings.firstNameRequired');
+    if (!userForm.lastName.trim()) errors.lastName = t('settings.lastNameRequired');
     if (!userForm.email.trim()) {
-      errors.email = 'Email is required';
+      errors.email = t('settings.emailRequired');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userForm.email)) {
-      errors.email = 'Invalid email format';
+      errors.email = t('settings.invalidEmail');
     }
     if (!selectedUser && !autoGeneratePassword && !userForm.password) {
-      errors.password = 'Password is required';
+      errors.password = t('settings.passwordRequired');
     }
     if (userForm.modulePermissions.length === 0) {
-      errors.modulePermissions = 'At least one module permission is required';
+      errors.modulePermissions = t('settings.modulePermissionRequired');
     }
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -154,7 +154,7 @@ const UserManagement = () => {
       resetForm();
     } catch (error) {
       console.error('Error saving user:', error);
-      alert('Error saving user. Please try again.');
+      alert(t('settings.userSaveError'));
     }
   };
 
@@ -182,7 +182,7 @@ const UserManagement = () => {
       setSelectedUser(null);
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Error deleting user. Please try again.');
+      alert(t('settings.userDeleteError'));
     }
   };
 
@@ -305,7 +305,7 @@ const UserManagement = () => {
           <p className="text-sm text-gray-500">{t('settings.userManagementSub')}</p>
         </div>
         <button className="btn btn-primary" onClick={openCreateModal}>
-          <Plus size={18} /> Add User
+          <Plus size={18} /> {t('settings.addUser')}
         </button>
       </div>
 
@@ -315,7 +315,7 @@ const UserManagement = () => {
           <Search size={18} />
           <input
             type="text"
-            placeholder="Search by name or email..."
+            placeholder={t('settings.searchByEmailName')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -346,13 +346,13 @@ const UserManagement = () => {
           </select>
         </div>
         <button className="btn btn-outline btn-sm" onClick={fetchUsers}>
-          <RefreshCw size={16} /> Refresh
+          <RefreshCw size={16} /> {t('common.refresh')}
         </button>
       </div>
 
       {/* Users Table */}
       {loading ? (
-        <div className="loading-state">Loading users...</div>
+        <div className="loading-state">{t('settings.loadingUsers')}</div>
       ) : (
         <div className="table-container">
           <table className="data-table">
@@ -392,12 +392,12 @@ const UserManagement = () => {
                     </td>
                     <td>
                       <span className={`badge ${user.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
-                        {user.status === 'active' ? 'Active' : 'Inactive'}
+                        {user.status === 'active' ? t('common.statuses.active') : t('common.statuses.inactive')}
                       </span>
                     </td>
                     <td>
                       <span className="text-sm text-gray-600">
-                        {user.modulePermissions?.length || 0} modules
+                        {user.modulePermissions?.length || 0} {t('settings.modules')}
                       </span>
                     </td>
                     <td>
@@ -432,7 +432,7 @@ const UserManagement = () => {
         <div className="modal-overlay">
           <div className="modal modal-lg">
             <div className="modal-header">
-              <h3>{selectedUser ? 'Edit User' : 'Create New User'}</h3>
+              <h3>{selectedUser ? t('settings.editUser') : t('settings.createNewUser')}</h3>
               <button className="btn-icon" onClick={() => setShowUserModal(false)}>
                 <X size={20} />
               </button>
@@ -442,7 +442,7 @@ const UserManagement = () => {
                 <h4 className="section-title">المعلومات الشخصية</h4>
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">First Name *</label>
+                    <label className="form-label">{t('settings.firstName')} *</label>
                     <input
                       type="text"
                       className={`form-input ${formErrors.firstName ? 'error' : ''}`}
@@ -453,7 +453,7 @@ const UserManagement = () => {
                     {formErrors.firstName && <span className="error-text">{formErrors.firstName}</span>}
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Last Name *</label>
+                    <label className="form-label">{t('settings.lastName')} *</label>
                     <input
                       type="text"
                       className={`form-input ${formErrors.lastName ? 'error' : ''}`}
@@ -472,7 +472,7 @@ const UserManagement = () => {
                       className={`form-input ${formErrors.email ? 'error' : ''}`}
                       value={userForm.email}
                       onChange={(e) => setUserForm({...userForm, email: e.target.value})}
-                      placeholder="Enter email address"
+                      placeholder={t('settings.enterEmailAddress')}
                       disabled={selectedUser}
                     />
                     {formErrors.email && <span className="error-text">{formErrors.email}</span>}
@@ -491,10 +491,10 @@ const UserManagement = () => {
               </div>
 
               <div className="form-section">
-                <h4 className="section-title">Role & Status</h4>
+                <h4 className="section-title">{t('settings.role')} & Status</h4>
                 <div className="form-row">
                   <div className="form-group">
-                    <label className="form-label">Role *</label>
+                    <label className="form-label">{t('settings.role')} *</label>
                     <select
                       className="form-select"
                       value={userForm.role}
@@ -530,19 +530,19 @@ const UserManagement = () => {
                         onChange={(e) => setAutoGeneratePassword(e.target.checked)}
                       />
                       <span className="toggle-slider"></span>
-                      Auto-generate password
+                      {t('settings.autoGeneratePassword')}
                     </label>
                   </div>
                   {!autoGeneratePassword && (
                     <div className="form-group">
-                      <label className="form-label">Password *</label>
+                      <label className="form-label">{t('settings.passwordRequired')}</label>
                       <div className="password-input-group">
                         <input
                           type={showPassword ? 'text' : 'password'}
                           className={`form-input ${formErrors.password ? 'error' : ''}`}
                           value={userForm.password}
                           onChange={(e) => setUserForm({...userForm, password: e.target.value})}
-                          placeholder="Enter password"
+                          placeholder={t('settings.enterPassword')}
                         />
                         <button
                           type="button"
@@ -562,13 +562,13 @@ const UserManagement = () => {
                 <div className="form-section">
                   <h4 className="section-title">الأمان</h4>
                   <button className="btn btn-outline">
-                    <Lock size={16} /> Reset Password
+                    <Lock size={16} /> {t('settings.resetPassword')}
                   </button>
                 </div>
               )}
 
               <div className="form-section">
-                <h4 className="section-title">Module Permissions *</h4>
+                <h4 className="section-title">{t('settings.modulePermissions')} *</h4>
                 {formErrors.modulePermissions && <span className="error-text">{formErrors.modulePermissions}</span>}
                 <div className="modules-grid">
                   {Object.entries(modulesByCategory).map(([category, modules]) => (
@@ -581,7 +581,7 @@ const UserManagement = () => {
                             checked={modules.every(m => userForm.modulePermissions.includes(m.id))}
                             onChange={() => toggleAllModulesInCategory(category)}
                           />
-                          Select All
+                          {t('settings.selectAll')}
                         </label>
                       </div>
                       <div className="module-list">
@@ -606,7 +606,7 @@ const UserManagement = () => {
                 إلغاء
               </button>
               <button className="btn btn-primary" onClick={handleSaveUser}>
-                <Check size={16} /> {selectedUser ? 'Update User' : 'Create User'}
+                <Check size={16} /> {selectedUser ? t('settings.updateUser') : t('settings.createUser')}
               </button>
             </div>
           </div>
@@ -632,7 +632,7 @@ const UserManagement = () => {
                     <strong>{selectedUser.firstName} {selectedUser.lastName}</strong> ({selectedUser.email})
                   </p>
                   <p className="text-sm text-gray-500 mt-2">
-                    The user will be marked as inactive and will no longer be able to access the system.
+                    {t('settings.deactivationWarning')}
                   </p>
                 </div>
               </div>
@@ -703,35 +703,35 @@ const IntegrationSettings = () => {
       name: 'WhatsApp Business', 
       icon: MessageCircle, 
       color: '#25d366',
-      description: 'Send automated messages and reminders to clients'
+      description: t('settings.integrationsConfig.whatsapp')
     },
     { 
       id: 'email', 
       name: 'Email SMTP', 
       icon: Mail, 
       color: '#ea4335',
-      description: 'Send invoices, contracts and notifications via email'
+      description: t('settings.integrationsConfig.email')
     },
     { 
       id: 'payment', 
       name: 'Payment Gateway', 
       icon: CreditCard, 
       color: '#635bff',
-      description: 'Accept online payments via credit card or bank transfer'
+      description: t('settings.integrationsConfig.payment')
     },
     { 
       id: 'sms', 
       name: 'SMS Gateway', 
       icon: MessageCircle, 
       color: '#3498db',
-      description: 'Send SMS notifications and payment reminders'
+      description: t('settings.integrationsConfig.sms')
     },
     { 
       id: 'calendar', 
       name: 'Calendar Sync', 
       icon: Calendar, 
       color: '#4285f4',
-      description: 'Sync viewings and meetings with Google/Outlook calendar'
+      description: t('settings.integrationsConfig.calendar')
     }
   ];
 
@@ -739,9 +739,9 @@ const IntegrationSettings = () => {
     <div>
       <div className="settings-section-header">
         <h3 className="card-title">{t('settings.integrations')}</h3>
-        <button className="btn btn-primary" onClick={saveIntegrations}>
-          <Check size={16} /> Save All Changes
-        </button>
+          <button className="btn btn-primary" onClick={saveIntegrations}>
+            <Check size={16} /> {t('common.saveChanges')}
+          </button>
       </div>
 
       <div className="integration-cards-grid">
@@ -774,7 +774,7 @@ const IntegrationSettings = () => {
                 </div>
                 <div className="integration-controls">
                   <span className={`integration-status ${config.connected ? 'status-connected' : 'status-disconnected'}`}>
-                    {config.connected ? 'Connected' : 'Disconnected'}
+                    {config.connected ? t('settings.integrationsConfig.connected') : t('settings.integrationsConfig.disconnected')}
                   </span>
                   <label className="toggle-switch">
                     <input 
@@ -932,28 +932,28 @@ const IntegrationSettings = () => {
                               className="form-input"
                               value={config.clientId}
                               onChange={(e) => updateField(item.id, 'clientId', e.target.value)}
-                              placeholder="Enter OAuth Client ID"
+                              placeholder={t('settings.enterOAuthClientId')}
                             />
                           </div>
                         </>
                       )}
                       <div className="form-actions">
                         <button className="btn btn-outline" onClick={() => setEditing(null)}>
-                          <X size={16} /> Cancel
+                          <X size={16} /> {t('common.cancel')}
                         </button>
                         <button className="btn btn-primary" onClick={() => { setEditing(null); saveIntegrations(); }}>
-                          <Check size={16} /> Save
+                          <Check size={16} /> {t('common.save')}
                         </button>
                       </div>
                     </div>
                   ) : (
                     <div className="integration-preview">
                       <div className="integration-preview-text">
-                        {item.id === 'whatsapp' && `Connected to: ${config.phoneNumber}`}
+                        {item.id === 'whatsapp' && `${t('settings.integrationsConfig.connectedTo')} ${config.phoneNumber}`}
                         {item.id === 'email' && `SMTP: ${config.smtpHost}:${config.smtpPort}`}
-                        {item.id === 'payment' && (config.provider ? `Provider: ${config.provider}` : 'No provider configured')}
-                        {item.id === 'sms' && (config.provider ? `Provider: ${config.provider}` : 'No provider configured')}
-                        {item.id === 'calendar' && `Provider: ${config.provider === 'google' ? 'تقويم Google' : 'Outlook Calendar'}`}
+                        {item.id === 'payment' && (config.provider ? `${t('settings.integrationsConfig.provider')}: ${config.provider}` : t('settings.integrationsConfig.noProvider'))}
+                        {item.id === 'sms' && (config.provider ? `${t('settings.integrationsConfig.provider')}: ${config.provider}` : t('settings.integrationsConfig.noProvider'))}
+                        {item.id === 'calendar' && `${t('settings.integrationsConfig.provider')}: ${config.provider === 'google' ? t('settings.googleCalendar') : 'Outlook Calendar'}`}
                       </div>
                       <div className="integration-actions">
                         <button 
@@ -961,25 +961,25 @@ const IntegrationSettings = () => {
                           onClick={() => testConnection(item.id)}
                           disabled={testResult === 'testing'}
                         >
-                          {testResult === 'testing' ? 'Testing...' : 'Test Connection'}
+                          {testResult === 'testing' ? t('settings.integrationsConfig.testing') : t('settings.integrationsConfig.testConnection')}
                         </button>
                         <button 
                           className="btn btn-secondary btn-sm"
                           onClick={() => setEditing(item.id)}
                         >
-                          Configure
+                          {t('settings.configure')}
                         </button>
                       </div>
                     </div>
                   )}
                   {testResult === 'success' && (
                     <div className="alert alert-success test-result">
-                      <Check size={14} /> Connection successful!
+                      <Check size={14} /> {t('settings.integrationsConfig.connectionSuccess')}
                     </div>
                   )}
                   {testResult === 'error' && (
                     <div className="alert alert-danger test-result">
-                      <X size={14} /> Connection failed. Please check your settings.
+                      <X size={14} /> {t('settings.integrationsConfig.connectionFailed')}
                     </div>
                   )}
                 </div>
@@ -1112,11 +1112,11 @@ const SettingsPage = () => {
         localStorage.setItem('user', JSON.stringify(updatedUser));
         alert('Profile updated successfully!');
       } else {
-        alert(response.error || 'Failed to update profile');
+        alert(response.error || t('settings.profileUpdateFailed'));
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Error updating profile. Please try again.');
+      alert(t('settings.profileUpdateError'));
     } finally {
       setProfileLoading(false);
     }
@@ -1125,15 +1125,15 @@ const SettingsPage = () => {
   const handleUpdatePassword = async () => {
     setPasswordError('');
     if (!passwordForm.currentPassword) {
-      setPasswordError('Current password is required');
+      setPasswordError(t('settings.currentPasswordRequired'));
       return;
     }
     if (passwordForm.newPassword.length < 6) {
-      setPasswordError('New password must be at least 6 characters');
+      setPasswordError(t('settings.newPasswordMinLength'));
       return;
     }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError('New password and confirmation do not match');
+      setPasswordError(t('settings.passwordsDoNotMatch'));
       return;
     }
     try {
@@ -1145,11 +1145,11 @@ const SettingsPage = () => {
         alert('Password updated successfully!');
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       } else {
-        setPasswordError(response.error || 'Failed to update password');
+        setPasswordError(response.error || t('settings.passwordUpdateFailed'));
       }
     } catch (error) {
       console.error('Error updating password:', error);
-      setPasswordError('Error updating password. Please try again.');
+      setPasswordError(t('settings.passwordUpdateError'));
     }
   };
 
@@ -1171,7 +1171,6 @@ const SettingsPage = () => {
     { id: 'notifications', label: t('settings.notificationsTab'), icon: Bell },
     { id: 'security', label: t('settings.security'), icon: Shield },
     { id: 'branding', label: t('settings.branding'), icon: Palette },
-    { id: 'users', label: t('settings.userManagement'), icon: UserCheck },
     { id: 'integrations', label: t('settings.integrations'), icon: Database }
   ];
 
@@ -1206,7 +1205,7 @@ const SettingsPage = () => {
         <div className="card">
           {activeTab === 'profile' && (
             <div className="settings-content">
-              <h3 className="card-title">Profile Settings</h3>
+              <h3 className="card-title">{t('settings.profileSettings')}</h3>
               <div className="profile-header">
                 <div className="profile-avatar">
                   {profileForm.firstName?.charAt(0)}{profileForm.lastName?.charAt(0)}
@@ -1220,17 +1219,17 @@ const SettingsPage = () => {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">First Name</label>
+                  <label className="form-label">{t('settings.firstName')}</label>
                   <input type="text" className="form-input" value={profileForm.firstName} onChange={(e) => setProfileForm({...profileForm, firstName: e.target.value})} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Last Name</label>
+                  <label className="form-label">{t('settings.lastName')}</label>
                   <input type="text" className="form-input" value={profileForm.lastName} onChange={(e) => setProfileForm({...profileForm, lastName: e.target.value})} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('common.email')}</label>
                   <input type="email" className="form-input" value={profileForm.email} disabled />
-                  <small className="form-help">Email cannot be changed</small>
+                  <small className="form-help">{t('settings.emailCannotChange')}</small>
                 </div>
                 <div className="form-group">
                   <label className="form-label">{t('common.phone')}</label>
@@ -1239,14 +1238,14 @@ const SettingsPage = () => {
               </div>
 
               <button className="btn btn-primary" onClick={handleSaveProfile} disabled={profileLoading}>
-                {profileLoading ? 'Saving...' : 'Save Changes'}
+                {profileLoading ? t('settings.saving') : t('common.saveChanges')}
               </button>
             </div>
           )}
 
           {activeTab === 'organization' && (
             <div className="settings-content">
-              <h3 className="card-title">Organization Settings</h3>
+              <h3 className="card-title">{t('settings.organizationSettings')}</h3>
               <div className="form-group">
                 <label className="form-label">{t('settings.companyName')}</label>
                 <input type="text" className="form-input" value={companySettings.companyName}
@@ -1259,18 +1258,18 @@ const SettingsPage = () => {
                   value={companySettings.currency}
                   onChange={(e) => handleCurrencyChange(e.target.value)}
                 >
-                  <option value="EGP">EGP - Egyptian Pound</option>
-                  <option value="AED">AED - UAE Dirham (د.إ)</option>
-                  <option value="USD">USD - US Dollar ($)</option>
-                  <option value="EUR">EUR - Euro (€)</option>
-                  <option value="GBP">GBP - British Pound (£)</option>
+                  <option value="EGP">{t('settings.currency.egp')}</option>
+                  <option value="AED">{t('settings.currency.aed')}</option>
+                  <option value="USD">{t('settings.currency.usd')}</option>
+                  <option value="EUR">{t('settings.currency.eur')}</option>
+                  <option value="GBP">{t('settings.currency.gbp')}</option>
                 </select>
                 <small className="form-help">
-                  Current: {currencyConfig[companySettings.currency]?.symbol} {currencyConfig[companySettings.currency]?.name}
+                  {t('settings.current')}: {currencyConfig[companySettings.currency]?.symbol} {currencyConfig[companySettings.currency]?.name}
                 </small>
               </div>
               <div className="form-group">
-                <label className="form-label">Timezone</label>
+                <label className="form-label">{t('settings.timezone')}</label>
                 <select 
                   className="form-select"
                   value={companySettings.timezone}
@@ -1291,7 +1290,7 @@ const SettingsPage = () => {
 
           {activeTab === 'notifications' && (
             <div className="settings-content">
-              <h3 className="card-title">Notification Preferences</h3>
+              <h3 className="card-title">{t('settings.notificationPreferences')}</h3>
               {[
                 { key: 'leadAssignments', label: 'تعيينات العملاء الجديدة', desc: 'إشعار عند تعيين عملاء جدد لك' },
                 { key: 'reservationExpiring', label: 'انتهاء صلاحية الحجز', desc: 'تنبيه عند اقتراب انتهاء الحجوزات' },
@@ -1315,7 +1314,7 @@ const SettingsPage = () => {
 
           {activeTab === 'security' && (
             <div className="settings-content">
-              <h3 className="card-title">Security Settings</h3>
+              <h3 className="card-title">{t('settings.securitySettings')}</h3>
               {passwordError && (
                 <div className="alert alert-danger" style={{ marginBottom: '16px' }}>
                   <AlertTriangle size={20} /> {passwordError}
@@ -1331,12 +1330,12 @@ const SettingsPage = () => {
               </div>
               <div className="form-group">
                 <label className="form-label">{t('settings.confirmPassword')}</label>
-                <input type="password" className="form-input" placeholder="Confirm new password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})} />
+                <input type="password" className="form-input" placeholder={t('settings.confirmPassword')} value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})} />
               </div>
               <button className="btn btn-primary" onClick={handleUpdatePassword}>تحديث كلمة المرور</button>
 
               <div className="security-section">
-                <h4 className="security-title">Two-Factor Authentication</h4>
+                <h4 className="security-title">{t('settings.twoFactorAuth')}</h4>
                 <p className="security-desc">{t('settings.2faDesc')}</p>
                 <button className="btn btn-outline" onClick={() => {
                   setTwoFAEnabled(!twoFAEnabled);
@@ -1356,18 +1355,18 @@ const SettingsPage = () => {
                 <div className="logo-upload-container">
                   <img 
                     src={brandingForm.logoUrl}
-                    alt="Company Logo" 
+                    alt={t('settings.companyLogo')} 
                     className="logo-preview" 
                     style={{ maxHeight: '80px', objectFit: 'contain' }}
                   />
                   <div className="logo-upload-actions">
                     <p className="logo-current">{t('settings.currentLogo')}</p>
-                    <p className="logo-dimensions">Recommended: 400x100px, PNG or SVG</p>
+                    <p className="logo-dimensions">{t('settings.recommendedLogoDimensions')}</p>
                   </div>
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Logo URL</label>
+                <label className="form-label">{t('settings.logoUrl')}</label>
                 <input 
                   type="text" 
                   className="form-input" 
@@ -1376,17 +1375,17 @@ const SettingsPage = () => {
                   placeholder="https://..."
                 />
                 <small className="form-help">
-                  Enter the URL of your company logo image
+                  {t('settings.enterLogoUrl')}
                 </small>
               </div>
               <div className="form-group">
-                <label className="form-label">Primary Color</label>
+                <label className="form-label">{t('settings.primaryColor')}</label>
                 <div className="color-picker">
                   <input type="color" value={brandingForm.primaryColor} onChange={(e) => setBrandingForm({...brandingForm, primaryColor: e.target.value})} className="color-input" />
                   <span className="color-value">{brandingForm.primaryColor}</span>
                 </div>
               </div>
-              <button className="btn btn-primary" onClick={handleSaveBranding}>Save Branding</button>
+              <button className="btn btn-primary" onClick={handleSaveBranding}>{t('settings.saveBranding')}</button>
             </div>
           )}
 
