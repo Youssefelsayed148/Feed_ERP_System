@@ -3,6 +3,7 @@ const router = express.Router();
 const { query, transaction } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { journalInvoiceCreated, journalPaymentReceived } = require('../utils/journal');
+const { logActivity } = require('../utils/activity');
 
 // =====================
 // TWO-STAGE APPROVAL SYSTEM
@@ -52,10 +53,16 @@ router.post('/request', authenticate, async (req, res) => {
       [module_name, request_type, request_id, req.user.id, notes]
     );
 
-    await query(
-      `INSERT INTO user_activity_log (user_id, action, module_name, details) VALUES ($1, $2, $3, $4)`,
-      [req.user.id, 'request_approval', module_name, `Requested approval for ${request_type} #${request_id}`]
-    );
+    await logActivity({
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'request_approval',
+      module: module_name,
+      description: `Requested approval for ${request_type} #${request_id}`,
+      entityId: result.rows[0].id,
+      entityType: 'approval_request'
+    });
 
     res.json({ success: true, requires_approval: true, request: result.rows[0] });
   } catch (error) {
@@ -139,7 +146,7 @@ router.get('/pending', authenticate, authorize(
 // Shared stage-transition logic — used by this file's own routes below, and by
 // other modules (orders.js) that need to drive the same workflow without
 // duplicating its side effects or its self-approval guard.
-async function advanceApproval({ approvalId, userId, role, notes, action }) {
+async function advanceApproval({ approvalId, userId, userName, role, notes, action }) {
   const pending = await query('SELECT * FROM approval_requests WHERE id = $1', [approvalId]);
   if (pending.rows.length === 0) {
     return { statusCode: 404, body: { success: false, error: 'Request not found' } };
@@ -166,10 +173,16 @@ async function advanceApproval({ approvalId, userId, role, notes, action }) {
          WHERE id = $3 RETURNING *`,
         [userId, notes || null, approvalId]
       );
-      await query(
-        `INSERT INTO user_activity_log (user_id, action, module_name, details) VALUES ($1, $2, $3, $4)`,
-        [userId, 'manager_approve', ar.module_name, `Manager approved ${ar.request_type} #${ar.request_id} — forwarded to owner`]
-      );
+      await logActivity({
+        userId,
+        userName,
+        userRole: role,
+        action: 'approve',
+        module: ar.module_name,
+        description: `Manager approved ${ar.request_type} #${ar.request_id} — forwarded to owner`,
+        entityId: approvalId,
+        entityType: 'approval_request'
+      });
       return { statusCode: 200, body: { success: true, stage: 'forwarded_to_owner', request: result.rows[0] } };
     }
 
@@ -183,10 +196,16 @@ async function advanceApproval({ approvalId, userId, role, notes, action }) {
          WHERE id = $3 RETURNING *`,
         [userId, notes || null, approvalId]
       );
-      await query(
-        `INSERT INTO user_activity_log (user_id, action, module_name, details) VALUES ($1, $2, $3, $4)`,
-        [userId, 'owner_approve', ar.module_name, `Owner approved ${ar.request_type} #${ar.request_id}`]
-      );
+      await logActivity({
+        userId,
+        userName,
+        userRole: role,
+        action: 'approve',
+        module: ar.module_name,
+        description: `Owner approved ${ar.request_type} #${ar.request_id}`,
+        entityId: approvalId,
+        entityType: 'approval_request'
+      });
       await updateRecordStatus(result.rows[0]);
       return { statusCode: 200, body: { success: true, stage: 'fully_approved', request: result.rows[0] } };
     }
@@ -215,11 +234,16 @@ async function advanceApproval({ approvalId, userId, role, notes, action }) {
 
   await rejectRecordStatus(ar);
 
-  await query(
-    `INSERT INTO user_activity_log (user_id, action, module_name, details) VALUES ($1, $2, $3, $4)`,
-    [userId, 'reject_approval', ar.module_name,
-     `Rejected ${ar.request_type} #${ar.request_id} at stage ${ar.stage}${notes ? ': ' + notes : ''}`]
-  );
+  await logActivity({
+    userId,
+    userName,
+    userRole: role,
+    action: 'reject',
+    module: ar.module_name,
+    description: `Rejected ${ar.request_type} #${ar.request_id} at stage ${ar.stage}${notes ? ': ' + notes : ''}`,
+    entityId: approvalId,
+    entityType: 'approval_request'
+  });
 
   return { statusCode: 200, body: { success: true, request: result.rows[0] } };
 }
@@ -231,8 +255,8 @@ router.put('/:id/approve', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
-    const { role, id: userId } = req.user;
-    const result = await advanceApproval({ approvalId: id, userId, role, notes, action: 'approve' });
+    const { role, id: userId, name: userName } = req.user;
+    const result = await advanceApproval({ approvalId: id, userId, userName, role, notes, action: 'approve' });
     return res.status(result.statusCode).json(result.body);
   } catch (error) {
     console.error('Error approving:', error);
@@ -247,8 +271,8 @@ router.put('/:id/reject', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
-    const { role, id: userId } = req.user;
-    const result = await advanceApproval({ approvalId: id, userId, role, notes, action: 'reject' });
+    const { role, id: userId, name: userName } = req.user;
+    const result = await advanceApproval({ approvalId: id, userId, userName, role, notes, action: 'reject' });
     return res.status(result.statusCode).json(result.body);
   } catch (error) {
     console.error('Error rejecting:', error);
@@ -393,11 +417,7 @@ router.get('/activity', authenticate, authorize('owner', 'admin'), async (req, r
   try {
     const { limit = 50 } = req.query;
     const result = await query(`
-      SELECT al.*, u.name as user_name, u.role as user_role
-      FROM user_activity_log al
-      LEFT JOIN users u ON al.user_id = u.id
-      ORDER BY al.created_at DESC
-      LIMIT $1
+      SELECT * FROM activity_log ORDER BY created_at DESC LIMIT $1
     `, [limit]);
     res.json({ success: true, activities: result.rows });
   } catch (error) {
@@ -412,9 +432,9 @@ router.get('/activity/summary', authenticate, authorize('owner', 'admin'), async
   try {
     const result = await query(`
       SELECT DISTINCT ON (al.user_id)
-        al.user_id, u.name as user_name, u.role as user_role,
-        al.action, al.module_name, al.details, al.created_at as last_action_time
-      FROM user_activity_log al
+        al.user_id, al.user_name, al.user_role,
+        al.action, al.module AS module_name, al.description AS details, al.created_at AS last_action_time
+      FROM activity_log al
       LEFT JOIN users u ON al.user_id = u.id
       WHERE u.is_active = true
       ORDER BY al.user_id, al.created_at DESC
@@ -431,10 +451,14 @@ router.get('/activity/summary', authenticate, authorize('owner', 'admin'), async
 router.post('/log', authenticate, async (req, res) => {
   try {
     const { action, module_name, details } = req.body;
-    await query(
-      `INSERT INTO user_activity_log (user_id, action, module_name, details) VALUES ($1, $2, $3, $4)`,
-      [req.user.id, action, module_name, details]
-    );
+    await logActivity({
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action,
+      module: module_name,
+      description: details
+    });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -37,6 +37,10 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [approvalsLoading, setApprovalsLoading] = useState(false);
+  const [actionError, setActionError] = useState(null);
+  const [rejectModal, setRejectModal] = useState({ open: false, id: null, reason: '' });
+  const [teamActivity, setTeamActivity] = useState([]);
+  const [teamActivityLoading, setTeamActivityLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboard();
@@ -45,29 +49,23 @@ const Dashboard = () => {
   }, []);
 
   const fetchActivitySummary = async () => {
+    setTeamActivityLoading(true);
     try {
       const response = await fetch(`${API_URL}/approvals/activity/summary`, { headers: headers() });
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.users?.length > 0) {
-          const tbody = document.getElementById('owner-activity-body');
-          if (tbody) {
-            tbody.innerHTML = data.users.map(u => {
-              const time = u.last_action_time ? new Date(u.last_action_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-';
-              const date = u.last_action_time ? new Date(u.last_action_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
-              return `<tr>
-                <td><strong>${u.user_name}</strong></td>
-                <td><span class="badge">${u.user_role}</span></td>
-                <td>${u.action || '-'}</td>
-                <td>${u.module_name || '-'}</td>
-                <td>${u.details || '-'}</td>
-                <td style="text-align:right;font-size:0.85em;color:#6b7280;white-space:nowrap">${time}<br/>${date}</td>
-              </tr>`;
-            }).join('');
-          }
+          setTeamActivity(data.users);
+        } else {
+          setTeamActivity([]);
         }
+      } else {
+        setTeamActivity([]);
       }
-    } catch (e) {}
+    } catch (e) {
+      setTeamActivity([]);
+    }
+    setTeamActivityLoading(false);
   };
 
   const fetchPendingApprovals = async () => {
@@ -83,25 +81,46 @@ const Dashboard = () => {
   };
 
   const handleApproveRequest = async (id) => {
+    setActionError(null);
     try {
-      await fetch(`${API_URL}/approvals/${id}/approve`, {
+      const res = await fetch(`${API_URL}/approvals/${id}/approve`, {
         method: 'PUT', headers: headers(),
         body: JSON.stringify({})
       });
-      fetchPendingApprovals();
-    } catch (e) {}
+      if (res.ok) {
+        fetchPendingApprovals();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setActionError(data.error || t('approvals.actionFailed'));
+      }
+    } catch (e) {
+      setActionError(t('approvals.actionFailed'));
+    }
   };
 
   const handleRejectRequest = async (id) => {
-    const reason = prompt('Rejection reason:');
-    if (!reason) return;
+    setRejectModal({ open: true, id, reason: '' });
+  };
+
+  const confirmReject = async () => {
+    const { id, reason } = rejectModal;
+    if (!reason.trim()) return;
+    setActionError(null);
     try {
-      await fetch(`${API_URL}/approvals/${id}/reject`, {
+      const res = await fetch(`${API_URL}/approvals/${id}/reject`, {
         method: 'PUT', headers: headers(),
         body: JSON.stringify({ notes: reason })
       });
-      fetchPendingApprovals();
-    } catch (e) {}
+      if (res.ok) {
+        fetchPendingApprovals();
+        setRejectModal({ open: false, id: null, reason: '' });
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setActionError(data.error || t('approvals.actionFailed'));
+      }
+    } catch (e) {
+      setActionError(t('approvals.actionFailed'));
+    }
   };
 
   const fetchDashboard = async () => {
@@ -204,6 +223,17 @@ const Dashboard = () => {
           {t('dashboard.liveData', { clients: stats?.total_clients || 0, orders: stats?.total_orders || 0, recipes: stats?.total_recipes || 0 })}
         </p>
       </div>
+
+      {/* Action Error Banner */}
+      {actionError && (
+        <div className="alert alert-danger" style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={20} />
+            <span>{actionError}</span>
+          </div>
+          <button onClick={() => setActionError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '18px' }}>×</button>
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="stats-grid">
@@ -880,7 +910,26 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody id="owner-activity-body">
-                  <tr><td colSpan="6" style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>Loading activity data...</td></tr>
+                  {teamActivityLoading ? (
+                    <tr><td colSpan="6" style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>{t('common.loading')}</td></tr>
+                  ) : teamActivity.length > 0 ? (
+                    teamActivity.map((u, i) => {
+                      const time = u.last_action_time ? new Date(u.last_action_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '-';
+                      const date = u.last_action_time ? new Date(u.last_action_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+                      return (
+                        <tr key={u.user_id || i}>
+                          <td><strong>{u.user_name}</strong></td>
+                          <td><span className="badge">{u.user_role}</span></td>
+                          <td>{u.action || '-'}</td>
+                          <td>{u.module_name || '-'}</td>
+                          <td>{u.details || '-'}</td>
+                          <td style={{ textAlign: 'right', fontSize: '0.85em', color: '#6b7280', whiteSpace: 'nowrap' }}>{time}<br />{date}</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr><td colSpan="6" style={{ textAlign: 'center', color: '#9ca3af', padding: '20px' }}>{t('dashboard.noTeamActivity')}</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -926,6 +975,41 @@ const Dashboard = () => {
           <Wallet size={18} /> {t('dashboard.payablesBtn')}
         </button>
       </div>
+
+      {/* Reject Reason Modal */}
+      {rejectModal.open && (
+        <div className="modal-overlay">
+          <div className="modal modal-sm" style={{ maxWidth: '420px' }}>
+            <div className="modal-header">
+              <h3>{t('approvals.confirmDecline')}</h3>
+              <button className="btn-icon" onClick={() => setRejectModal({ open: false, id: null, reason: '' })}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label className="form-label">{t('approvals.declineReasonPlaceholder')}</label>
+                <textarea
+                  className="form-input"
+                  rows={3}
+                  value={rejectModal.reason}
+                  onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
+                  placeholder={t('approvals.declineReasonPlaceholder')}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline" onClick={() => setRejectModal({ open: false, id: null, reason: '' })}>
+                {t('common.cancel')}
+              </button>
+              <button className="btn btn-danger" onClick={confirmReject} disabled={!rejectModal.reason.trim()}>
+                {t('approvals.decline')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
