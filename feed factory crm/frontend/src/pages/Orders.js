@@ -42,6 +42,8 @@ export default function Orders() {
   const [selectedClientInfo, setSelectedClientInfo] = useState(null);
   const [clientWarning, setClientWarning] = useState(null);
   const [orderErrors, setOrderErrors] = useState({});
+  const [clientSearchQuery, setClientSearchQuery] = useState('');
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
   
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [invoicePreviewData, setInvoicePreviewData] = useState(null);
@@ -187,7 +189,7 @@ const fetchOrders = async () => {
 
   const fetchClients = async () => {
     try {
-      const response = await fetch(`${API_URL}/clients`, { headers: headers() });
+      const response = await fetch(`${API_URL}/clients?limit=1000`, { headers: headers() });
       const data = await response.json();
       const mappedClients = (data.clients || []).map(c => ({
         ...c,
@@ -476,6 +478,7 @@ const fetchOrders = async () => {
     });
     setSelectedClientInfo(null);
     setClientWarning(null);
+    setClientSearchQuery('');
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
@@ -603,6 +606,127 @@ const fetchOrders = async () => {
     } finally {
       setGeneratingInvoice(false);
     }
+  };
+
+  const generateInvoicePDF = () => {
+    if (!invoicePreviewData) return;
+    const data = invoicePreviewData;
+    const itemsHtml = (data.items && data.items.length > 0 && data.items[0]?.quantity)
+      ? data.items.map((item, index) => {
+          const pkg = item.packageSize || item.package_size || 50;
+          const qtyBags = item.quantity || 0;
+          const qtyTons = (qtyBags * pkg) / 1000;
+          const pricePerTon = parseFloat(item.unitPrice || item.unit_price || 0);
+          const totalPrice = parseFloat(item.totalPrice || item.total_price || 0);
+          const feedName = feedTypes.find(f => f._id === String(item.feedTypeId || item.feed_type_id))?.name
+            || item.feedType?.name_arabic || item.feed_type_name_ar || item.feed_type_name || 'علف';
+          return `<tr>
+            <td style="text-align:center;">${index + 1}</td>
+            <td>${feedName}</td>
+            <td style="text-align:center;">${formatNumber(qtyTons, 1)} طن</td>
+            <td style="text-align:center;">${pkg} كجم</td>
+            <td style="text-align:center;">${qtyBags} كيس</td>
+            <td style="text-align:left;">${formatCurrency(pricePerTon)}</td>
+            <td style="text-align:left;font-weight:600;">${formatCurrency(totalPrice)}</td>
+          </tr>`;
+        }).join('')
+      : `<tr><td colspan="7" style="text-align:center;padding:24px;color:#94a3b8;">${formatCurrency(data.total || 0)}</td></tr>`;
+
+    const discountHtml = data.discount > 0
+      ? `<div style="display:flex;justify-content:flex-end;gap:32px;margin-bottom:8px;">
+          <span style="color:#d97706;font-size:14px;">خصم (${data.discount}%)</span>
+          <span style="font-weight:600;font-size:14px;color:#d97706;min-width:120px;text-align:left;">-${formatCurrency(data.discountAmount || 0)}</span>
+        </div>`
+      : '';
+
+    const printContent = `<html lang="ar" dir="rtl">
+      <head>
+        <meta charset="utf-8" />
+        <title>${t('orders.invoice')} ${data.invoiceNumber || ''}</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 40px; color: #1e293b; direction: rtl; }
+          .header { background: #1a2332; color: white; padding: 24px; border-radius: 12px 12px 0 0; margin-bottom: 0; }
+          .header h1 { margin: 0; font-size: 24px; }
+          .header p { margin: 4px 0 0; font-size: 14px; color: #94a3b8; }
+          .meta { display: flex; border: 1px solid #e2e8f0; }
+          .meta-section { flex: 1; padding: 16px 24px; border-left: 1px solid #e2e8f0; }
+          .meta-section:last-child { border-left: none; }
+          .meta-label { font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+          .meta-value { font-weight: 700; font-size: 15px; }
+          .meta-sub { font-size: 13px; color: #64748b; }
+          table { width: 100%; border-collapse: collapse; font-size: 14px; }
+          th { background: #f1f5f9; padding: 10px 12px; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0; }
+          td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+          tr:nth-child(even) td { background: #f8fafc; }
+          .totals { padding: 16px 24px; border-top: 2px solid #e2e8f0; background: #f8fafc; text-align: left; }
+          .total-row { display: flex; justify-content: flex-end; gap: 32px; margin-bottom: 8px; }
+          .total-label { color: #64748b; font-size: 14px; }
+          .total-value { font-weight: 600; font-size: 14px; min-width: 120px; text-align: left; }
+          .grand-total-row { display: flex; justify-content: flex-end; gap: 32px; padding-top: 10px; border-top: 2px solid #d1fae5; margin-top: 4px; }
+          .grand-total-label { font-weight: 700; font-size: 16px; }
+          .grand-total-value { font-weight: 800; font-size: 20px; color: #10b981; min-width: 120px; text-align: left; }
+          .badge { display: inline-block; background: #fffbeb; color: #d97706; border: 1px solid #fde68a; border-radius: 20px; padding: 6px 14px; font-size: 13px; font-weight: 600; }
+          .footer { padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+          @media print { body { margin: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${t('orders.invoice')}</h1>
+          <p>مصنع الخير للأعلاف</p>
+        </div>
+        <div class="meta">
+          <div class="meta-section">
+            <div class="meta-label">الفاتورة باسم</div>
+            <div class="meta-value">${data.client?.name || '-'}</div>
+            <div class="meta-sub">${data.client?.code || ''}</div>
+          </div>
+          <div class="meta-section">
+            <div class="meta-label">رقم الفاتورة</div>
+            <div class="meta-value">${data.invoiceNumber || '-'}</div>
+            <div class="meta-sub">الطلب: ${data.orderNumber || '-'}</div>
+          </div>
+          <div class="meta-section">
+            <div class="meta-label">تاريخ الاستحقاق</div>
+            <div class="meta-value">${formatDate(data.dueDate)}</div>
+            <div class="meta-sub">${data.creditPeriod > 0 ? data.creditPeriod + ' يوم آجل' : 'نقدي'}</div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align:center;width:36px;">#</th>
+              <th style="text-align:right;">البيان</th>
+              <th style="text-align:center;">الكمية</th>
+              <th style="text-align:center;">حجم الكيس</th>
+              <th style="text-align:center;">عدد الأكياس</th>
+              <th style="text-align:left;">سعر الطن</th>
+              <th style="text-align:left;">المبلغ</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHtml}</tbody>
+        </table>
+        <div class="totals">
+          <div class="total-row">
+            <span class="total-label">المجموع الجزئي</span>
+            <span class="total-value">${formatCurrency(data.subtotal || 0)}</span>
+          </div>
+          ${discountHtml}
+          <div class="grand-total-row">
+            <span class="grand-total-label">المبلغ الإجمالي</span>
+            <span class="grand-total-value">${formatCurrency(data.total || 0)}</span>
+          </div>
+        </div>
+        <div class="footer">
+          <span class="badge">بانتظار الدفع</span>
+        </div>
+      </body>
+    </html>`;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   const cancelInvoicePreview = () => {
@@ -968,25 +1092,74 @@ const fetchOrders = async () => {
                     <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '6px', display: 'block' }}>
                       العميل <span style={{ color: '#ef4444' }}>*</span>
                     </label>
-                    <select 
-                      value={newOrder.clientId} 
-                      onChange={(e) => { setOrderErrors({ ...orderErrors, clientId: undefined }); handleClientChange(e.target.value); }}
-                      style={{ width: '100%', padding: '10px 14px', border: orderErrors.clientId ? '1.5px solid #ef4444' : '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', background: 'white' }}
-                      onFocus={(e) => { if (!orderErrors.clientId) { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; } }}
-                      onBlur={(e) => { e.target.style.borderColor = orderErrors.clientId ? '#ef4444' : '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
-                    >
-                      <option value="">اختر العميل</option>
-                      {clients.map((client) => {
-                        const creditPercent = client.creditLimit > 0 ? ((client.currentCredit || 0) / client.creditLimit) * 100 : 0;
-                        const isBlocked = client.isBlockedDueToCredit || client.status === 'blocked';
-                        const label = isBlocked 
-                          ? `🚫 ${client.name} (محظور)`
-                          : creditPercent >= 80 
-                            ? `⚠️ ${client.name} (${creditPercent.toFixed(0)}% ائتمان)`
-                            : client.name;
-                        return <option key={client._id} value={client._id}>{label} ({client.code})</option>;
-                      })}
-                    </select>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={clientSearchQuery}
+                        onChange={(e) => {
+                          setClientSearchQuery(e.target.value);
+                          setShowClientDropdown(true);
+                        }}
+                        onFocus={() => setShowClientDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowClientDropdown(false), 200)}
+                        placeholder="ابحث باسم العميل أو الكود..."
+                        style={{ width: '100%', padding: '10px 14px', border: orderErrors.clientId ? '1.5px solid #ef4444' : '1.5px solid #e5e7eb', borderRadius: '8px', fontSize: '14px', direction: 'rtl', outline: 'none', background: 'white' }}
+                        onFocusCapture={(e) => { if (!orderErrors.clientId) { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; } }}
+                        onBlurCapture={(e) => { e.target.style.borderColor = orderErrors.clientId ? '#ef4444' : '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
+                      />
+                      {newOrder.clientId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewOrder(prev => ({ ...prev, clientId: '', paymentType: 'cash', deliveryAddress: '', deliveryCity: '' }));
+                            setSelectedClientInfo(null);
+                            setClientWarning(null);
+                            setClientSearchQuery('');
+                          }}
+                          style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '16px', padding: '4px', zIndex: 1 }}
+                        >×</button>
+                      )}
+                      {showClientDropdown && (
+                        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, maxHeight: '240px', overflowY: 'auto', border: '1.5px solid #e5e7eb', borderRadius: '8px', background: 'white', zIndex: 50, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', marginTop: '4px' }}>
+                          {clients.filter(c => {
+                            if (!clientSearchQuery) return true;
+                            const q = clientSearchQuery.toLowerCase();
+                            return (c.name || '').toLowerCase().includes(q) || (c.code || '').toLowerCase().includes(q);
+                          }).map((client) => {
+                            const creditPercent = client.creditLimit > 0 ? ((client.currentCredit || 0) / client.creditLimit) * 100 : 0;
+                            const isBlocked = client.isBlockedDueToCredit || client.status === 'blocked';
+                            const label = isBlocked 
+                              ? `🚫 ${client.name} (محظور)`
+                              : creditPercent >= 80 
+                                ? `⚠️ ${client.name} (${creditPercent.toFixed(0)}% ائتمان)`
+                                : client.name;
+                            return (
+                              <div
+                                key={client._id}
+                                onClick={() => {
+                                  setOrderErrors({ ...orderErrors, clientId: undefined });
+                                  setClientSearchQuery(`${client.name} (${client.code})`);
+                                  handleClientChange(client._id);
+                                  setShowClientDropdown(false);
+                                }}
+                                style={{ padding: '10px 14px', cursor: 'pointer', fontSize: '14px', direction: 'rtl', borderBottom: '1px solid #f3f4f6', background: newOrder.clientId === client._id ? '#eff6ff' : 'white' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = '#f3f4f6'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = newOrder.clientId === client._id ? '#eff6ff' : 'white'; }}
+                              >
+                                {label} ({client.code})
+                              </div>
+                            );
+                          })}
+                          {clients.filter(c => {
+                            if (!clientSearchQuery) return false;
+                            const q = clientSearchQuery.toLowerCase();
+                            return (c.name || '').toLowerCase().includes(q) || (c.code || '').toLowerCase().includes(q);
+                          }).length === 0 && (
+                            <div style={{ padding: '12px 14px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>لا توجد نتائج</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     {orderErrors.clientId && <small style={{ color: '#ef4444', fontSize: '12px', marginTop: '4px', display: 'block' }}>{orderErrors.clientId}</small>}
                   </div>
 
@@ -1398,6 +1571,10 @@ const fetchOrders = async () => {
                 <Clock size={13} style={{ display: 'inline', marginLeft: '4px' }} /> بانتظار الدفع
               </span>
               <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" onClick={generateInvoicePDF}
+                  style={{ padding: '9px 20px', borderRadius: '8px', border: '1.5px solid #3b82f6', background: '#eff6ff', color: '#2563eb', fontWeight: 500, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Download size={16} /> PDF
+                </button>
                 <button type="button" onClick={cancelInvoicePreview} disabled={generatingInvoice}
                   style={{ padding: '9px 20px', borderRadius: '8px', border: '1.5px solid #d1d5db', background: 'white', color: '#374151', fontWeight: 500, cursor: 'pointer', fontSize: '14px' }}>
                   إلغاء
