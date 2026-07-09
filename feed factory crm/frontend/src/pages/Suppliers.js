@@ -233,374 +233,6 @@ const MaterialsMultiSelect = ({
   );
 };
 
-// Supplier Form Modal
-const SupplierFormModal = ({ 
-  supplier, 
-  availableMaterials, 
-  onSave, 
-  onClose,
-  isLoading 
-}) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    contactPerson: '',
-    phone: '',
-    whatsapp: '',
-    email: '',
-    bankName: '',
-    bankAccount: '',
-    materials: [],
-    rating: 0,
-    onTimeDelivery: 0,
-    qualityRating: 0,
-    status: 'active',
-    address: '',
-    taxId: '',
-    paymentTerms: 'Net 30',
-    leadTime: 1,
-    notes: ''
-  });
-  
-  useEffect(() => {
-    if (supplier) {
-      setFormData({ ...formData, ...supplier });
-    }
-  }, [supplier]);
-  
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
-  };
-  
-  const addMaterial = (material) => {
-    if (!formData.materials.includes(material)) {
-      setFormData({ ...formData, materials: [...formData.materials, material] });
-    }
-  };
-  
-  const removeMaterial = (material) => {
-    setFormData({ 
-      ...formData, 
-      materials: formData.materials.filter(m => m !== material) 
-    });
-  };
-  
-  return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal modal-large" style={{ maxWidth: '700px' }}>
-        <div className="modal-header">
-          <h2 className="modal-title">
-            {supplier ? 'تعديل مورد' : 'إضافة مورد جديد'}
-          </h2>
-          <button className="modal-close" onClick={onClose}>
-            <X size={24} />
-          </button>
-        </div>
-        
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ maxHeight: '60vh', overflow: 'auto' }}>
-            {/* Basic Information */}
-            <div style={{ marginBottom: '24px' }}>
-              <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                المعلومات الأساسية
-              </h4>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">Supplier Name *</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    required
-                    placeholder={t('suppliers.enterName')}
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label">{t('suppliers.code')}</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    placeholder={t('suppliers.codeExample')}
-                  />
-                </div>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">{t('suppliers.contactPerson')}</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={formData.contactPerson}
-                  onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                  placeholder={t('suppliers.contactName')}
-                />
-              </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">{t('suppliers.phone')}</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Phone size={16} style={{ color: '#6b7280' }} />
-                    <input
-                      type="tel"
-                      className="form-input"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+255 XXX XXX XXX"
-                    />
-                  </div>
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label">
-                    <MessageCircle size={16} style={{ display: 'inline', marginRight: '4px', color: '#25D366' }} />
-                    واتساب
-                  </label>
-                  <input
-                    type="tel"
-                    className="form-input"
-                    value={formData.whatsapp}
-                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                    placeholder="+255 XXX XXX XXX"
-                  />
-                </div>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">
-                  <Mail size={16} style={{ display: 'inline', marginRight: '4px' }} />
-                  البريد
-                </label>
-                <input
-                  type="email"
-                  className="form-input"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="supplier@email.com"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">{t('common.address')}</label>
-                <textarea
-                  className="form-textarea"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Full address"
-                  rows="2"
-                />
-              </div>
-            </div>
-            
-            {/* Banking Information */}
-            <div style={{ marginBottom: '24px' }}>
-              <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                البنك والمعلومات الضريبية
-              </h4>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">{t('suppliers.bankName')}</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.bankName}
-                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                    placeholder="e.g., CRDB Bank"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label">{t('suppliers.bankAccountNumber')}</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.bankAccount}
-                    onChange={(e) => setFormData({ ...formData, bankAccount: e.target.value })}
-                    placeholder="Account number"
-                  />
-                </div>
-              </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">الرقم الضريبي</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    value={formData.taxId}
-                    onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
-                    placeholder="TIN number"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label">شروط الدفع</label>
-                  <select
-                    className="form-select"
-                    value={formData.paymentTerms}
-                    onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
-                  >
-                    <option value="Cash on Delivery">{t('suppliers.cashOnDelivery')}</option>
-                    <option value="Net 15">Net 15 (15 days)</option>
-                    <option value="Net 30">Net 30 (30 days)</option>
-                    <option value="Net 45">Net 45 (45 days)</option>
-                    <option value="Net 60">Net 60 (60 days)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-            
-            {/* Materials Supplied */}
-            <div style={{ marginBottom: '24px' }}>
-              <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                المواد والخدمات
-              </h4>
-              
-              <MaterialsMultiSelect
-                availableMaterials={availableMaterials}
-                selectedMaterials={formData.materials}
-                onChange={(materials) => setFormData({ ...formData, materials })}
-                onAdd={addMaterial}
-                onRemove={removeMaterial}
-              />
-              
-              <div className="form-group" style={{ marginTop: '16px' }}>
-                <label className="form-label">مهلة التوريد (أيام)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  min="1"
-                  max="30"
-                  value={formData.leadTime}
-                  onChange={(e) => setFormData({ ...formData, leadTime: parseInt(e.target.value) || 1 })}
-                />
-                <small className="form-help">{t('suppliers.avgDays')}</small>
-              </div>
-            </div>
-            
-            {/* Performance Metrics */}
-            <div style={{ marginBottom: '24px' }}>
-              <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                مؤشرات الأداء
-              </h4>
-              
-              <div className="form-group">
-                <label className="form-label">التقييم العام</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <StarRating 
-                    rating={formData.rating} 
-                    size={24} 
-                    interactive={true}
-                    onChange={(rating) => setFormData({ ...formData, rating })}
-                  />
-                  <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                    {formData.rating.toFixed(1)} / 5.0
-                  </span>
-                </div>
-              </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label className="form-label">نسبة التسليم في الموعد (%)</label>
-                  <input
-                    type="number"
-                    className="form-input"
-                    min="0"
-                    max="100"
-                    value={formData.onTimeDelivery}
-                    onChange={(e) => setFormData({ ...formData, onTimeDelivery: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label">تقييم الجودة</label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', paddingTop: '8px' }}>
-                    <StarRating 
-                      rating={formData.qualityRating} 
-                      size={20} 
-                      interactive={true}
-                      onChange={(qualityRating) => setFormData({ ...formData, qualityRating })}
-                    />
-                    <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                      {formData.qualityRating.toFixed(1)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Status & Notes */}
-            <div>
-              <h4 style={{ marginBottom: '16px', color: '#374151', fontSize: '14px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                الحالة والملاحظات
-              </h4>
-              
-              <div className="form-group">
-                <label className="form-label">{t('common.status')}</label>
-                <select
-                  className="form-select"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  <option value="active">{t('common.statuses.active')}</option>
-                  <option value="inactive">{t('common.statuses.inactive')}</option>
-                  <option value="blacklisted">{t('suppliers.blacklisted')}</option>
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label className="form-label">{t('common.notes')}</label>
-                <textarea
-                  className="form-textarea"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Additional notes about this supplier..."
-                  rows="3"
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="modal-footer">
-            <button 
-              type="button" 
-              className="btn btn-secondary" 
-              onClick={onClose}
-              disabled={isLoading}
-            >
-              إلغاء
-            </button>
-            <button 
-              type="submit" 
-              className="btn btn-success"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite', marginRight: '8px', display: 'inline' }} />
-                  جاري الحفظ...
-                </>
-              ) : (
-                <>
-                  <Check size={16} style={{ marginRight: '8px', display: 'inline' }} />
-                  {supplier ? 'تحديث المورد' : 'إنشاء مورد'}
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
 // Supplier Detail Modal
 const SupplierDetailModal = ({ supplier, onClose, onEdit, onOrder, onDelete }) => {
   const [suppliedMaterials, setSuppliedMaterials] = useState([]);
@@ -1281,10 +913,11 @@ const Suppliers = () => {
           const updated = await response.json();
           setSuppliers(suppliers.map(s => s._id === selectedSupplier._id ? updated : s));
           showNotification('تم تحديث المورد بنجاح');
+          setShowModal(false);
+          setSelectedSupplier(null);
         } else {
-          // Fallback to local update
-          setSuppliers(suppliers.map(s => s._id === selectedSupplier._id ? { ...formData, _id: s._id } : s));
-          showNotification('تم تحديث المورد بنجاح');
+          const err = await response.json().catch(() => ({}));
+          showNotification(err.error || err.message || 'خطأ في تحديث المورد', 'error');
         }
       } else {
         // Create new supplier
@@ -1298,16 +931,14 @@ const Suppliers = () => {
           const created = await response.json();
           setSuppliers([...suppliers, created]);
           showNotification('تم إنشاء المورد بنجاح');
+          setShowModal(false);
+          setSelectedSupplier(null);
         } else {
-          // Fallback to local creation
-          const newSupplier = { ...formData, _id: `new-${Date.now()}`, totalOrders: 0, totalSpend: 0 };
-          setSuppliers([...suppliers, newSupplier]);
-          showNotification('تم إنشاء المورد بنجاح');
+          const err = await response.json().catch(() => ({}));
+          showNotification(err.error || err.message || 'خطأ في إنشاء المورد', 'error');
         }
       }
       
-      setShowModal(false);
-      setSelectedSupplier(null);
     } catch (error) {
       console.error('Error saving supplier:', error);
         showNotification('خطأ في حفظ المورد', 'error');
@@ -1356,7 +987,7 @@ const Suppliers = () => {
             `- ${item.materialName}: ${item.quantity} ${item.unit} x ${item.unitPrice} EGP = ${formatNumber(item.total)} EGP`
           ).join('\n');
           
-          const message = `New Purchase Order from Al Kheir Feed Factory\n\nPO Number: ${result.data?.poNumber || 'New'}\n\nItems:\n${itemsList}\n\nSubtotal: ${formatNumber(orderData.subtotal)} EGP\nVAT (14%): ${formatNumber(orderData.vatAmount)} EGP\nGrand Total: ${formatNumber(orderData.total)} EGP\n\nDelivery Date: ${orderData.deliveryDate}`;
+          const message = `${t('suppliers.newPOFrom')} Al Kheir Feed Factory\n\n${t('po.number')}: ${result.data?.poNumber || t('po.newPO')}\n\n${t('common.items')}:\n${itemsList}\n\n${t('common.subtotal')}: ${formatNumber(orderData.subtotal)} EGP\n${t('common.vat')} (14%): ${formatNumber(orderData.vatAmount)} EGP\n${t('common.grandTotal')}: ${formatNumber(orderData.total)} EGP\n\n${t('po.deliveryDate')}: ${orderData.deliveryDate}`;
           
           const url = `https://wa.me/${supplier.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
           window.open(url, '_blank');
