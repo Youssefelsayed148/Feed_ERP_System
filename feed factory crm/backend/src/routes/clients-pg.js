@@ -80,7 +80,9 @@ router.get('/types', async (req, res) => {
 // GET all clients with summary
 router.get('/', async (req, res) => {
   try {
-    const { type, status, search, page = 1, limit = 20 } = req.query;
+    const { type, status, search, page: p = 1, limit: l = 20 } = req.query;
+    const page = parseInt(p) || 1;
+    const limit = Math.min(parseInt(l) || 20, 500);
     const offset = (page - 1) * limit;
 
     let queryStr = `
