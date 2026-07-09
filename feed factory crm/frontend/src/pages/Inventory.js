@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { requisitionService, purchaseOrdersService } from '../services/api';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const API_URL = `${API_BASE_URL}/inventory`;
 const PRODUCTION_API_URL = `${API_BASE_URL}/production`;
 const FEED_RECIPES_API_URL = `${API_BASE_URL}/feed-recipes`;
@@ -56,6 +56,7 @@ export default function Inventory() {
   const [previewTotalCost, setPreviewTotalCost] = useState(0);
   const [lowStockItems, setLowStockItems] = useState([]);
   const [reqDetailData, setReqDetailData] = useState(null);
+  const [allMaterialsForDropdown, setAllMaterialsForDropdown] = useState([]);
   
   // Filters for stock movements
   const [movementFilters, setMovementFilters] = useState({
@@ -69,6 +70,27 @@ export default function Inventory() {
   useEffect(() => {
     fetchData();
   }, [activeTab, page]);
+
+  useEffect(() => {
+    const fetchAllMaterials = async () => {
+      try {
+        const res = await fetch(`${API_URL}/raw-materials?page=1&limit=200`, { headers: headers() });
+        const data = await res.json();
+        const materialsData = Array.isArray(data) ? data : data.materials || [];
+        setAllMaterialsForDropdown(materialsData.map(m => ({
+          _id: m.id,
+          name: m.name_arabic || m.name_english || m.name || '',
+          code: m.code,
+          unit: m.unit || 'kg',
+          quantity: parseFloat(m.current_stock || 0),
+          costPerUnit: parseFloat(m.unit_price || 0)
+        })));
+      } catch (e) {
+        console.error('Error fetching all materials for dropdown:', e);
+      }
+    };
+    fetchAllMaterials();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -489,7 +511,7 @@ export default function Inventory() {
           fetchData();
         } else {
           const errorData = await response.json();
-          alert(`Failed to add stock: ${errorData.message || 'Unknown error'}`);
+          alert(`${t('inventory.failedAddStock')}${errorData.message || t('common.unknownError')}`);
         }
       } catch (error) {
         console.error('Error adding stock:', error);
@@ -505,7 +527,7 @@ export default function Inventory() {
           } : m
         );
         setRawMaterials(updatedMaterials);
-        alert(`Stock added (Demo Mode)! ${material?.name}: ${oldQuantity} → ${newQuantity} ${material?.unit}`);
+        alert(`${t('inventory.stockAddedDemo')} ${material?.name}: ${oldQuantity} → ${newQuantity} ${material?.unit}`);
         setShowAddStockModal(false);
       } finally {
         setSubmitting(false);
@@ -535,7 +557,7 @@ export default function Inventory() {
                   }}
                 >
                   <option value="">اختر الخامة</option>
-                  {rawMaterials.map(m => (
+                  {allMaterialsForDropdown.map(m => (
                     <option key={m._id} value={m._id}>{m.name} ({m.code}) - Current: {m.quantity} {m.unit}</option>
                   ))}
                 </select>
@@ -804,14 +826,14 @@ export default function Inventory() {
       
       const quantity = parseFloat(formData.quantity);
       if (!quantity || quantity <= 0) {
-        alert('Please enter a valid quantity');
+        alert(t('inventory.enterValidQuantity'));
         setSubmitting(false);
         return;
       }
 
       // Must select a material
       if (!selectedMaterial) {
-        alert('Please select a material');
+        alert(t('inventory.pleaseSelectMaterial'));
         setSubmitting(false);
         return;
       }
@@ -819,7 +841,7 @@ export default function Inventory() {
       // Must not exceed available stock
       const availableStock = parseFloat(selectedMaterial.quantity ?? selectedMaterial.current_stock ?? 0);
       if (quantity > availableStock) {
-        alert(`Cannot transfer more than available stock (${availableStock} ${selectedMaterial.unit || 'kg'})`);
+        alert(`${t('inventory.cannotTransferExceed')} (${availableStock} ${selectedMaterial.unit || 'kg'})`);
         setSubmitting(false);
         return;
       }
@@ -848,12 +870,12 @@ export default function Inventory() {
             result
           });
           const unit = result?.material?.unit || selectedMaterial?.unit || 'kg';
-          alert(`Stock transferred successfully! Moved ${quantity} ${unit} from ${formData.fromLocation} to ${formData.toLocation}`);
+          alert(`${t('inventory.movedQty', { qty: String(quantity), unit, from: formData.fromLocation, to: formData.toLocation })}`);
           setShowTransferModal(false);
           fetchData();
         } else {
           const errorData = await response.json();
-          alert(`Failed to transfer stock: ${errorData.message || 'Unknown error'}`);
+          alert(`${t('inventory.failedTransferStock')}${errorData.message || t('common.unknownError')}`);
         }
       } catch (error) {
         console.error('Error transferring stock:', error);
@@ -862,7 +884,7 @@ export default function Inventory() {
         if (selectedMaterial) {
           const oldQuantity = parseFloat(selectedMaterial.quantity ?? selectedMaterial.current_stock ?? 0);
           if (quantity > oldQuantity) {
-            alert(`Cannot transfer more than available stock (${oldQuantity} ${selectedMaterial.unit || 'kg'})`);
+            alert(`${t('inventory.cannotTransferExceed')} (${oldQuantity} ${selectedMaterial.unit || 'kg'})`);
             setSubmitting(false);
             return;
           }
@@ -904,7 +926,7 @@ export default function Inventory() {
             toLocation: formData.toLocation
           });
           
-          alert(`Stock transferred successfully (Demo Mode)! ${selectedMaterial.name}: ${oldQuantity} → ${newQuantity} ${selectedMaterial.unit}`);
+          alert(`${t('inventory.stockTransferredDemo')} ${selectedMaterial.name}: ${oldQuantity} → ${newQuantity} ${selectedMaterial.unit}`);
         }
         setShowTransferModal(false);
       } finally {
@@ -928,7 +950,7 @@ export default function Inventory() {
             <div className="modal-body" style={{ overflowY: 'auto', maxHeight: '60vh' }}>
               {/* Material Selection */}
               <div className="form-group">
-                <label className="form-label">Material *</label>
+                <label className="form-label">{t('common.material')} *</label>
                 <select 
                   className="form-select"
                   value={formData.materialId}
@@ -938,7 +960,7 @@ export default function Inventory() {
                   <option value="">اختر الخامة</option>
                   {rawMaterials.map(m => (
                     <option key={m._id} value={m._id}>
-                      {m.name} ({m.code}) - Available: {m.quantity} {m.unit}
+                      {m.name} ({m.code}) - متاح: {m.quantity} {m.unit}
                     </option>
                   ))}
                 </select>
@@ -952,7 +974,7 @@ export default function Inventory() {
               {/* From/To Locations */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '16px', alignItems: 'center' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">From Location *</label>
+                  <label className="form-label">{t('inventory.fromLocation')}</label>
                   <select
                     className="form-select"
                     value={formData.fromLocation}
@@ -968,7 +990,7 @@ export default function Inventory() {
                   <ArrowRight className="w-6 h-6" style={{ color: '#64748b' }} />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">To Location *</label>
+                  <label className="form-label">{t('inventory.toLocation')}</label>
                   <select
                     className="form-select"
                     value={formData.toLocation}
@@ -984,7 +1006,7 @@ export default function Inventory() {
               
               {/* Quantity */}
               <div className="form-group">
-                <label className="form-label">Quantity to Transfer *</label>
+                <label className="form-label">{t('inventory.quantityToTransfer')}</label>
                 <input
                   type="number"
                   step="1"
@@ -996,7 +1018,7 @@ export default function Inventory() {
                 />
                 {selectedMaterial && parseFloat(formData.quantity) > selectedMaterial.quantity && (
                   <small className="form-help" style={{ color: '#ef4444' }}>
-                    Cannot exceed available stock of {selectedMaterial.quantity} {selectedMaterial.unit}
+                    {t('inventory.cannotExceedAvailable')}: {selectedMaterial.quantity} {selectedMaterial.unit}
                   </small>
                 )}
               </div>
@@ -1096,20 +1118,20 @@ export default function Inventory() {
       });
       
       if (response.ok) {
-        alert('Production started successfully');
+        alert(t('inventory.productionStarted'));
         fetchData();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert('Failed to start production: ' + (errorData.error || 'Unknown error'));
+        alert(t('inventory.failedStartProduction') + (errorData.error || t('common.unknownError')));
       }
     } catch (error) {
       console.error('Error starting production:', error);
-      alert('Failed to start production: ' + (error.message || 'Unknown error'));
+      alert(t('inventory.failedStartProduction') + (error.message || t('common.unknownError')));
     }
   };
 
   const completeProduction = async (productionOrder) => {
-    if (!window.confirm(`Complete production ${productionOrder.productionNumber}? This will add finished goods to inventory.`)) {
+    if (!window.confirm(t('inventory.confirmComplete', { number: productionOrder.productionNumber }))) {
       return;
     }
     
@@ -1120,15 +1142,15 @@ export default function Inventory() {
       });
       
       if (response.ok) {
-        alert('Production completed successfully');
+        alert(t('inventory.productionCompleted'));
         fetchData();
       } else {
         const errorData = await response.json().catch(() => ({}));
-        alert('Failed to complete production: ' + (errorData.error || 'Unknown error'));
+        alert(t('inventory.failedCompleteProduction') + (errorData.error || t('common.unknownError')));
       }
     } catch (error) {
       console.error('Error completing production:', error);
-      alert('Failed to complete production: ' + (error.message || 'Unknown error'));
+      alert(t('inventory.failedCompleteProduction') + (error.message || t('common.unknownError')));
     }
   };
 
@@ -1326,7 +1348,7 @@ export default function Inventory() {
           )}
           {activeTab === 'finished' && (
             <button 
-              onClick={() => alert('Finished goods are created via Production Orders. Go to Production page.')}
+              onClick={() => alert(t('inventory.finishedGoodsNote'))}
               className="btn btn-primary"
             >
               <Plus className="w-5 h-5" />
@@ -1431,12 +1453,12 @@ export default function Inventory() {
                 <p className="stat-value">{stats.totalBags || 0}</p>
               </div>
               <div className="stat-card">
-                <p className="stat-label">Low Stock (&lt;5 tons)</p>
+                <p className="stat-label">{t('inventory.lowStockUnder5Tons')}</p>
                 <p className="stat-value" style={{ color: '#ef4444' }}>{stats.lowStock || stats.lowStockCount || 0}</p>
               </div>
               {Object.entries(stats.byPackageSize || {}).map(([size, count]) => (
                 <div key={size} className="stat-card">
-                  <p className="stat-label">{size} Bags</p>
+                   <p className="stat-label">{size} {t('common.bags')}</p>
                   <p className="stat-value">{count}</p>
                 </div>
               ))}
@@ -1572,7 +1594,7 @@ export default function Inventory() {
                   <td>
                     <p>{good.batchNumber}</p>
                     {good.productionOrderNumber && (
-                      <p style={{ fontSize: '0.75rem', color: '#64748b' }}>PO: {good.productionOrderNumber}</p>
+                      <p style={{ fontSize: '0.75rem', color: '#64748b' }}>{t('common.orderNumber')}: {good.productionOrderNumber}</p>
                     )}
                   </td>
                   <td>
@@ -1657,19 +1679,19 @@ export default function Inventory() {
           <table className="table">
             <thead>
                <tr>
-                  <th>Recipe Name</th>
-                  <th>نوع العلف</th>
-                  <th>الإصدار</th>
-                  <th>Ingredients</th>
-                  <th>Cost/ton</th>
-                  <th>Sell/ton (15%)</th>
+                  <th>{t('recipes.name')}</th>
+                  <th>{t('common.feedType')}</th>
+                  <th>{t('recipes.version')}</th>
+                  <th>{t('recipes.ingredients')}</th>
+                  <th>{t('recipes.costPerTon')}</th>
+                  <th>{t('recipes.sellPerTon')}</th>
                   <th>{t('common.status')}</th>
-                  <th>Usage</th>
+                  <th>{t('recipes.usage')}</th>
                 </tr>
               </thead>
               <tbody>
                 {recipes.length === 0 ? (
-                  <tr><td colSpan="10" className="text-center">No recipes found</td></tr>
+                  <tr><td colSpan="10" className="text-center">{t('recipes.none')}</td></tr>
                 ) : recipes.map((recipe) => {
                   const p = recipe.pricing || {};
                   return (
@@ -1677,10 +1699,10 @@ export default function Inventory() {
                     <td>
                       <p className="font-medium">{recipe.name}</p>
                       <p style={{ fontSize: '0.875rem', color: '#64748b' }}>
-                        Protein: {recipe.protein || '-'}% | Energy: {recipe.energy || '-'}
+                        {t('recipes.protein')}: {recipe.protein || '-'}% | {t('recipes.energy')}: {recipe.energy || '-'}
                       </p>
                     </td>
-                    <td>{recipe.feedType?.name || 'Unknown'}</td>
+                    <td>{recipe.feedType?.name || t('recipes.notAvailable')}</td>
                     <td>{recipe.version || '-'}</td>
                     <td>{recipe.ingredientCount || recipe.ingredients?.length || '-'}</td>
                     <td>{formatCurrency(recipe.totalCost || 0)}</td>
@@ -1691,7 +1713,7 @@ export default function Inventory() {
                         {getStatusLabel(recipe.status)}
                       </span>
                     </td>
-                    <td>{recipe.usageCount || 0} times</td>
+                    <td>{recipe.usageCount || 0} {t('recipes.times')}</td>
                   </tr>
                 )})}
             </tbody>
