@@ -419,8 +419,9 @@ const Sales = () => {
                 <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: flag.severity === 'critical' ? '#ef4444' : flag.severity === 'high' ? '#f97316' : '#f59e0b' }} />
                 <div style={{ flex: 1 }}>
                   <span style={{ fontWeight: 600 }}>{flag.client_name}</span>
-                  <span style={{ color: '#6b7280', marginLeft: '8px', fontSize: '13px' }}>{flag.message}</span>
-                  {flag.total_due > 0 && <span style={{ color: '#ef4444', marginLeft: '8px', fontSize: '13px' }}>{t('sales.due')}: {formatCurrency(parseFloat(flag.total_due))}</span>}
+                  <span style={{ color: '#9ca3af', margin: '0 4px' }}>·</span>
+                  <span style={{ color: '#6b7280', marginRight: '8px', fontSize: '13px' }}>{flag.message}</span>
+                  {flag.total_due > 0 && <span style={{ color: '#ef4444', marginRight: '8px', fontSize: '13px' }}>{t('sales.due')}: {formatCurrency(parseFloat(flag.total_due))}</span>}
                 </div>
                 <button
                   onClick={() => { const client = clients.find(c => c.id === flag.client_id); if (client) viewClientDetails(client); }}
@@ -869,8 +870,8 @@ const ClientCard = ({ client, onClick }) => (
         <h4 style={styles.clientName}>{client.name_arabic}</h4>
         <span style={styles.clientCode}>{client.code}</span>
       </div>
-      <span style={{...styles.clientType, backgroundColor: getTypeColor(client.type)}}>
-        {client.type}
+        <span style={{...styles.clientType, backgroundColor: getTypeColor(client.type)}}>
+        {{farm: t('clients.farm'), wholesale: t('clients.wholesale'), distributor: t('clients.distributor'), retail: t('clients.retail'), dealer: t('clients.dealer')}[client.type] || client.type}
       </span>
     </div>
     
@@ -898,7 +899,7 @@ const ClientCard = ({ client, onClick }) => (
             window.open(url, '_blank');
           }}
           style={styles.whatsappBtn}
-          title="Send WhatsApp"
+          title={t('sales.sendWhatsApp')}
         >
           <MessageCircle size={14} />
         </button>
@@ -1143,7 +1144,7 @@ const ClientDetailModal = ({ client, detailData, onClose, onAddOrder, onAddPayme
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.infoLabel}>النوع:</span>
-                <span style={styles.infoValue}>{client.type}</span>
+                <span style={styles.infoValue}>{{farm: t('clients.farm'), wholesale: t('clients.wholesale'), distributor: t('clients.distributor'), retail: t('clients.retail'), dealer: t('clients.dealer')}[client.type] || client.type}</span>
               </div>
               <div style={styles.infoRow}>
                 <span style={styles.infoLabel}>الهاتف:</span>
@@ -1155,7 +1156,7 @@ const ClientDetailModal = ({ client, detailData, onClose, onAddOrder, onAddPayme
                       window.open(url, '_blank');
                     }}
                     style={styles.whatsappBtn}
-                    title="Send WhatsApp"
+                    title={t('sales.sendWhatsApp')}
                   >
                     <MessageCircle size={16} />
                   </button>
