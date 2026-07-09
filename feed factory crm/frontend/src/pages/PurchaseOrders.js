@@ -251,16 +251,16 @@ const PurchaseOrders = () => {
       
       if (response.ok) {
         const result = await response.json();
-        alert('Purchase order created and submitted for approval!');
+        alert(t('po.orderCreated'));
         fetchPurchaseOrders();
         closeModal();
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to create purchase order');
+        alert(error.message || t('po.createFailed'));
       }
     } catch (error) {
       console.error('Error creating PO:', error);
-      alert('Failed to create purchase order. Please try again.');
+      alert(t('po.createFailedRetry'));
     }
   };
 
@@ -271,7 +271,7 @@ const PurchaseOrders = () => {
         headers: headers()
       });
       if (response.ok) {
-        alert('PO submitted for approval!');
+        alert(t('po.submitted'));
         fetchPurchaseOrders();
       } else {
         const response2 = await fetch(`${API_URL}/purchase-orders`, {
@@ -280,16 +280,16 @@ const PurchaseOrders = () => {
           body: JSON.stringify({ id: poId, status: 'pending_approval' })
         });
         if (response2.ok) {
-          alert('PO submitted for approval!');
+          alert(t('po.submitted'));
           fetchPurchaseOrders();
         } else {
           const err = await response2.json();
-          alert(err.error || 'Failed to submit PO');
+          alert(err.error || t('po.submitFailed'));
         }
       }
     } catch (error) {
       console.error('Error submitting PO:', error);
-      alert('Failed to submit PO');
+      alert(t('po.submitFailed'));
     }
   };
 
@@ -300,15 +300,15 @@ const PurchaseOrders = () => {
         headers: headers()
       });
       if (response.ok) {
-        alert('Purchase order approved!');
+        alert(t('po.approvedMsg'));
         fetchPurchaseOrders();
       } else {
         const err = await response.json();
-        alert(err.error || 'Failed to approve PO');
+        alert(err.error || t('po.approveFailed'));
       }
     } catch (error) {
       console.error('Error approving PO:', error);
-      alert('Failed to approve PO');
+      alert(t('po.approveFailed'));
     }
   };
 
@@ -319,22 +319,22 @@ const PurchaseOrders = () => {
         headers: headers()
       });
       if (response.ok) {
-        alert('Purchase order cancelled');
+        alert(t('po.cancelledMsg'));
         fetchPurchaseOrders();
       } else {
         const err = await response.json();
-        alert(err.error || 'Failed to cancel PO');
+        alert(err.error || t('po.cancelFailed'));
       }
     } catch (error) {
       console.error('Error cancelling PO:', error);
-      alert('Failed to cancel PO');
+      alert(t('po.cancelFailed'));
     }
   };
 
   const sendWhatsApp = (po) => {
-    const supplierName = po.supplier_name || 'Supplier';
+    const supplierName = po.supplier_name || t('common.supplier');
     const total = parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0);
-    const message = `Purchase Order: ${po.po_number || po.id}\nSupplier: ${supplierName}\nTotal: EGP ${formatNumber(total)}\nDelivery: ${po.expected_date || po.delivery_date || 'N/A'}`;
+    const message = `${t('po.title')}: ${po.po_number || po.id}\n${t('common.supplier')}: ${supplierName}\n${t('common.total')}: EGP ${formatNumber(total)}\n${t('po.expectedDelivery')}: ${po.expected_date || po.delivery_date || 'N/A'}`;
     const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
@@ -352,7 +352,7 @@ const PurchaseOrders = () => {
     const printContent = `
       <html>
         <head>
-          <title>Purchase Order ${po.po_number || po.id}</title>
+          <title>${t('po.title')} ${po.po_number || po.id}</title>
           <style>
             body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
             h1 { color: #1565c0; border-bottom: 2px solid #1565c0; padding-bottom: 10px; }
@@ -387,7 +387,7 @@ const PurchaseOrders = () => {
             </div>
             <div>
               <div class="label">${t('common.status')}</div>
-              <div class="value" style="text-transform: capitalize;">${(po.status || 'draft').replace(/_/g, ' ')}</div>
+              <div class="value">${t('common.statuses.' + (po.status || 'draft').replace(/-/g, '_')) || (po.status || 'draft').replace(/_/g, ' ')}</div>
             </div>
           </div>
           <div class="header">
@@ -414,9 +414,9 @@ const PurchaseOrders = () => {
             </tbody>
           </table>
           <div class="total">
-            Grand Total (inc. VAT): EGP ${formatCurrency((parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0)))}
+            ${t('common.grandTotal')}: ${formatCurrency((parseFloat(po.total_amount || 0) + parseFloat(po.vat_amount || 0)))} ${t('common.currency')}
           </div>
-          ${po.notes ? `<div style="margin-top: 24px; padding: 12px; background: #f9f9f9; border-radius: 4px;"><div class="label">{t('common.notes')}</div><div>${po.notes}</div></div>` : ''}
+          ${po.notes ? `<div style="margin-top: 24px; padding: 12px; background: #f9f9f9; border-radius: 4px;"><div class="label">${t('common.notes')}</div><div>${po.notes}</div></div>` : ''}
         </body>
       </html>
     `;
@@ -452,7 +452,7 @@ const PurchaseOrders = () => {
     if (po.supplier_name) return po.supplier_name;
     if (po.supplier?.name) return po.supplier.name;
     const sup = suppliers.find(s => s._id === po.supplier_id || s.id === po.supplier_id);
-    return sup?.name || 'Unknown';
+    return sup?.name || t('po.unknownSupplier');
   };
 
   return (
@@ -522,13 +522,13 @@ const PurchaseOrders = () => {
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}>
                   <div className="loading" style={{ margin: '0 auto' }}></div>
-                  <p style={{ marginTop: '12px', color: '#6b7280' }}>Loading purchase orders...</p>
+                  <p style={{ marginTop: '12px', color: '#6b7280' }}>{t('po.loading')}</p>
                 </td>
               </tr>
             ) : filteredPOs.length === 0 ? (
               <tr>
                 <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
-                  No purchase orders found
+                  {t('po.notFound')}
                 </td>
               </tr>
             ) : (
@@ -555,7 +555,19 @@ const PurchaseOrders = () => {
                   <td>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button className="btn btn-sm" onClick={() => openViewModal(po)}>{t('common.view')}</button>
-                      <button className="btn btn-sm" onClick={() => downloadPOAsPDF(po)} title={t('po.printPDF')}>{t('common.pdf')}</button>
+                      <button className="btn btn-sm" onClick={async () => {
+                        try {
+                          const resp = await fetch(`${API_URL}/purchase-orders/${po.id}`, { headers: headers() });
+                          if (resp.ok) {
+                            const full = await resp.json();
+                            downloadPOAsPDF(full);
+                          } else {
+                            downloadPOAsPDF(po);
+                          }
+                        } catch (e) {
+                          downloadPOAsPDF(po);
+                        }
+                      }} title={t('po.printPDF')}>{t('common.pdf')}</button>
                       <button className="btn btn-sm" onClick={() => sendWhatsApp(po)} title={t('po.shareWhatsApp')}>{t('po.shareWhatsApp')}</button>
                       
                       {po.status === 'draft' && (
@@ -645,7 +657,7 @@ const PurchaseOrders = () => {
             {lowStockMaterials.length > 0 && !formData.supplierId && (
               <div className="form-group" style={{ marginBottom: '16px', padding: '16px', background: '#fff8e1', borderRadius: '8px', border: '1px solid #ffc107' }}>
                 <label className="form-label" style={{ color: '#e65100', fontSize: '1.1em' }}>
-                  ⚠️ Low Stock Materials — Click to auto-fill order with preferred supplier:
+                  {t('po.lowStockAutoFill')}
                 </label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '12px' }}>
                   {lowStockMaterials.map(m => {
@@ -666,11 +678,11 @@ const PurchaseOrders = () => {
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 600 }}>{m.name_arabic || m.name_english}</div>
                           <div style={{ fontSize: '0.8em', color: '#666' }}>
-                            Stock: {m.current_stock} | Need: {Math.ceil(m.quantity_to_order || 0)} {m.unit || 'kg'}
+                            {t('common.stock')}: {m.current_stock} | {t('po.needLabel')}: {Math.ceil(m.quantity_to_order || 0)} {m.unit || 'kg'}
                           </div>
                           {prefSup && (
                             <div style={{ fontSize: '0.8em', color: '#1565c0' }}>
-                              Supplier: {prefSup.name} @ {formatCurrency(prefSup.unit_price)}/kg
+                              {t('common.supplier')}: {prefSup.name} @ {formatCurrency(prefSup.unit_price)}/kg
                             </div>
                           )}
                           {!prefSup && (
@@ -685,7 +697,7 @@ const PurchaseOrders = () => {
             )}
             {formData.supplierId && supplierMaterials.filter(m => parseFloat(m.current_stock) <= parseFloat(m.reorder_level)).length > 0 && (
               <div className="form-group" style={{ marginBottom: '16px', padding: '12px', background: '#e8f5e9', borderRadius: '8px', border: '1px solid #a5d6a7' }}>
-                <label className="form-label" style={{ color: '#2e7d32' }}>More low stock from this supplier:</label>
+                <label className="form-label" style={{ color: '#2e7d32' }}>{t('po.moreLowStock')}</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '8px' }}>
                   {supplierMaterials.filter(m => parseFloat(m.current_stock) <= parseFloat(m.reorder_level)).map(m => (
                     <label key={m.id || m.code} style={{
@@ -744,7 +756,7 @@ const PurchaseOrders = () => {
                     onChange={(e) => updateCartItem(index, 'material', e.target.value)}
                     style={{ fontSize: '0.9em' }}
                   >
-                    <option value="">-- Select Material --</option>
+                    <option value="">{t('po.selectMaterial')}</option>
                     {materials.map(m => (
                       <option key={m.id || m.code} value={m.id || m.code} style={{
                         background: (parseFloat(m.current_stock) <= parseFloat(m.reorder_level)) ? '#fff3cd' : 'white'
@@ -924,7 +936,7 @@ const PurchaseOrders = () => {
                   {selectedPOItems.length === 0 ? (
                     <tr>
                       <td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: '#9ca3af' }}>
-                        No item details available
+                        {t('po.noItemDetails')}
                       </td>
                     </tr>
                   ) : (
