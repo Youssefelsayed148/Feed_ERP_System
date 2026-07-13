@@ -427,7 +427,7 @@ export default function Finance() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px', padding: '16px' }}>
                   {dashboard.expensesByCategory.map((cat, i) => (
                     <div key={i} style={{ padding: '12px', background: '#fef2f2', borderRadius: '8px', textAlign: 'center', border: '1px solid #fecaca' }}>
-                      <div style={{ fontSize: '0.8em', color: '#64748b', marginBottom: '4px', textTransform: 'capitalize' }}>{cat.category || 'Uncategorized'}</div>
+                      <div style={{ fontSize: '0.8em', color: '#64748b', marginBottom: '4px', textTransform: 'capitalize' }}>{cat.category || t('finance.uncategorized')}</div>
                       <div style={{ fontSize: '1.2em', fontWeight: 700, color: '#dc2626' }}>
                         {formatCurrency(cat.total)}
                       </div>

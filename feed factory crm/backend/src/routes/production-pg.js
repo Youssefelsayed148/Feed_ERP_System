@@ -71,7 +71,7 @@ router.get('/production-orders', authenticate, async (req, res) => {
 });
 
 // GET single production order with materials
-router.get('/production-orders/:id', async (req, res) => {
+router.get('/production-orders/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -114,16 +114,16 @@ router.get('/production-orders/:id', async (req, res) => {
 });
 
 // POST create production order
-router.post('/production-orders', async (req, res) => {
+router.post('/production-orders', authenticate, authorize('production_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { 
       feed_type_id, 
       quantity_kg, 
       batch_number, 
       production_date, 
-      notes,
-      created_by 
+      notes
     } = req.body;
+    const created_by = req.user.id;
 
     if (!feed_type_id || !quantity_kg) {
       return res.status(400).json({ 
@@ -220,7 +220,7 @@ router.post('/production-orders', async (req, res) => {
 
     logActivity({
       userId: created_by, action: 'create', module: 'production',
-      description: `Created production order ${result.order_number}`,
+      description: `تم إنشاء أمر إنتاج ${result.order_number}`,
       entityId: result.id, entityType: 'production_order'
     });
 
@@ -457,7 +457,9 @@ router.put('/production-orders/:id/start', authenticate, authorize('production_m
     }
   } catch (error) {
     console.error('Error starting production order:', error);
-    res.status(500).json({
+    const isValidationError = error.message?.startsWith('Insufficient stock for')
+      || error.message === 'Order not found or not in draft/approved status';
+    res.status(isValidationError ? 400 : 500).json({
       error: error.message || 'Failed to start production order'
     });
   }
@@ -614,8 +616,9 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
     });
 
     logActivity({
-      userId: result.order.created_by || 0, action: 'complete', module: 'production',
-      description: `Completed production order ${result.order.order_number}`,
+      userId: req.user?.id || 0, userName: req.user?.name, userRole: req.user?.role,
+      action: 'complete', module: 'production',
+      description: `تم إكمال أمر الإنتاج ${result.order.order_number}`,
       entityId: result.order.id, entityType: 'production_order',
       oldStatus: 'in_progress', newStatus: 'completed'
     });
@@ -650,7 +653,7 @@ router.put('/production-orders/:id/complete', authenticate, authorize('productio
 });
 
 // PUT cancel production order
-router.put('/production-orders/:id/cancel', authorize('production_mgr', 'admin', 'owner'), async (req, res) => {
+router.put('/production-orders/:id/cancel', authenticate, authorize('production_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
@@ -681,7 +684,7 @@ router.put('/production-orders/:id/cancel', authorize('production_mgr', 'admin',
 });
 
 // GET production stats
-router.get('/stats', async (req, res) => {
+router.get('/stats', authenticate, async (req, res) => {
   try {
     const result = await query(`
       SELECT 
@@ -745,7 +748,7 @@ router.get('/low-stock-suggestions', authenticate, async (req, res) => {
 
 // POST /api/production/create-from-suggestion - Create production order from low-stock suggestion
 // Accepts quantity_tons (default) or quantity_kg. Package size: 10, 25, or 50 kg bags.
-router.post('/create-from-suggestion', async (req, res) => {
+router.post('/create-from-suggestion', authenticate, authorize('production_mgr', 'admin', 'owner'), async (req, res) => {
   try {
     const { feed_type_id, quantity_tons, quantity_kg, package_size, auto_create_po, notes } = req.body;
     const createdBy = req.user?.id || 1;
@@ -915,7 +918,7 @@ router.post('/create-from-suggestion', async (req, res) => {
 });
 
 // GET finished goods inventory
-router.get('/finished-goods', async (req, res) => {
+router.get('/finished-goods', authenticate, async (req, res) => {
   try {
     const result = await query(`
       SELECT 

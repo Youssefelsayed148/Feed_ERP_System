@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Package, Calendar, User, Hash, DollarSign, Percent, Truck, FileText, AlertCircle } from 'lucide-react';
+import { getStatusLabel } from '../utils/formatters';
 
 const statusColors = {
   pending_approval: { bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
@@ -66,7 +67,7 @@ export default function OrderDetailModal({ order, items, onClose, onApprove, onR
             <InfoRow icon={User} label="أنشئ بواسطة" value={order.created_by_name || 'غير متاح'} />
             <InfoRow icon={Calendar} label="تاريخ الإنشاء" value={new Date(order.created_at).toLocaleString()} />
             <InfoRow icon={Calendar} label="تاريخ التسليم" value={order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : 'غير محدد'} />
-            <InfoRow icon={DollarSign} label="حالة الدفع" value={order.payment_status || 'غير متاح'} />
+            <InfoRow icon={DollarSign} label="حالة الدفع" value={order.payment_status ? getStatusLabel(order.payment_status) : 'غير متاح'} />
             <InfoRow icon={User} label="اعتمد بواسطة" value={order.approved_by_name || 'غير متاح'} />
           </div>
 
@@ -89,7 +90,7 @@ export default function OrderDetailModal({ order, items, onClose, onApprove, onR
                 {(items || []).map(item => (
                   <tr key={item.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: '#1e293b' }}>
-                      {item.feed_type_name || item.feed_type_name_ar || `علف #${item.feed_type_id}`}
+                      {item.feed_type_name_ar || item.feed_type_name || `علف #${item.feed_type_id}`}
                     </td>
                     <td style={{ padding: '10px 14px', textAlign: 'center', color: '#6b7280' }}>{item.package_size}kg</td>
                     <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600 }}>{item.quantity}</td>

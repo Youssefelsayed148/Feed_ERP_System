@@ -641,8 +641,9 @@ router.post('/', authenticate, authorize('finance_manager', 'admin'), async (req
     } catch (e) { console.error('[JOURNAL] Failed to create entry for payable:', e.message); }
 
     logActivity({
-      userId: req.user.id, action: 'create', module: 'purchase',
-      description: `Created supplier payable for amount ${amount}`,
+      userId: req.user.id, userName: req.user.name, userRole: req.user.role,
+      action: 'create', module: 'purchase',
+      description: `تم إنشاء مستحق دفع لمورد بمبلغ ${amount}`,
       entityId: p.id, entityType: 'supplier_payable',
       amount: parseFloat(amount)
     });

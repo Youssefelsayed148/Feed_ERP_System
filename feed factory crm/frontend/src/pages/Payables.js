@@ -157,7 +157,7 @@ const Payables = () => {
     setReminderForm({
       daysBeforeDue: 7,
       reminderType: 'dashboard',
-      message: `Payment reminder for ${payable.supplier}`
+      message: `${t('payables.reminderSetFor')} ${payable.supplier}`
     });
     setShowReminderModal(true);
   };
@@ -178,16 +178,16 @@ const Payables = () => {
       });
       
       if (response.ok) {
-        alert(`Reminder set for ${selectedPayable.supplier} - ${reminderForm.daysBeforeDue} days before due date`);
+        alert(t('payables.reminderSetFor') + ' ' + selectedPayable.supplier + ' - ' + reminderForm.daysBeforeDue + ' ' + t('payables.daysBeforeDue'));
         setShowReminderModal(false);
         setSelectedPayable(null);
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to set reminder');
+        alert(error.message || t('payables.failedSetReminder'));
       }
     } catch (error) {
       console.error('Error setting reminder:', error);
-      alert('Reminder saved locally (API unavailable)');
+      alert(t('payables.reminderSavedLocally'));
       setShowReminderModal(false);
     }
   };
@@ -196,7 +196,7 @@ const Payables = () => {
     e.preventDefault();
     
     if (!selectedPayable || !paymentForm.amount) {
-      alert('Please enter payment amount');
+      alert(t('payables.paymentAmountRequired'));
       return;
     }
     
@@ -204,12 +204,12 @@ const Payables = () => {
     const remainingBalance = selectedPayable.amount - (selectedPayable.paid || 0);
     
     if (paymentAmount <= 0) {
-      alert('Payment amount must be greater than 0');
+      alert(t('payables.amountGreaterThanZero'));
       return;
     }
     
     if (paymentAmount > remainingBalance) {
-      alert(`Payment amount cannot exceed remaining balance of EGP ${formatNumber(remainingBalance)}`);
+      alert(t('payables.amountExceedsBalance') + ' EGP ' + formatNumber(remainingBalance));
       return;
     }
     
@@ -228,11 +228,11 @@ const Payables = () => {
       });
       
       if (response.ok) {
-        alert(`Payment of EGP ${formatNumber(paymentAmount)} recorded successfully!`);
+        alert(t('payables.paymentRecorded') + ' EGP ' + formatNumber(paymentAmount) + ' ' + t('payables.successfully'));
         fetchPayables(); // Refresh from API
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to record payment');
+        alert(error.message || t('payables.paymentFailed'));
       }
     } catch (error) {
       console.error('Error recording payment:', error);
@@ -261,7 +261,7 @@ const Payables = () => {
         return p;
       });
       setPayables(updatedPayables);
-      alert(`Payment of EGP ${formatNumber(paymentAmount)} recorded locally (API unavailable).`);
+      alert(t('payables.paymentRecorded') + ' EGP ' + formatNumber(paymentAmount) + ' ' + t('payables.paymentRecordedLocally'));
     }
     
     setShowPaymentModal(false);
@@ -673,11 +673,11 @@ const Payables = () => {
                   onChange={(e) => setReminderForm({ ...reminderForm, daysBeforeDue: e.target.value })}
                   className="form-input"
                 >
-                  <option value="1">1 day before</option>
-                  <option value="3">3 days before</option>
-                  <option value="7">1 week before</option>
-                  <option value="14">2 weeks before</option>
-                  <option value="30">1 month before</option>
+                  <option value="1">{t('common.days', { n: 1 })}</option>
+                  <option value="3">{t('common.days', { n: 3 })}</option>
+                  <option value="7">{t('common.days', { n: 7 })}</option>
+                  <option value="14">{t('common.days', { n: 14 })}</option>
+                  <option value="30">{t('common.days', { n: 30 })}</option>
                 </select>
               </div>
               
@@ -710,7 +710,7 @@ const Payables = () => {
                   إلغاء
                 </button>
                 <button type="submit" className="btn btn-warning">
-                  Set Reminder
+                  {t('payables.setReminderBtn')}
                 </button>
               </div>
             </form>

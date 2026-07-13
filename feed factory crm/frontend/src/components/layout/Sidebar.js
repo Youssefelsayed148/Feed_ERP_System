@@ -139,7 +139,7 @@ const Sidebar = () => {
 
     const salesItems = [
       isSalesRep
-        ? { path: '/sales-rep', icon: ShoppingCart, label: 'My Sales' }
+        ? { path: '/sales-rep', icon: ShoppingCart, label: t('sales.mySales') }
         : { path: '/sales', icon: ShoppingCart, label: t('nav.sales') },
       { path: '/clients', icon: Users, label: t('nav.clients') },
       { path: '/orders', icon: ClipboardList, label: t('nav.orders') },

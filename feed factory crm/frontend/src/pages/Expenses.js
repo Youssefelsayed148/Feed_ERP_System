@@ -257,7 +257,7 @@ const Expenses = () => {
         setSuccessMessage('تم اعتماد المصروف بنجاح!');
         fetchExpenses();
         if (selectedExpense && (selectedExpense._id === id || selectedExpense.id === id)) {
-          setSelectedExpense({ ...selectedExpense, status: 'approved', approvedBy: 'Current User' });
+          setSelectedExpense({ ...selectedExpense, status: 'approved', approvedBy: t('common.user') });
         }
       } else {
         const error = await response.json();
@@ -362,7 +362,7 @@ const Expenses = () => {
         })
       ));
       
-      setSuccessMessage(`${pendingIds.length} expenses approved!`);
+      setSuccessMessage(t('expenses.approvedCount', { n: pendingIds.length }));
       fetchExpenses();
     } catch (error) {
       console.error('Error bulk approving:', error);
@@ -372,7 +372,7 @@ const Expenses = () => {
   };
 
   const handleBulkReject = async () => {
-    const reason = prompt('Enter rejection reason for all selected expenses:');
+    const reason = prompt(t('expenses.enterRejectionReasonPrompt'));
     if (!reason) return;
     
     try {
@@ -389,7 +389,7 @@ const Expenses = () => {
         })
       ));
       
-      setSuccessMessage(`${pendingIds.length} expenses rejected!`);
+      setSuccessMessage(t('expenses.rejectedCount', { n: pendingIds.length }));
       fetchExpenses();
     } catch (error) {
       console.error('Error bulk rejecting:', error);
@@ -421,7 +421,7 @@ const Expenses = () => {
     a.download = `expenses_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
-    setSuccessMessage(`Exported ${data.length} expenses to CSV!`);
+    setSuccessMessage(t('expenses.exportedCount', { n: data.length }));
   };
 
   const exportToPDF = () => {
@@ -474,7 +474,7 @@ const Expenses = () => {
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.print();
-    setSuccessMessage('PDF export opened in print dialog!');
+    setSuccessMessage(t('expenses.pdfOpenedInPrint'));
   };
 
   const exportToExcel = () => {
@@ -520,7 +520,7 @@ const Expenses = () => {
     a.download = `expenses_report_${new Date().toISOString().split('T')[0]}.xls`;
     a.click();
     window.URL.revokeObjectURL(url);
-    setSuccessMessage('Excel report exported successfully!');
+    setSuccessMessage(t('expenses.excelExported'));
   };
 
   const getStatusBadgeClass = (status) => {
@@ -1008,7 +1008,7 @@ const Expenses = () => {
           </table>
           {filteredExpenses.length === 0 && (
             <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-              No expenses found matching the selected filters.
+              {t('expenses.noFilteredExpenses')}
             </div>
           )}
         </div>
@@ -1285,7 +1285,7 @@ const Expenses = () => {
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Enter rejection reason..."
+                placeholder={t('expenses.enterRejectionReasonPlaceholder')}
                 rows="4"
                 style={{
                   width: '100%',

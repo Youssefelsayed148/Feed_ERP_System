@@ -576,8 +576,9 @@ router.post('/orders', authenticate, authorize(...salesRoles), async (req, res) 
     }
 
     logActivity({
-      userId: createdBy, action: 'create', module: 'sales',
-      description: `Created sales order ${order.order_number}`,
+      userId: createdBy, userName: req.user.name, userRole: req.user.role,
+      action: 'create', module: 'sales',
+      description: `تم إنشاء طلب بيع ${order.order_number}`,
       entityId: order.id, entityType: 'sales_order',
       amount: parseFloat(order.final_amount)
     });

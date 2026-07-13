@@ -376,7 +376,8 @@ router.post('/raw-materials/:id/stock', async (req, res) => {
 router.get('/finished-goods', async (req, res) => {
   try {
     const result = await query(`
-      SELECT fg.*, ft.name_arabic as feed_name, po.order_number as production_order_number
+      SELECT fg.*, ft.name_arabic as feed_name_arabic, ft.name_english as feed_name_english,
+             po.order_number as production_order_number
       FROM finished_goods fg
       LEFT JOIN feed_types ft ON fg.feed_type_id = ft.id
       LEFT JOIN production_orders po ON fg.production_order_id = po.id

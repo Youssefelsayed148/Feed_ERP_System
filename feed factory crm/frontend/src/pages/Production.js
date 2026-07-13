@@ -217,7 +217,7 @@ const Production = () => {
       });
       const data = await response.json();
       if (response.ok) {
-        setMessage({ type: 'success', text: `Production order ${data.order?.order_number} created successfully!` });
+        setMessage({ type: 'success', text: `أمر الإنتاج ${data.order?.order_number} تم إنشاؤه بنجاح!` });
         setFormErrors({});
         setShowModal(false);
         setFormData({
@@ -232,7 +232,7 @@ const Production = () => {
         setTons('');
         await fetchData();
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to create production order' });
+        setMessage({ type: 'error', text: data.error || 'فشل إنشاء أمر الإنتاج' });
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.message });
@@ -253,22 +253,22 @@ const Production = () => {
           quantity_طن: طن,
           package_size: suggestionPackageSize,
           auto_create_po: true,
-          notes: `Auto-created for low stock: ${suggestion.feed_name_arabic}`
+          notes: `إنشاء تلقائي للمخزون المنخفض: ${suggestion.feed_name_arabic}`
         })
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        let msg = `Production order ${data.productionOrder.order_number} created (${طن} طن, ${data.productionOrder.number_of_أكياس} أكياس of ${suggestionPackageSize}kg).`;
+        let msg = `أمر الإنتاج ${data.productionOrder.order_number} تم إنشاؤه (${طن} طن، ${data.productionOrder.number_of_أكياس} كيس بحجم ${suggestionPackageSize}كجم).`;
         if (data.shortages && data.shortages.length > 0) {
-          msg += ` ${data.shortages.length} material shortages detected.`;
+          msg += ` تم اكتشاف نقص في ${data.shortages.length} خامة.`;
         }
         if (data.createdPOs && data.createdPOs.length > 0) {
-          msg += ` ${data.createdPOs.length} purchase orders auto-created.`;
+          msg += ` تم إنشاء ${data.createdPOs.length} أمر شراء تلقائياً.`;
         }
         setMessage({ type: 'success', text: msg });
         await fetchData();
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to create production order' });
+        setMessage({ type: 'error', text: data.error || 'فشل إنشاء أمر الإنتاج' });
       }
     } catch (error) {
       setMessage({ type: 'error', text: error.message });
@@ -281,7 +281,7 @@ const Production = () => {
   // Handle starting production via API
   const handleStartProduction = async (order) => {
     if (!order.id) {
-      setMessage({ type: 'error', text: 'Order ID missing' });
+      setMessage({ type: 'error', text: 'معرف الأمر مفقود' });
       return false;
     }
     try {
@@ -291,11 +291,11 @@ const Production = () => {
       });
       const data = await response.json();
       if (response.ok) {
-        setMessage({ type: 'success', text: `Production ${order.productionNumber} started!` });
+        setMessage({ type: 'success', text: `أمر الإنتاج ${order.productionNumber} بدأ!` });
         await fetchData();
         return true;
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to start production' });
+        setMessage({ type: 'error', text: data.error || 'فشل بدء الإنتاج' });
         return false;
       }
     } catch (error) {
@@ -309,7 +309,7 @@ const Production = () => {
   // Handle completing production via API
   const handleCompleteProduction = async (order) => {
     if (!order.id) {
-      setMessage({ type: 'error', text: 'Order ID missing' });
+      setMessage({ type: 'error', text: 'معرف الأمر مفقود' });
       return false;
     }
     try {

@@ -345,8 +345,9 @@ router.post('/', authenticate, async (req, res) => {
     `, [order_id, vehicle_id || null, driver_id || null, finalScheduledDate, notes || null, req.user.id]);
 
     logActivity({
-      userId: req.user.id, action: 'create', module: 'delivery',
-      description: `Created delivery assignment for order #${order_id}`,
+      userId: req.user.id, userName: req.user.name, userRole: req.user.role,
+      action: 'create', module: 'delivery',
+      description: `تم إنشاء مهمة توصيل للطلب #${order_id}`,
       entityId: result.rows[0].id, entityType: 'delivery_assignment'
     });
 

@@ -180,8 +180,9 @@ router.post('/', auth, authorize('purchasing_mgr', 'admin', 'owner'), async (req
     }
 
     logActivity({
-      userId: createdBy, action: 'create', module: 'purchase',
-      description: `Created purchase order ${poNumber}`,
+      userId: createdBy, userName: req.user.name, userRole: req.user.role,
+      action: 'create', module: 'purchase',
+      description: `تم إنشاء أمر شراء ${poNumber}`,
       entityId: result.id, entityType: 'purchase_order',
       amount: finalTotal
     });

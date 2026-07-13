@@ -7,7 +7,7 @@ import {
   TrendingUp, TrendingDown, DollarSign, BarChart3
 } from 'lucide-react';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const API_URL = `${API_BASE_URL}/feed-recipes`;
 const INVENTORY_API_URL = `${API_BASE_URL}/inventory`;
 const getAuthToken = () => localStorage.getItem('token');
@@ -62,7 +62,7 @@ export default function FeedRecipes() {
       // Check if user is logged in
       const token = getAuthToken();
       if (!token) {
-        setError('Please login to view data');
+        setError(t('recipes.pleaseLogin'));
         setLoading(false);
         return;
       }
@@ -206,7 +206,7 @@ export default function FeedRecipes() {
         return;
       }
       
-      setError(`Error loading data: ${error.message}. Please check if the backend server is running on port 5000.`);
+      setError(`خطأ في تحميل البيانات: ${error.message}. الرجاء التحقق من أن الخادم يعمل على المنفذ 5000.`);
       // Don't use demo data - show empty state
       setRecipes([]);
       setFeedTypes([]);
@@ -430,7 +430,7 @@ export default function FeedRecipes() {
   const handleDuplicateRecipe = (recipe) => {
     const newVersion = (parseFloat(recipe.version) + 0.1).toFixed(1);
     setFormData({
-      name: `${recipe.name} (Copy)`,
+      name: `${recipe.name} ${t('recipes.copySuffix')}`,
       feedTypeId: recipe.feedType?._id || '',
       version: newVersion,
       status: 'inactive',
@@ -460,21 +460,21 @@ export default function FeedRecipes() {
 
   const handleSaveRecipe = async () => {
     if (!formData.name.trim()) {
-      alert('Recipe name is required');
+      alert(t('recipes.nameRequired'));
       return;
     }
     if (!formData.feedTypeId) {
-      alert('Feed type is required');
+      alert(t('recipes.feedTypeRequired'));
       return;
     }
     if (formData.ingredients.length === 0) {
-      alert('At least one ingredient is required');
+      alert(t('recipes.ingredientRequired'));
       return;
     }
 
     const totalPercentage = calculateTotalPercentage(formData.ingredients);
     if (Math.abs(totalPercentage - 100) > 0.01) {
-      alert(`Total percentage must be exactly 100%. Current: ${totalPercentage.toFixed(2)}%`);
+      alert(t('recipes.percentageError', { pct: totalPercentage.toFixed(2) }));
       return;
     }
 
@@ -518,7 +518,7 @@ export default function FeedRecipes() {
       }
       setShowModal(false);
     } catch (error) {
-      alert('Error saving recipe: ' + error.message);
+      alert(t('recipes.saveError') + error.message);
     }
   };
 
@@ -588,7 +588,7 @@ export default function FeedRecipes() {
         }}>
           <strong>خطأ:</strong> {error}
           <div style={{marginTop: '8px', fontSize: '12px'}}>
-            Check browser console (F12) for more details
+            تحقق من سجل المتصفح (F12) للمزيد من التفاصيل
           </div>
         </div>
       )}
@@ -620,7 +620,7 @@ export default function FeedRecipes() {
         </div>
         <div className="stat-card">
           <p className="stat-label">{t('recipes.mostUsed')}</p>
-          <p className="stat-value text-sm">{stats.mostUsed?.name || 'N/A'}</p>
+          <p className="stat-value text-sm">{stats.mostUsed?.name || t('recipes.notAvailable')}</p>
         </div>
       </div>
 
@@ -857,11 +857,11 @@ export default function FeedRecipes() {
                               <td className="text-right text-blue-700">{formatCurrency(selectedRecipe.costPerKg || selectedRecipe.totalCost / 1000 || 0)}</td>
                           </tr>
                           <tr>
-                            <td className="text-gray-600">Cost per Ton / التكلفة للطن</td>
+                            <td className="text-gray-600">{t('recipes.costPerTon')}</td>
                             <td className="text-right font-medium">{formatCurrency(selectedRecipe.costPerTon || selectedRecipe.totalCost || 0)}</td>
                           </tr>
                           <tr>
-                            <td className="text-gray-600">Sell per Ton / سعر البيع للطن (15% markup)</td>
+                            <td className="text-gray-600">{t('recipes.sellPerTon')} (15%)</td>
                             <td className="text-right font-medium text-green-600">{formatCurrency(selectedRecipe.sellPerTon || (selectedRecipe.totalCost || 0) * 1.15)}</td>
                           </tr>
                         </tbody>
@@ -903,11 +903,11 @@ export default function FeedRecipes() {
                   <div>
                     <h3 className="font-semibold mb-3 flex items-center gap-2">
                       <Calculator className="w-5 h-5" />
-                      Production Calculator / حاسبة الإنتاج
+                      {t('recipes.productionCalculator')}
                     </h3>
                     <div className="p-4 bg-gray-50 rounded-lg">
                       <div className="form-group mb-4">
-                        <label className="label">Batch Size / حجم الدفعة (kg)</label>
+                        <label className="label">{t('recipes.batchSizeCalc')}</label>
                         <input
                           type="number"
                           value={batchSize}
@@ -921,10 +921,10 @@ export default function FeedRecipes() {
                         <table className="table">
                           <thead>
                             <tr>
-                              <th>Material / المادة</th>
-                              <th>Required / مطلوب</th>
+                              <th>{t('common.material')}</th>
+                              <th>{t('common.required')}</th>
                               <th>المتاح / كجم</th>
-                              <th>Status / الحالة</th>
+                              <th>{t('common.status')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -954,13 +954,13 @@ export default function FeedRecipes() {
 
                       <div className="mt-4 p-3 bg-white rounded-lg">
                         <div className="flex justify-between items-center">
-                          <span className="font-medium">Total Batch Cost:</span>
+                          <span className="font-medium">{t('recipes.totalBatchCost')}</span>
                           <span className="text-xl font-bold text-blue-600">
                             {formatCurrency((selectedRecipe.totalCost / 1000) * batchSize || 0)}
                           </span>
                         </div>
                         <div className="flex justify-between items-center mt-2">
-                          <span className="font-medium">Cost per kg:</span>
+                          <span className="font-medium">{t('recipes.costPerKg')}:</span>
                           <span className="font-semibold">
                             {formatCurrency(selectedRecipe.totalCost / 1000 || 0)}
                           </span>
@@ -1000,7 +1000,7 @@ export default function FeedRecipes() {
                       {selectedRecipe.status === 'active' ? (
                         <><Pause className="w-4 h-4" /> تعطيل</>
                       ) : (
-                        <><Play className="w-4 h-4" /> Activate</>
+                        <><Play className="w-4 h-4" /> {t('recipes.activate')}</>
                       )}
                     </button>
                   </div>
@@ -1065,7 +1065,7 @@ export default function FeedRecipes() {
                     <div className="flex justify-between items-center mb-3">
                       <label className="label mb-0">{t('recipes.ingredients')}</label>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">Total:</span>
+                        <span className="text-sm">{t('recipes.totalCalc')}</span>
                         <span className={`font-bold ${Math.abs(calculateTotalPercentage(formData.ingredients) - 100) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>
                           {calculateTotalPercentage(formData.ingredients).toFixed(1)}%
                         </span>
@@ -1164,7 +1164,7 @@ export default function FeedRecipes() {
                         step="0.01"
                       />
                       <span className="text-sm text-gray-500">
-                        (Suggested: {formatCurrency(calculateTotalCost(formData.ingredients) * 1.15)})
+                        ({t('recipes.suggested')} {formatCurrency(calculateTotalCost(formData.ingredients) * 1.15)})
                       </span>
                     </div>
                   </div>
@@ -1172,7 +1172,7 @@ export default function FeedRecipes() {
                   {/* Nutritional Values */}
                   <div className="form-row-responsive">
                     <div className="form-group">
-                      <label className="label">Protein (%)</label>
+                      <label className="label">{t('recipes.proteinPercent')}</label>
                       <input
                         type="number"
                         value={formData.protein}
@@ -1193,7 +1193,7 @@ export default function FeedRecipes() {
                       />
                     </div>
                     <div className="form-group">
-                      <label className="label">Fiber (%)</label>
+                      <label className="label">{t('recipes.fiberPercent')}</label>
                       <input
                         type="number"
                         value={formData.fiber}
@@ -1213,7 +1213,7 @@ export default function FeedRecipes() {
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       className="input w-full"
                       rows="3"
-                      placeholder="Optional notes about this recipe..."
+                      placeholder={t('recipes.optionalNotes')}
                     />
                   </div>
                 </div>

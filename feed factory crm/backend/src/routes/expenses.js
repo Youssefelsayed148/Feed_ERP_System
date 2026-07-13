@@ -136,8 +136,9 @@ router.post('/', authenticate, async (req, res) => {
     };
     
     logActivity({
-      userId: req.user.id, action: 'create', module: 'finance',
-      description: `Created ${category} expense: ${description}`,
+      userId: req.user.id, userName: req.user.name, userRole: req.user.role,
+      action: 'create', module: 'finance',
+      description: `تم إنشاء مصروف ${category}: ${description}`,
       entityId: expense.id, entityType: 'expense',
       amount: parseFloat(amount)
     });

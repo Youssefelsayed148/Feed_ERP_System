@@ -424,6 +424,33 @@ router.put('/:id/approve', auth, authorize('admin', 'owner'), async (req, res) =
             UPDATE purchase_orders SET status = 'received', updated_at = NOW() WHERE id = $1
           `, [grn.po_id]);
         }
+
+        // Auto-complete source requisitions when all linked POs are fully received
+        const reqRows = await client.query(
+          `SELECT DISTINCT ri.requisition_id
+           FROM requisition_items ri
+           WHERE ri.purchase_order_id = $1 AND ri.requisition_id IS NOT NULL`,
+          [grn.po_id]
+        );
+
+        for (const row of reqRows.rows) {
+          const reqId = row.requisition_id;
+          const incomplete = await client.query(
+            `SELECT COUNT(*) as count FROM requisition_items ri
+             LEFT JOIN purchase_orders po ON po.id = ri.purchase_order_id
+             WHERE ri.requisition_id = $1
+               AND ri.purchase_order_id IS NOT NULL
+               AND (po.status IS NULL OR po.status != 'received')`,
+            [reqId]
+          );
+          if (parseInt(incomplete.rows[0].count) === 0) {
+            await client.query(
+              `UPDATE requisitions SET status = 'completed', updated_at = NOW()
+               WHERE id = $1 AND status = 'sent'`,
+              [reqId]
+            );
+          }
+        }
       }
 
       // Update GRN status
@@ -496,16 +523,18 @@ router.put('/:id/approve', auth, authorize('admin', 'owner'), async (req, res) =
       } catch (e) { console.error('[JOURNAL] Failed to create entry for payable:', e.message); }
 
       logActivity({
-        userId, action: 'create', module: 'purchase',
-        description: `Created payable from GRN ${result.grn.grn_number} for ${result.totalAmount}`,
+        userId, userName: req.user.name, userRole: req.user.role,
+        action: 'create', module: 'purchase',
+        description: `تم إنشاء مستحق دفع من إذن استلام ${result.grn.grn_number} بمبلغ ${result.totalAmount}`,
         entityId: result.payable.id, entityType: 'supplier_payable',
         amount: result.totalAmount
       });
     }
 
     logActivity({
-      userId, action: 'approve', module: 'inventory',
-      description: `Approved GRN ${result.grn.grn_number} - stock updated`,
+      userId, userName: req.user.name, userRole: req.user.role,
+      action: 'approve', module: 'inventory',
+      description: `تم اعتماد إذن الاستلام ${result.grn.grn_number} - تم تحديث المخزون`,
       entityId: result.grn.id, entityType: 'grn',
       amount: result.totalAmount
     });

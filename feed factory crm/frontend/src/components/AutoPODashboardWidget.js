@@ -3,6 +3,7 @@ import {
   Bell, AlertTriangle, FileText, TrendingDown, 
   ArrowRight, Package, CheckCircle2, Clock
 } from 'lucide-react';
+import { t } from '../utils/i18n';
 
 const API_URL = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 const getAuthToken = () => localStorage.getItem('token');
@@ -57,7 +58,7 @@ const LowStockAlertItem = ({ material, onAction }) => {
         </div>
         <div style={{ fontSize: '12px', color: '#92400e', display: 'flex', alignItems: 'center', gap: '4px' }}>
           <AlertTriangle size={12} />
-          Stock at {stockPercentage.toFixed(0)}% of minimum ({material.quantity.toLocaleString()} / {material.minimumStock.toLocaleString()} {material.unit})
+          {t('autoPO.stockLevel', { pct: stockPercentage.toFixed(0) })} ({material.quantity.toLocaleString()} / {material.minimumStock.toLocaleString()} {material.unit})
         </div>
         <div style={{ 
           height: '4px', 
@@ -93,7 +94,7 @@ const LowStockAlertItem = ({ material, onAction }) => {
         }}
       >
         <FileText size={14} />
-        Create PR
+        {t('autoPO.createPR')}
       </button>
     </div>
   );
@@ -139,7 +140,7 @@ const PendingPRItem = ({ pr, onAction }) => {
         </div>
         <div style={{ fontSize: '12px', color: '#1e40af' }}>
           <Package size={12} style={{ display: 'inline', marginRight: '4px' }} />
-          {pr.material.name} • {pr.quantity.toLocaleString()} units
+          {pr.material.name} • {pr.quantity.toLocaleString()} {t('autoPO.units')}
         </div>
         <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
           <Clock size={11} style={{ display: 'inline', marginRight: '4px' }} />
@@ -175,7 +176,7 @@ const PendingPRItem = ({ pr, onAction }) => {
             gap: '4px'
           }}
         >
-          Review
+          {t('autoPO.review')}
           <ArrowRight size={14} />
         </button>
       </div>
@@ -260,7 +261,7 @@ const AutoPODashboardWidget = ({ onNavigate }) => {
             borderRadius: '50%',
             animation: 'spin 1s linear infinite'
           }} />
-          Loading Auto-PO alerts...
+          {t('autoPO.loading')}
         </div>
       </div>
     );
@@ -282,7 +283,7 @@ const AutoPODashboardWidget = ({ onNavigate }) => {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Bell size={20} style={{ color: '#22c55e' }} />
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Auto-PO System</h3>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{t('autoPO.system')}</h3>
           </div>
           <CheckCircle2 size={20} style={{ color: '#22c55e' }} />
         </div>
@@ -298,7 +299,7 @@ const AutoPODashboardWidget = ({ onNavigate }) => {
           <div style={{ textAlign: 'center' }}>
             <CheckCircle2 size={32} style={{ color: '#22c55e', marginBottom: '8px' }} />
             <p style={{ margin: 0, color: '#6b7280', fontSize: '14px' }}>
-              All systems operational. No pending alerts.
+              {t('autoPO.allClear')}
             </p>
           </div>
         </div>
@@ -321,7 +322,7 @@ const AutoPODashboardWidget = ({ onNavigate }) => {
             gap: '6px'
           }}
         >
-          View Auto-PO Dashboard
+          {t('autoPO.viewDashboard')}
           <ArrowRight size={14} />
         </button>
       </div>
@@ -355,9 +356,9 @@ const AutoPODashboardWidget = ({ onNavigate }) => {
             <Bell size={18} style={{ color: totalAlerts > 0 ? '#f59e0b' : '#22c55e' }} />
           </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Auto-PO Alerts</h3>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>{t('autoPO.alerts')}</h3>
             <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>
-              {totalAlerts} item{totalAlerts !== 1 ? 's' : ''} require attention
+              {t('autoPO.requireAttention', { n: totalAlerts })}
             </p>
           </div>
         </div>
@@ -398,7 +399,7 @@ const AutoPODashboardWidget = ({ onNavigate }) => {
                 color: '#92400e'
               }}>
                 <AlertTriangle size={14} />
-                Low Stock Alerts ({lowStockMaterials.length})
+                {t('autoPO.lowStockAlerts')} ({lowStockMaterials.length})
               </div>
               
               {lowStockMaterials.slice(0, 3).map(material => (
@@ -416,7 +417,7 @@ const AutoPODashboardWidget = ({ onNavigate }) => {
                   fontSize: '12px',
                   color: '#92400e'
                 }}>
-                  +{lowStockMaterials.length - 3} more materials low on stock
+                  {t('autoPO.moreLowStock', { n: lowStockMaterials.length - 3 })}
                 </div>
               )}
             </div>
@@ -435,7 +436,7 @@ const AutoPODashboardWidget = ({ onNavigate }) => {
                 color: '#1e40af'
               }}>
                 <FileText size={14} />
-                Pending Approvals ({pendingPRs.length})
+                {t('autoPO.pendingApprovals')} ({pendingPRs.length})
               </div>
               
               {pendingPRs.slice(0, 3).map(pr => (
@@ -453,7 +454,7 @@ const AutoPODashboardWidget = ({ onNavigate }) => {
                   fontSize: '12px',
                   color: '#1e40af'
                 }}>
-                  +{pendingPRs.length - 3} more pending approvals
+                  {t('autoPO.morePending', { n: pendingPRs.length - 3 })}
                 </div>
               )}
             </div>

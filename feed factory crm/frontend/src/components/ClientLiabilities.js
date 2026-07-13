@@ -210,7 +210,7 @@ const AddLiabilityModal = ({ isOpen, onClose, onSave, client }) => {
           <div className="modal-body">
             <div className="grid grid-cols-2 gap-4">
               <div className="form-group">
-                <label className="form-label">Amount (EGP) *</label>
+                <label className="form-label">{t('common.amount')} (EGP) *</label>
                 <input
                   type="number"
                   required
@@ -219,25 +219,25 @@ const AddLiabilityModal = ({ isOpen, onClose, onSave, client }) => {
                   value={formData.amount}
                   onChange={(e) => setFormData({...formData, amount: e.target.value})}
                   className="form-input"
-                  placeholder="Enter amount"
+                  placeholder={t('clientLiabilities.enterAmount')}
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Type *</label>
+                <label className="form-label">{t('common.type')} *</label>
                 <select
                   required
                   value={formData.type}
                   onChange={(e) => setFormData({...formData, type: e.target.value})}
                   className="form-select"
                 >
-                  <option value="previous_balance">Previous Balance</option>
-                  <option value="invoice">Invoice</option>
-                  <option value="loan">Loan</option>
-                  <option value="other">Other</option>
+                  <option value="previous_balance">{t('clients.previousBalance')}</option>
+                  <option value="invoice">{t('common.invoice')}</option>
+                  <option value="loan">{t('clientLiabilities.loan')}</option>
+                  <option value="other">{t('common.other')}</option>
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Date *</label>
+                <label className="form-label">{t('common.date')} *</label>
                 <input
                   type="date"
                   required
@@ -247,7 +247,7 @@ const AddLiabilityModal = ({ isOpen, onClose, onSave, client }) => {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Due Date *</label>
+                <label className="form-label">{t('orders.dueDate')} *</label>
                 <input
                   type="date"
                   required
@@ -257,31 +257,31 @@ const AddLiabilityModal = ({ isOpen, onClose, onSave, client }) => {
                 />
               </div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                <label className="form-label">Description *</label>
+                <label className="form-label">{t('common.description')} *</label>
                 <input
                   type="text"
                   required
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
                   className="form-input"
-                  placeholder="Enter description"
+                  placeholder={t('clientLiabilities.enterDescription')}
                 />
               </div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                <label className="form-label">Notes</label>
+                <label className="form-label">{t('common.notes')}</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({...formData, notes: e.target.value})}
                   className="form-textarea"
                   rows={3}
-                  placeholder="Additional notes..."
+                  placeholder={t('clientLiabilities.additionalNotesPlaceholder')}
                 />
               </div>
             </div>
           </div>
           <div className="modal-footer">
             <button type="button" onClick={onClose} className="btn btn-outline">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button type="submit" className="btn btn-danger">
               {t('clients.addLiability')}
@@ -335,7 +335,7 @@ const AddPaymentModal = ({ isOpen, onClose, onSave, liability }) => {
     <div className="modal-overlay" style={{ zIndex: 2000 }}>
       <div className="modal">
         <div className="modal-header">
-          <h2 className="modal-title">Record Payment</h2>
+          <h2 className="modal-title">{t('clientLiabilities.recordPayment')}</h2>
           <button onClick={onClose} className="modal-close">
             <X className="w-5 h-5" />
           </button>
@@ -343,15 +343,15 @@ const AddPaymentModal = ({ isOpen, onClose, onSave, liability }) => {
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <p className="text-sm text-gray-600">Liability: {liability.description}</p>
+              <p className="text-sm text-gray-600">{t('clientLiabilities.liabilityInfo')} {liability.description}</p>
               <p className="text-sm font-semibold">
-                Total: {formatCurrency(liability.amount)} | 
-                Remaining: {formatCurrency(remainingAmount)}
+                {t('common.total')}: {formatCurrency(liability.amount)} | 
+                {t('common.balance')}: {formatCurrency(remainingAmount)}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="form-group">
-                <label className="form-label">Payment Amount (EGP) *</label>
+                <label className="form-label">{t('clientLiabilities.paymentAmountEGP')}</label>
                 <input
                   type="number"
                   required
@@ -364,7 +364,7 @@ const AddPaymentModal = ({ isOpen, onClose, onSave, liability }) => {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Payment Date *</label>
+                <label className="form-label">{t('clientLiabilities.paymentDate')}</label>
                 <input
                   type="date"
                   required
@@ -374,33 +374,33 @@ const AddPaymentModal = ({ isOpen, onClose, onSave, liability }) => {
                 />
               </div>
               <div className="form-group">
-                <label className="form-label">Payment Method *</label>
+                <label className="form-label">{t('clientLiabilities.paymentMethod')}</label>
                 <select
                   required
                   value={formData.method}
                   onChange={(e) => setFormData({...formData, method: e.target.value})}
                   className="form-select"
                 >
-                  <option value="cash">Cash</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="cheque">Cheque</option>
-                  <option value="other">Other</option>
+                  <option value="cash">{t('common.cash')}</option>
+                  <option value="bank_transfer">{t('common.bankTransfer')}</option>
+                  <option value="cheque">{t('common.cheque')}</option>
+                  <option value="other">{t('common.other')}</option>
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">
-                  Reference {formData.method === 'bank_transfer' ? '(Transaction ID)' : formData.method === 'cheque' ? '(Cheque #)' : ''}
+                  {t('common.reference')}{formData.method === 'bank_transfer' ? t('clientLiabilities.referenceTransaction') : formData.method === 'cheque' ? t('clientLiabilities.referenceCheque') : ''}
                 </label>
                 <input
                   type="text"
                   value={formData.reference}
                   onChange={(e) => setFormData({...formData, reference: e.target.value})}
                   className="form-input"
-                  placeholder="Reference number"
+                  placeholder={t('clientLiabilities.referenceNumber')}
                 />
               </div>
               <div className="form-group" style={{ gridColumn: 'span 2' }}>
-                <label className="form-label">Notes</label>
+                <label className="form-label">{t('common.notes')}</label>
                 <textarea
                   value={formData.notes}
                   onChange={(e) => setFormData({...formData, notes: e.target.value})}
@@ -412,10 +412,10 @@ const AddPaymentModal = ({ isOpen, onClose, onSave, liability }) => {
           </div>
           <div className="modal-footer">
             <button type="button" onClick={onClose} className="btn btn-outline">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button type="submit" className="btn btn-success">
-              Record Payment
+              {t('clientLiabilities.recordPayment')}
             </button>
           </div>
         </form>
@@ -459,7 +459,7 @@ const AddExpectedPaymentModal = ({ isOpen, onClose, onSave }) => {
     <div className="modal-overlay" style={{ zIndex: 2000 }}>
       <div className="modal modal-sm">
         <div className="modal-header">
-          <h2 className="modal-title">Add Expected Payment</h2>
+          <h2 className="modal-title">{t('clientLiabilities.addExpectedPayment')}</h2>
           <button onClick={onClose} className="modal-close">
             <X className="w-5 h-5" />
           </button>
@@ -467,7 +467,7 @@ const AddExpectedPaymentModal = ({ isOpen, onClose, onSave }) => {
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
             <div className="form-group">
-              <label className="form-label">Expected Amount (EGP) *</label>
+              <label className="form-label">{t('clientLiabilities.expectedAmount')}</label>
               <input
                 type="number"
                 required
@@ -479,7 +479,7 @@ const AddExpectedPaymentModal = ({ isOpen, onClose, onSave }) => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Expected Date *</label>
+              <label className="form-label">{t('clientLiabilities.expectedDateRequired')}</label>
               <input
                 type="date"
                 required
@@ -489,23 +489,23 @@ const AddExpectedPaymentModal = ({ isOpen, onClose, onSave }) => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Description *</label>
+              <label className="form-label">{t('clientLiabilities.expectedDescription')}</label>
               <input
                 type="text"
                 required
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
                 className="form-input"
-                placeholder="e.g., Monthly installment"
+                placeholder={t('clientLiabilities.monthlyInstallment')}
               />
             </div>
           </div>
           <div className="modal-footer">
             <button type="button" onClick={onClose} className="btn btn-outline">
-              Cancel
+              {t('common.cancel')}
             </button>
             <button type="submit" className="btn btn-primary">
-              Add Expected Payment
+              {t('clientLiabilities.addExpectedPayment')}
             </button>
           </div>
         </form>
@@ -522,11 +522,11 @@ const LiabilityRow = ({ liability, onAddPayment, onDelete }) => {
 
   let dueBadge = null;
   if (liability.status === 'overdue') {
-    dueBadge = <span className="badge badge-danger ml-2">Overdue</span>;
+    dueBadge = <span className="badge badge-danger ml-2">{t('clientLiabilities.overdueBadge')}</span>;
   } else if (daysUntilDue <= 7 && daysUntilDue > 0) {
-    dueBadge = <span className="badge badge-warning ml-2">Due in {daysUntilDue} days</span>;
+    dueBadge = <span className="badge badge-warning ml-2">{t('clientLiabilities.dueInDays', { n: daysUntilDue })}</span>;
   } else if (daysUntilDue <= 0 && liability.status !== 'paid') {
-    dueBadge = <span className="badge badge-danger ml-2">Due today</span>;
+    dueBadge = <span className="badge badge-danger ml-2">{t('clientLiabilities.dueToday')}</span>;
   }
 
   return (
@@ -550,7 +550,7 @@ const LiabilityRow = ({ liability, onAddPayment, onDelete }) => {
           <div className="text-right">
             <p className="font-semibold">{formatCurrency(liability.remainingAmount)}</p>
             <p className="text-xs text-gray-500">
-              of {formatCurrency(liability.amount)}
+              {t('clientLiabilities.ofPreposition')} {formatCurrency(liability.amount)}
             </p>
           </div>
           <span className={getStatusBadge(liability.status).class}>
@@ -566,7 +566,7 @@ const LiabilityRow = ({ liability, onAddPayment, onDelete }) => {
           {/* Progress Bar */}
           <div className="mb-4">
             <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-600">Payment Progress</span>
+              <span className="text-gray-600">{t('clientLiabilities.paymentProgress')}</span>
               <span className="font-semibold">{progress}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
@@ -576,8 +576,8 @@ const LiabilityRow = ({ liability, onAddPayment, onDelete }) => {
               />
             </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>Paid: {formatCurrency(liability.paidAmount || 0)}</span>
-              <span>Remaining: {formatCurrency(liability.remainingAmount || 0)}</span>
+              <span>{t('clientLiabilities.paidLabel')} {formatCurrency(liability.paidAmount || 0)}</span>
+              <span>{t('clientLiabilities.remainingLabel')} {formatCurrency(liability.remainingAmount || 0)}</span>
             </div>
           </div>
 
@@ -664,10 +664,10 @@ const ExpectedPaymentRow = ({ payment, onMarkReceived, onDelete }) => {
         <div>
           <p className="font-medium text-gray-900">{payment.description}</p>
           <p className="text-sm text-gray-500">
-            Expected: {formatDate(payment.expectedDate)}
-            {isOverdue && <span className="badge badge-danger ml-2">Overdue</span>}
+            {t('clientLiabilities.expectedLabel')} {formatDate(payment.expectedDate)}
+            {isOverdue && <span className="badge badge-danger ml-2">{t('clientLiabilities.overdueBadge')}</span>}
             {!isOverdue && daysUntilExpected <= 7 && payment.status === 'pending' && (
-              <span className="badge badge-warning ml-2">In {daysUntilExpected} days</span>
+              <span className="badge badge-warning ml-2">{t('clientLiabilities.inDays', { n: daysUntilExpected })}</span>
             )}
           </p>
         </div>
@@ -683,7 +683,7 @@ const ExpectedPaymentRow = ({ payment, onMarkReceived, onDelete }) => {
             className="btn btn-sm btn-success"
           >
             <CheckCircle className="w-4 h-4 mr-1" />
-            Mark Received
+            {t('clientLiabilities.markReceived')}
           </button>
         )}
         <button
@@ -855,7 +855,7 @@ const ClientLiabilities = ({ client, onUpdate, totalPaymentsReceived, overviewOv
   };
 
   const handleDeleteLiability = async (liabilityId) => {
-    if (!window.confirm('Are you sure you want to delete this liability?')) return;
+    if (!window.confirm(t('clientLiabilities.confirmDeleteLiability'))) return;
 
     try {
       const response = await fetch(`${API_URL}/clients/${client._id}/liabilities/${liabilityId}`, {
@@ -945,7 +945,7 @@ const ClientLiabilities = ({ client, onUpdate, totalPaymentsReceived, overviewOv
   };
 
   const handleDeleteExpectedPayment = async (paymentId) => {
-    if (!window.confirm('Are you sure you want to delete this expected payment?')) return;
+    if (!window.confirm(t('clientLiabilities.confirmDeleteExpected'))) return;
 
     try {
       const response = await fetch(`${API_URL}/clients/${client._id}/expected-payments/${paymentId}`, {
@@ -1098,25 +1098,25 @@ const ClientLiabilities = ({ client, onUpdate, totalPaymentsReceived, overviewOv
       {activeTab === 'expected' && (
         <div>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Expected Payments</h3>
+            <h3 className="text-lg font-semibold">{t('clientLiabilities.expectedPaymentsHeading')}</h3>
             <button
               onClick={() => setShowAddExpectedModal(true)}
               className="btn btn-primary"
             >
               <Plus className="w-4 h-4 mr-1" />
-              Add Expected Payment
+              {t('clientLiabilities.addExpectedPayment')}
             </button>
           </div>
 
           {sortedExpectedPayments.length === 0 ? (
             <div className="text-center py-8 bg-gray-50 rounded-lg">
               <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No expected payments</p>
+              <p className="text-gray-500">{t('clientLiabilities.noExpectedPayments')}</p>
               <button
                 onClick={() => setShowAddExpectedModal(true)}
                 className="btn btn-outline mt-3"
               >
-                Add Expected Payment
+                {t('clientLiabilities.addExpectedPayment')}
               </button>
             </div>
           ) : (

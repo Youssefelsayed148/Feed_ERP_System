@@ -53,7 +53,7 @@ async function getLowStockMaterialsWithSuggestions(materialIds = null) {
         SELECT DISTINCT ri.raw_material_id
         FROM requisition_items ri
         JOIN requisitions r ON r.id = ri.requisition_id
-        WHERE r.status IN ('draft', 'sent')
+        WHERE r.status = 'sent'
           AND ri.raw_material_id IS NOT NULL
       )
   `, params);

@@ -27,7 +27,26 @@ const actionAr = {
   'approve': 'اعتماد',
   'reject': 'رفض',
   'payment': 'دفعة',
-  'checkin': 'حضور'
+  'checkin': 'حضور',
+  'complete': 'إكمال',
+  'sent_reminder': 'إرسال تذكير',
+  'request_approval': 'طلب اعتماد'
+};
+
+const moduleAr = {
+  sales: 'المبيعات',
+  sales_orders: 'المبيعات',
+  production: 'الإنتاج',
+  purchase: 'المشتريات',
+  purchase_orders: 'المشتريات',
+  inventory: 'المخزون',
+  finance: 'المالية',
+  delivery: 'التوصيل',
+  grn: 'إذن الاستلام',
+  payroll: 'الرواتب',
+  expenses: 'المصروفات',
+  legal: 'الشؤون القانونية',
+  hr: 'الموارد البشرية',
 };
 
 const Dashboard = () => {
@@ -864,7 +883,7 @@ const Dashboard = () => {
                       <span style={{ fontSize: '0.8em', color: '#9ca3af' }}>{a.userRole || a.user_role || ''}</span>
                     </td>
                     <td><span className="badge" style={{ fontSize: '0.85em' }}>{actionAr[a.action] || a.action}</span></td>
-                    <td style={{ textTransform: 'capitalize', fontSize: '0.9em' }}>{a.module || a.module_name || ''}</td>
+                    <td style={{ fontSize: '0.9em' }}>{moduleAr[a.module || a.module_name] || a.module || a.module_name || ''}</td>
                     <td style={{ maxWidth: '250px', fontSize: '0.9em' }}>{a.description || a.description_ar || ''}</td>
                     <td style={{ textAlign: 'right', fontFamily: 'monospace', fontSize: '0.9em' }}>
                       {a.amount ? formatCurrency((a.amount || 0) ) : '-'}

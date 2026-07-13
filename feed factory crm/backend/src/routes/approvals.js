@@ -59,7 +59,7 @@ router.post('/request', authenticate, async (req, res) => {
       userRole: req.user.role,
       action: 'request_approval',
       module: module_name,
-      description: `Requested approval for ${request_type} #${request_id}`,
+      description: `تم طلب اعتماد لـ ${request_type} #${request_id}`,
       entityId: result.rows[0].id,
       entityType: 'approval_request'
     });
@@ -157,7 +157,7 @@ async function advanceApproval({ approvalId, userId, userName, role, notes, acti
     return { statusCode: 400, body: { success: false, error: 'Request already processed' } };
   }
 
-  if (ar.requester_id === userId) {
+  if (ar.requester_id === userId && role !== 'owner' && role !== 'admin') {
     return { statusCode: 403, body: { success: false, error: 'You cannot approve or reject your own request' } };
   }
 
@@ -179,7 +179,7 @@ async function advanceApproval({ approvalId, userId, userName, role, notes, acti
         userRole: role,
         action: 'approve',
         module: ar.module_name,
-        description: `Manager approved ${ar.request_type} #${ar.request_id} — forwarded to owner`,
+        description: `اعتمد المدير ${ar.request_type} #${ar.request_id} — تم التحويل إلى المالك`,
         entityId: approvalId,
         entityType: 'approval_request'
       });
@@ -202,7 +202,7 @@ async function advanceApproval({ approvalId, userId, userName, role, notes, acti
         userRole: role,
         action: 'approve',
         module: ar.module_name,
-        description: `Owner approved ${ar.request_type} #${ar.request_id}`,
+        description: `اعتمد المالك ${ar.request_type} #${ar.request_id}`,
         entityId: approvalId,
         entityType: 'approval_request'
       });
@@ -240,7 +240,7 @@ async function advanceApproval({ approvalId, userId, userName, role, notes, acti
     userRole: role,
     action: 'reject',
     module: ar.module_name,
-    description: `Rejected ${ar.request_type} #${ar.request_id} at stage ${ar.stage}${notes ? ': ' + notes : ''}`,
+    description: `تم رفض ${ar.request_type} #${ar.request_id} في مرحلة ${ar.stage}${notes ? ': ' + notes : ''}`,
     entityId: approvalId,
     entityType: 'approval_request'
   });
@@ -504,7 +504,7 @@ async function finalizeSalesOrderApproval(ar) {
   const result = await transaction(async (client) => {
     const orderResult = await client.query(
       `UPDATE sales_orders SET status = 'processing', approved_by = $1, approved_at = NOW(), updated_at = NOW()
-       WHERE id = $2 AND status IN ('pending_approval', 'approved', 'confirmed') RETURNING *`,
+       WHERE id = $2 RETURNING *`,
       [ar.approver_id, orderId]
     );
     if (orderResult.rows.length === 0) return null; // already processed / unexpected state

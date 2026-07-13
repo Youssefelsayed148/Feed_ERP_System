@@ -240,8 +240,9 @@ router.post('/payments', authenticate, async (req, res) => {
     }
 
     logActivity({
-      userId: req.user.id, action: 'payment', module: 'finance',
-      description: `Recorded payment ${finalMethod} for amount ${amount}`,
+      userId: req.user.id, userName: req.user.name, userRole: req.user.role,
+      action: 'payment', module: 'finance',
+      description: `تم تسجيل دفعة ${finalMethod} بمبلغ ${amount}`,
       entityId: payment.id, entityType: 'payment',
       amount: parseFloat(amount)
     });

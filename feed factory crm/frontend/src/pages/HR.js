@@ -220,7 +220,7 @@ const HR = () => {
     if (empLoc && empLoc.latitude && empLoc.longitude) {
       window.open(`https://www.google.com/maps?q=${empLoc.latitude},${empLoc.longitude}`, '_blank');
     } else {
-      alert('No location data available for this employee');
+      alert(t('hr.noLocationData'));
     }
   };
 
@@ -239,21 +239,21 @@ const HR = () => {
         setSelectedEmployeeDocs([...selectedEmployeeDocs, result.document]);
         setNewDoc({ name: '', type: 'other', fileName: '', fileUrl: '', expiryDate: '', notes: '' });
         setShowDocModal(false);
-        alert('Document uploaded successfully');
+        alert(t('hr.documentUploaded'));
       }
     } catch (error) {
       console.error('Error uploading document:', error);
-      alert('Error uploading document');
+        alert(t('hr.errorUploadingDocument'));
     }
   };
 
   const handleDeleteDocument = async (docId) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) return;
+    if (!window.confirm(t('hr.confirmDeleteDocument'))) return;
 
     try {
       await hrService.deleteDocument(selectedEmployee.id, docId);
       setSelectedEmployeeDocs(selectedEmployeeDocs.filter(d => d._id !== docId));
-      alert('Document deleted');
+      alert(t('hr.documentDeleted'));
     } catch (error) {
       console.error('Error deleting document:', error);
     }
@@ -263,7 +263,7 @@ const HR = () => {
     try {
       await hrService.verifyDocument(selectedEmployee.id, docId, status, '');
       fetchEmployeeDocuments(selectedEmployee.id);
-      alert(`Document ${status}`);
+      alert(t('hr.documentVerified'));
     } catch (error) {
       console.error('Error verifying document:', error);
     }
@@ -590,7 +590,7 @@ const HR = () => {
       fetchEmployees();
     } catch (error) {
       console.error('Error adding employee:', error);
-      alert('Error adding employee. Please try again.');
+      alert(t('hr.errorAddingEmployee'));
     }
   };
 
@@ -634,7 +634,7 @@ const HR = () => {
       fetchLeaves();
     } catch (error) {
       console.error('Error applying leave:', error);
-      alert('Error applying leave. Please try again.');
+      alert(t('hr.errorApplyingLeave'));
     }
   };
 
@@ -702,7 +702,7 @@ const HR = () => {
       setPayrollLoading(true);
       const result = await payrollService.createPayroll(newPayroll);
       if (result.success) {
-        alert(`Payroll created successfully for ${newPayroll.month}`);
+        alert(t('hr.payrollCreatedFor') + ' ' + newPayroll.month);
         setShowPayrollModal(false);
         fetchPayrollPeriods();
         setNewPayroll({
@@ -711,11 +711,11 @@ const HR = () => {
           notes: ''
         });
       } else {
-        alert(result.error || 'Failed to create payroll');
+        alert(result.error || t('payroll.failedCreate'));
       }
     } catch (error) {
       console.error('Error creating payroll:', error);
-      alert('Error creating payroll');
+      alert(t('payroll.errorCreating'));
     } finally {
       setPayrollLoading(false);
     }
@@ -726,17 +726,17 @@ const HR = () => {
       setPayrollLoading(true);
       const result = await payrollService.processPayroll(payrollId);
       if (result.success) {
-        alert('Payroll processed successfully!');
+        alert(t('payroll.processedSuccess'));
         fetchPayrollPeriods();
         if (selectedPayroll?._id === payrollId) {
           setSelectedPayroll(result.payroll);
         }
       } else {
-        alert(result.error || 'Failed to process payroll');
+        alert(result.error || t('payroll.failedProcess'));
       }
     } catch (error) {
       console.error('Error processing payroll:', error);
-      alert('Error processing payroll. Please try again.');
+      alert(t('payroll.errorProcessing'));
     } finally {
       setPayrollLoading(false);
     }
@@ -780,16 +780,16 @@ const HR = () => {
       setPayrollLoading(true);
       const result = await payrollService.postToFinance(selectedPayroll._id);
       if (result.success) {
-        alert('Payroll posted to finance successfully!\n\nExpense and Payable records created.');
+        alert(t('payroll.postedToFinanceSuccess'));
         setShowPostToFinanceModal(false);
         fetchPayrollPeriods();
         setSelectedPayroll(result.payroll);
       } else {
-        alert(result.error || 'Failed to post to finance');
+        alert(result.error || t('payroll.failedPost'));
       }
     } catch (error) {
       console.error('Error posting to finance:', error);
-      alert('Error posting to finance. Please try again.');
+      alert(t('payroll.errorPosting'));
     } finally {
       setPayrollLoading(false);
     }
@@ -1196,7 +1196,7 @@ const HR = () => {
             <p className="page-subtitle">إدارة طلبات الإجازات والأرصدة</p>
           </div>
           <button className="btn btn-primary" onClick={() => setShowLeaveModal(true)}>
-            <Calendar size={18} /> Request Leave
+            <Calendar size={18} /> {t('hr.requestLeave')}
           </button>
         </div>
 
@@ -1248,15 +1248,15 @@ const HR = () => {
                       <div className="leave-dates">
                         {leave.startDate} to {leave.endDate} ({leave.leaveType} leave)
                       </div>
-                      <div className="leave-reason">Reason: {leave.reason}</div>
+                      <div className="leave-reason">{t('hr.reason')}: {leave.reason}</div>
                     </div>
                   </div>
                   <div className="leave-actions">
                     <button className="btn btn-sm btn-primary" onClick={() => handleApproveLeave(leave._id)}>
-                      <Check size={16} /> Approve
+                      <Check size={16} /> {t('hr.approve')}
                     </button>
                     <button className="btn btn-sm btn-danger" onClick={() => handleRejectLeave(leave._id)}>
-                      <Ban size={16} /> Reject
+                      <Ban size={16} /> {t('hr.reject')}
                     </button>
                   </div>
                 </div>
@@ -1334,7 +1334,7 @@ const HR = () => {
           <div className="header-actions">
             {canProcessPayroll && (
               <button className="btn btn-primary" onClick={() => setShowPayrollModal(true)}>
-                <Plus size={18} /> Create Payroll
+                <Plus size={18} /> {t('payroll.createPayroll')}
               </button>
             )}
           </div>
@@ -1445,11 +1445,11 @@ const HR = () => {
                     <td>
                       {p.postedToFinance ? (
                         <span className="badge badge-success">
-                          <Check size={12} /> Posted
+                            <Check size={12} /> {t('hr.postedToFinanceBadge')}
                         </span>
                       ) : (
                         <span className="badge badge-warning">
-                          <Clock size={12} /> Not Posted
+                            <Clock size={12} /> {t('hr.notPostedBadge')}
                         </span>
                       )}
                     </td>
@@ -1467,7 +1467,7 @@ const HR = () => {
                             onClick={() => handleProcessPayrollPeriod(p._id)}
                             disabled={payrollLoading}
                           >
-                            <RefreshCw size={14} /> Process
+                            <RefreshCw size={14} /> {t('hr.process')}
                           </button>
                         )}
                         {p.status === 'processed' && canProcessPayroll && !p.postedToFinance && (
@@ -1476,7 +1476,7 @@ const HR = () => {
                             onClick={() => handleOpenPostToFinanceModal(p)}
                             disabled={payrollLoading}
                           >
-                            <DollarSign size={14} /> Post to Finance
+                            <DollarSign size={14} /> {t('payroll.postToFinance')}
                           </button>
                         )}
                       </div>
@@ -1527,7 +1527,7 @@ const HR = () => {
                       rows="3"
                       value={newPayroll.notes}
                       onChange={(e) => setNewPayroll({ ...newPayroll, notes: e.target.value })}
-                      placeholder="Optional notes..."
+                      placeholder={t('common.optional')}
                     />
                   </div>
                   <div className="form-actions">
@@ -1535,7 +1535,7 @@ const HR = () => {
                       إلغاء
                     </button>
                     <button type="button" onClick={handleCreatePayroll} className="btn btn-primary" disabled={payrollLoading}>
-                      {payrollLoading ? 'Creating...' : 'Create Payroll'}
+                      {payrollLoading ? t('payroll.creating') : t('payroll.createPayroll')}
                     </button>
                   </div>
                 </div>
@@ -1549,7 +1549,7 @@ const HR = () => {
           <div className="modal-overlay" onClick={() => setShowPostToFinanceModal(false)}>
             <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3><DollarSign size={20} /> Post Payroll to Finance</h3>
+                <h3><DollarSign size={20} /> {t('payroll.postToFinance')}</h3>
                 <button className="modal-close" onClick={() => setShowPostToFinanceModal(false)}>
                   <X size={20} />
                 </button>
@@ -1563,15 +1563,15 @@ const HR = () => {
                   
                   <div className="payroll-summary-box">
                     <div className="summary-row">
-                      <span className="label">Month:</span>
+                      <span className="label">{t('payroll.month')}:</span>
                       <span className="value">{selectedPayroll.month}</span>
                     </div>
                     <div className="summary-row">
-                      <span className="label">Total Employees:</span>
+                      <span className="label">{t('payroll.totalEmployees')}:</span>
                       <span className="value">{payrollSummary?.totalEmployees || selectedPayroll.employeePayrolls?.length || 0}</span>
                     </div>
                     <div className="summary-row highlight">
-                      <span className="label">Total Net Salary:</span>
+                      <span className="label">{t('payroll.totalNetSalary')}:</span>
                       <span className="value text-success">
                         {formatCurrency(payrollSummary?.totals?.netSalary || selectedPayroll.totalNetSalary || 0)}
                       </span>
@@ -1607,7 +1607,7 @@ const HR = () => {
                       onClick={handlePostToFinance}
                       disabled={payrollLoading || payrollSummary?.alreadyPosted}
                     >
-                      {payrollLoading ? 'Posting...' : payrollSummary?.alreadyPosted ? 'Already Posted' : 'Confirm Post to Finance'}
+                      {payrollLoading ? t('payroll.posting') : payrollSummary?.alreadyPosted ? t('payroll.alreadyPosted') : t('payroll.confirmPost')}
                     </button>
                   </div>
                 </div>
@@ -1621,7 +1621,7 @@ const HR = () => {
           <div className="modal-overlay" onClick={() => setShowPayrollDetailModal(false)}>
             <div className="modal modal-xl" onClick={e => e.stopPropagation()}>
               <div className="modal-header">
-                <h3>Payroll Details - {selectedPayroll.month}</h3>
+                <h3>{t('hr.payrollDetailsTitle')} - {selectedPayroll.month}</h3>
                 <button className="modal-close" onClick={() => setShowPayrollDetailModal(false)}>
                   <X size={20} />
                 </button>
@@ -1675,7 +1675,7 @@ const HR = () => {
                   <div className="card-header" style={{ paddingBottom: '8px' }}>
                     <h3 className="card-title" style={{ fontSize: '14px', color: '#92400e' }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '6px', verticalAlign: 'middle' }}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                      Bulk Update — Apply to All Employees
+                      {t('hr.bulkUpdate')}
                     </h3>
                   </div>
                   <div className="card-body" style={{ padding: '12px 16px' }}>
@@ -1686,19 +1686,19 @@ const HR = () => {
                         <option value="deductions">{t('hr.deductions')}</option>
                       </select>
                       <select id="bulkType" className="form-select" style={{ width: '120px' }}>
-                        <option value="fixed">+ Fixed Amount</option>
-                        <option value="percentage">+ Percentage %</option>
+                        <option value="fixed">{t('payroll.fixedAmount')}</option>
+                        <option value="percentage">{t('payroll.percentage')}</option>
                       </select>
-                      <input type="number" id="bulkValue" className="form-input" placeholder="Value" style={{ width: '100px' }} />
+                      <input type="number" id="bulkValue" className="form-input" placeholder={t('common.value')} style={{ width: '100px' }} />
                       <button className="btn btn-sm btn-warning" onClick={async () => {
                         const field = document.getElementById('bulkField').value;
                         const type = document.getElementById('bulkType').value;
                         const val = document.getElementById('bulkValue').value;
-                        if (!val || parseFloat(val) <= 0) { alert('Enter a value'); return; }
+                        if (!val || parseFloat(val) <= 0) { alert(t('common.enterValue')); return; }
                         if (!window.confirm(`Apply ${type === 'fixed' ? '+' : '+'}${val}${type === 'percentage' ? '%' : ' EGP'} to ${field} for all employees?`)) return;
                         try {
                           const token = localStorage.getItem('token');
-                          const res = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/payroll/${selectedPayroll._id || selectedPayroll.id}/bulk-update`, {
+                          const res = await fetch(`${(process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api'}/payroll/${selectedPayroll._id || selectedPayroll.id}/bulk-update`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                             body: JSON.stringify({ increaseType: type, increaseValue: parseFloat(val), field })
@@ -1710,7 +1710,7 @@ const HR = () => {
                             const r = await pp.getPayroll(selectedPayroll._id || selectedPayroll.id);
                             if (r.success) setSelectedPayroll(r.payroll);
                           } else {
-                            alert(data.error || 'Failed');
+                            alert(data.error || t('common.failed'));
                           }
                         } catch(e) { alert('Error: ' + e.message); }
                       }}>{t('common.apply')}</button>
@@ -1762,7 +1762,7 @@ const HR = () => {
                   <div className="card" style={{ marginTop: '24px', background: '#f0fdf4' }}>
                     <div className="card-header">
                       <h3 className="card-title text-success">
-                        <CheckCircle size={18} /> Posted to Finance
+                        <CheckCircle size={18} /> {t('hr.postedToFinance')}
                       </h3>
                     </div>
                     <div className="card-body">
@@ -1777,7 +1777,7 @@ const HR = () => {
                         </div>
                         <div className="info-row">
                           <span>تاريخ الترحيل:</span>
-                          <span>{selectedPayroll.postedAt ? new Date(selectedPayroll.postedAt).toLocaleString() : 'N/A'}</span>
+                          <span>{selectedPayroll.postedAt ? new Date(selectedPayroll.postedAt).toLocaleString() : t('common.notAvailable')}</span>
                         </div>
                       </div>
                     </div>
@@ -1843,13 +1843,13 @@ const HR = () => {
     };
     
     const getScoreLabel = (score) => {
-      if (score >= 90) return 'Excellent';
-      if (score >= 80) return 'Very Good';
-      if (score >= 70) return 'Good';
-      if (score >= 60) return 'Average';
-      if (score >= 50) return 'Below Average';
+      if (score >= 90) return t('hr.excellent');
+      if (score >= 80) return t('hr.veryGood');
+      if (score >= 70) return t('hr.good');
+      if (score >= 60) return t('hr.average');
+      if (score >= 50) return t('hr.belowAverage');
       if (score >= 40) return 'يحتاج تحسين';
-      return 'Poor';
+      return t('hr.poor');
     };
     
     const handleOpenRatingModal = (rating = null) => {
@@ -1893,7 +1893,7 @@ const HR = () => {
       try {
         const employeeId = selectedEmployeeRatings?.employee?.id || selectedEmployee?.id;
         if (!employeeId) {
-          alert('Please select an employee first');
+          alert(t('hr.selectEmployeeFirst'));
           return;
         }
         
@@ -1904,13 +1904,13 @@ const HR = () => {
         }
         
         setShowRatingModal(false);
-        alert('Rating saved successfully');
+        alert(t('hr.ratingSaved'));
         // Refresh data
         const result = await employeeRatingService.getEmployeeRatings(employeeId);
         setRatings(result.ratings || []);
       } catch (error) {
         console.error('Error saving rating:', error);
-        alert('Error saving rating');
+        alert(t('hr.errorSavingRating'));
       }
     };
     
@@ -1947,32 +1947,32 @@ const HR = () => {
             {/* Sales Metrics (for sales staff) */}
             {rating.employee?.department === 'sales' && rating.salesMetrics && (
               <div className="metrics-section">
-                <h4 className="section-title"><TrendingUp size={16} /> Sales Metrics</h4>
+                <h4 className="section-title"><TrendingUp size={16} /> {t('hr.salesMetricsLabel')}</h4>
                 <div className="metrics-grid">
                   <div className="metric-item">
                     <div className="metric-label-sm">{t('nav.orders')}</div>
                     <div className="metric-value-sm">{rating.salesMetrics.ordersApproved}/{rating.salesMetrics.ordersCreated}</div>
                   </div>
                   <div className="metric-item">
-                    <div className="metric-label-sm">Sales Value</div>
+                    <div className="metric-label-sm">{t('hr.salesValue')}</div>
                     <div className="metric-value-sm">{formatCurrency(rating.salesMetrics.totalSalesValue)}</div>
                   </div>
                   <div className="metric-item">
-                    <div className="metric-label-sm">Target %</div>
+                    <div className="metric-label-sm">{t('hr.targetPercent')}</div>
                     <div className={`metric-value-sm ${rating.salesMetrics.targetAchievement >= 100 ? 'text-green' : 'text-orange'}`}>
                       {rating.salesMetrics.targetAchievement}%
                     </div>
                   </div>
                   <div className="metric-item">
-                    <div className="metric-label-sm">New Clients</div>
+                    <div className="metric-label-sm">{t('hr.newClients')}</div>
                     <div className="metric-value-sm">{rating.salesMetrics.newClientsAcquired}</div>
                   </div>
                   <div className="metric-item">
-                    <div className="metric-label-sm">Retention</div>
+                    <div className="metric-label-sm">{t('hr.retention')}</div>
                     <div className="metric-value-sm">{rating.salesMetrics.clientRetentionRate}%</div>
                   </div>
                   <div className="metric-item">
-                    <div className="metric-label-sm">Collection</div>
+                    <div className="metric-label-sm">{t('hr.collection')}</div>
                     <div className="metric-value-sm">{rating.salesMetrics.collectionEfficiency}%</div>
                   </div>
                 </div>
@@ -1981,22 +1981,22 @@ const HR = () => {
             
             {/* General Metrics */}
             <div className="metrics-section">
-              <h4 className="section-title"><Activity size={16} /> General Metrics</h4>
+              <h4 className="section-title"><Activity size={16} /> {t('hr.generalMetricsLabel')}</h4>
               <div className="metrics-grid">
                 <div className="metric-item">
                   <div className="metric-label-sm">{t('hr.attendance')}</div>
                   <div className="metric-value-sm">{rating.generalMetrics?.attendanceRate}%</div>
                 </div>
                 <div className="metric-item">
-                  <div className="metric-label-sm">Tasks Done</div>
+                  <div className="metric-label-sm">{t('hr.tasksDone')}</div>
                   <div className="metric-value-sm">{rating.generalMetrics?.taskCompletionRate}%</div>
                 </div>
                 <div className="metric-item">
-                  <div className="metric-label-sm">Quality</div>
+                  <div className="metric-label-sm">{t('hr.quality')}</div>
                   <div className="metric-value-sm">{rating.generalMetrics?.qualityScore}/5</div>
                 </div>
                 <div className="metric-item">
-                  <div className="metric-label-sm">Teamwork</div>
+                  <div className="metric-label-sm">{t('hr.teamwork')}</div>
                   <div className="metric-value-sm">{rating.generalMetrics?.teamworkScore}/5</div>
                 </div>
               </div>
@@ -2005,7 +2005,7 @@ const HR = () => {
             {/* Manager Rating */}
             {rating.managerRating && (
               <div className="manager-rating-section">
-                <h4 className="section-title"><Star size={16} /> Manager Assessment</h4>
+                <h4 className="section-title"><Star size={16} /> {t('hr.managerAssessment')}</h4>
                 <div className="manager-rating-display">
                   <div className="stars-display">
                     {[1, 2, 3, 4, 5].map((star) => (
@@ -2125,7 +2125,7 @@ const HR = () => {
             </div>
             <div className="stat-info">
               <div className="stat-value-large">{displayStats.totalSalesStaff}</div>
-              <div className="stat-label-large">Total Sales Staff</div>
+              <div className="stat-label-large">{t('hr.totalSalesStaff')}</div>
             </div>
           </div>
           <div className="stat-card-large">
@@ -2134,7 +2134,7 @@ const HR = () => {
             </div>
             <div className="stat-info">
               <div className="stat-value-large">{displayStats.ratedStaff}</div>
-              <div className="stat-label-large">Rated Staff</div>
+              <div className="stat-label-large">{t('hr.ratedStaff')}</div>
             </div>
           </div>
           <div className="stat-card-large">
@@ -2151,7 +2151,7 @@ const HR = () => {
         <div className="stats-details-grid">
           <div className="card">
             <div className="card-header">
-              <h3 className="card-title"><PieChart size={18} /> Grade Distribution</h3>
+              <h3 className="card-title"><PieChart size={18} /> {t('hr.gradeDistribution')}</h3>
             </div>
             <div className="grade-distribution">
               {Object.entries(displayStats.gradeDistribution).map(([grade, count]) => (
@@ -2174,7 +2174,7 @@ const HR = () => {
           
           <div className="card">
             <div className="card-header">
-              <h3 className="card-title"><Trophy size={18} /> Top Performer</h3>
+              <h3 className="card-title"><Trophy size={18} /> {t('hr.topPerformer')}</h3>
             </div>
             {displayStats.topPerformer ? (
               <div className="top-performer-card">
@@ -2193,7 +2193,7 @@ const HR = () => {
                 </div>
               </div>
             ) : (
-              <div className="no-data">No top performer data available</div>
+              <div className="no-data">{t('hr.noTopPerformer')}</div>
             )}
           </div>
         </div>
@@ -2204,7 +2204,7 @@ const HR = () => {
       <div className="modal-overlay" onClick={() => setShowRatingModal(false)}>
         <div className="modal modal-large" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
-            <h2>{selectedEmployeeRatings ? 'Edit Rating' : 'New Rating'}</h2>
+            <h2>{selectedEmployeeRatings ? t('hr.editRating') : t('hr.newRating')}</h2>
             <button className="btn btn-icon" onClick={() => setShowRatingModal(false)}>
               <X size={20} />
             </button>
@@ -2237,7 +2237,7 @@ const HR = () => {
             
             {/* Sales Metrics */}
             <div className="form-section">
-              <h4><TrendingUp size={18} /> Sales Metrics</h4>
+              <h4><TrendingUp size={18} /> {t('hr.salesMetricsLabel')}</h4>
               <div className="form-row">
                 <div className="form-group">
                   <label>الطلبات المنشأة</label>
@@ -2300,7 +2300,7 @@ const HR = () => {
             
             {/* General Metrics */}
             <div className="form-section">
-              <h4><Activity size={18} /> General Metrics</h4>
+              <h4><Activity size={18} /> {t('hr.generalMetricsLabel')}</h4>
               <div className="form-row">
                 <div className="form-group">
                   <label>نسبة الحضور %</label>
@@ -2312,7 +2312,7 @@ const HR = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Punctuality (1-5)</label>
+                  <label>{t('hr.punctuality')}</label>
                   <input 
                     type="number" 
                     min="1" max="5"
@@ -2322,7 +2322,7 @@ const HR = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Task Completion %</label>
+                  <label>{t('hr.taskCompletion')}</label>
                   <input 
                     type="number" 
                     className="form-input" 
@@ -2333,7 +2333,7 @@ const HR = () => {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Quality Score (1-5)</label>
+                  <label>{t('hr.qualityScoreLabel')}</label>
                   <input 
                     type="number" 
                     min="1" max="5"
@@ -2343,7 +2343,7 @@ const HR = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Teamwork (1-5)</label>
+                  <label>{t('hr.teamworkScoreLabel')}</label>
                   <input 
                     type="number" 
                     min="1" max="5"
@@ -2353,7 +2353,7 @@ const HR = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Initiative (1-5)</label>
+                  <label>{t('hr.initiativeScore')}</label>
                   <input 
                     type="number" 
                     min="1" max="5"
@@ -2367,10 +2367,10 @@ const HR = () => {
             
             {/* Manager Rating */}
             <div className="form-section">
-              <h4><Star size={18} /> Manager Assessment</h4>
+              <h4><Star size={18} /> {t('hr.managerAssessment')}</h4>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Overall Rating (1-5)</label>
+                  <label>{t('hr.overallRatingLabel')}</label>
                   <input 
                     type="number" 
                     min="1" max="5" step="0.1"
@@ -2387,14 +2387,14 @@ const HR = () => {
                   rows="3"
                   value={ratingForm.managerRating.comments}
                   onChange={(e) => setRatingForm({...ratingForm, managerRating: {...ratingForm.managerRating, comments: e.target.value}})}
-                  placeholder="Enter your assessment and feedback..."
+                  placeholder={t('hr.assessmentPlaceholder')}
                 />
               </div>
             </div>
             
             {/* Targets & Achievements */}
             <div className="form-section">
-              <h4><Target size={18} /> Targets vs Achievements</h4>
+              <h4><Target size={18} /> {t('hr.targetsVsAchievements')}</h4>
               <div className="form-row">
                 <div className="form-group">
                   <label>العملاء المستهدفون</label>
@@ -2462,7 +2462,7 @@ const HR = () => {
                 إلغاء
               </button>
               <button type="button" onClick={handleSaveRating} className="btn btn-primary">
-                <Save size={18} /> Save Rating
+                <Save size={18} /> {t('hr.saveRating')}
               </button>
             </div>
           </div>
@@ -2480,7 +2480,7 @@ const HR = () => {
           <div className="header-actions">
             {canViewPerformance && (
               <button className="btn btn-primary" onClick={() => handleOpenRatingModal()}>
-                <Star size={18} /> New Rating
+                <Star size={18} /> {t('hr.newRating')}
               </button>
             )}
           </div>
@@ -2492,19 +2492,19 @@ const HR = () => {
             className={`toggle-btn ${performanceView === 'ratings' ? 'active' : ''}`}
             onClick={() => setPerformanceView('ratings')}
           >
-            <BarChart3 size={16} /> Ratings
+            <BarChart3 size={16} /> {t('hr.ratingsView')}
           </button>
           <button 
             className={`toggle-btn ${performanceView === 'leaderboard' ? 'active' : ''}`}
             onClick={() => setPerformanceView('leaderboard')}
           >
-            <Trophy size={16} /> Leaderboard
+            <Trophy size={16} /> {t('hr.leaderboardView')}
           </button>
           <button 
             className={`toggle-btn ${performanceView === 'stats' ? 'active' : ''}`}
             onClick={() => setPerformanceView('stats')}
           >
-            <PieChart size={16} /> Statistics
+            <PieChart size={16} /> {t('hr.statisticsView')}
           </button>
         </div>
         
@@ -2935,7 +2935,7 @@ const HR = () => {
                       onChange={(e) => setEditEmployeeData(prev => ({ ...prev, status: e.target.value }))}
                     >
                       <option value="active">نشط</option>
-                      <option value="inactive">inactive</option>
+                      <option value="inactive">{t('hr.inactiveStatus')}</option>
                       <option value="on_leave">إجازة</option>
                     </select>
                   ) : (
@@ -3003,11 +3003,11 @@ const HR = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <div className="section-title" style={{ marginBottom: 0 }}>{t('common.documents')}</div>
                   <button className="btn btn-sm btn-primary" onClick={() => setShowDocModal(true)}>
-                    <Plus size={14} /> Upload Document
+                    <Plus size={14} /> {t('hr.uploadDocumentBtn')}
                   </button>
                 </div>
                 {selectedEmployeeDocs.length === 0 ? (
-                  <div style={{ color: '#64748b', fontSize: '0.9rem', padding: '12px 0' }}>No documents uploaded yet.</div>
+                  <div style={{ color: '#64748b', fontSize: '0.9rem', padding: '12px 0' }}>{t('hr.noDocuments')}</div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {selectedEmployeeDocs.map(doc => (
@@ -3016,7 +3016,7 @@ const HR = () => {
                           <FileText size={18} style={{ color: '#3b82f6' }} />
                           <div>
                             <div style={{ fontWeight: '500', fontSize: '0.9rem' }}>{doc.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{doc.type} {doc.expiryDate && `• Expires: ${doc.expiryDate}`}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{doc.type} {doc.expiryDate && <>{t('hr.expired')}: {doc.expiryDate}</>}</div>
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '6px' }}>
@@ -4151,7 +4151,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency, getDepartmentLabel,
     setSaving(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/payroll/${payrollId}/employees/${ep._id || ep.id}`, {
+      const res = await fetch(`${(process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api'}/payroll/${payrollId}/employees/${ep._id || ep.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ basicSalary: basic, additions: allowances, deductions })
@@ -4159,7 +4159,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency, getDepartmentLabel,
       const data = await res.json();
       if (data.success) {
         // Then recalculate totals
-        await fetch(`${process.env.REACT_APP_API_URL || '/api'}/payroll/${payrollId}/recalculate`, {
+        await fetch(`${(process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api'}/payroll/${payrollId}/recalculate`, {
           method: 'PUT',
           headers: { 'Authorization': `Bearer ${token}` }
         });

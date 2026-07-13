@@ -125,11 +125,11 @@ const DocumentUpload = ({ entityType, entityId, allowUpload = true, useLegal = f
         setDescription('');
         fetchDocuments();
       } else {
-        alert(result.error || 'Upload failed');
+        alert(result.error || t('common.uploadFailed'));
       }
     } catch (error) {
       console.error('Error uploading:', error);
-      alert('Upload failed');
+      alert(t('common.uploadFailed'));
     } finally {
       setUploading(false);
     }
@@ -153,7 +153,7 @@ const DocumentUpload = ({ entityType, entityId, allowUpload = true, useLegal = f
         if (result.success) {
           fetchDocuments();
         } else {
-          alert(result.error || 'Delete failed');
+          alert(result.error || t('common.deleteFailed'));
         }
       }
     } catch (error) {

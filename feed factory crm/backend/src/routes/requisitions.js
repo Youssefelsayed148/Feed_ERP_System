@@ -192,7 +192,7 @@ router.post('/:id/send', authenticate, authorize('purchasing_mgr', 'admin', 'own
     const result = await transaction(async (client) => {
       // Get requisition items grouped by supplier
       const itemsResult = await client.query(`
-        SELECT ri.*, COALESCE(rm.name_arabic, rm.name_english) as material_name, rm.code as material_code, rm.unit
+        SELECT ri.*, COALESCE(rm.name_arabic, rm.name_english) as material_name, rm.code as material_code, rm.unit, rm.current_stock
         FROM requisition_items ri
         JOIN raw_materials rm ON ri.raw_material_id = rm.id
         WHERE ri.requisition_id = $1 AND ri.status = 'pending'
@@ -202,10 +202,26 @@ router.post('/:id/send', authenticate, authorize('purchasing_mgr', 'admin', 'own
         throw new Error('No pending items in requisition');
       }
 
-      // Group by supplier
+      // Items with no supplier_id can't be turned into a real PO — flag them
+      // instead of bundling them into a fake unassigned PO that can never be received.
+      const flaggedItems = itemsResult.rows.filter(item => !item.supplier_id);
+      const orderableItems = itemsResult.rows.filter(item => item.supplier_id);
+
+      if (orderableItems.length === 0) {
+        const err = new Error('لا يمكن إرسال الطلب — جميع المواد بدون مورد مفضل. يرجى تحديد مورد لكل مادة أولاً.');
+        err.noOrderableItems = true;
+        err.flaggedMaterials = flaggedItems.map(item => ({
+          raw_material_id: item.raw_material_id,
+          material_name: item.material_name,
+          current_stock: item.current_stock
+        }));
+        throw err;
+      }
+
+      // Group orderable items by supplier
       const supplierGroups = {};
-      for (const item of itemsResult.rows) {
-        const supplierId = item.supplier_id || 'unassigned';
+      for (const item of orderableItems) {
+        const supplierId = item.supplier_id;
         if (!supplierGroups[supplierId]) {
           supplierGroups[supplierId] = {
             supplier_id: item.supplier_id,
@@ -261,18 +277,49 @@ router.post('/:id/send', authenticate, authorize('purchasing_mgr', 'admin', 'own
         createdPOs.push(po);
       }
 
+      // Remove flagged (no-supplier) items entirely rather than leaving them
+      // 'pending' on a now-'sent' requisition, which would permanently hide
+      // them from low-stock re-detection despite no PO ever being created.
+      const flaggedMaterials = flaggedItems.map(item => ({
+        raw_material_id: item.raw_material_id,
+        material_name: item.material_name,
+        current_stock: item.current_stock
+      }));
+
+      if (flaggedItems.length > 0) {
+        await client.query(
+          'DELETE FROM requisition_items WHERE id = ANY($1::int[])',
+          [flaggedItems.map(item => item.id)]
+        );
+      }
+
       // Update requisition status
       await client.query(
         "UPDATE requisitions SET status = 'sent', sent_at = CURRENT_TIMESTAMP WHERE id = $1",
         [reqId]
       );
 
-      return createdPOs;
+      return { createdPOs, flaggedMaterials, orderedCount: orderableItems.length };
     });
 
-    res.json({ success: true, purchaseOrders: result, message: `Requisition sent successfully. ${result.length} purchase order(s) created.` });
+    const { createdPOs, flaggedMaterials, orderedCount } = result;
+
+    let message = `تم إرسال الطلب لـ ${orderedCount} مادة (${createdPOs.length} أمر شراء).`;
+    if (flaggedMaterials.length > 0) {
+      message += ` ${flaggedMaterials.length} مادة بدون مورد مفضل ولم يتم تضمينها — يرجى تحديد مورد لها.`;
+    }
+
+    res.json({
+      success: true,
+      purchaseOrders: createdPOs,
+      flagged_materials: flaggedMaterials,
+      message
+    });
   } catch (error) {
     console.error('[REQ SEND] Error:', error);
+    if (error.noOrderableItems) {
+      return res.status(400).json({ success: false, error: error.message, flagged_materials: error.flaggedMaterials });
+    }
     res.status(500).json({ success: false, error: error.message });
   }
 });

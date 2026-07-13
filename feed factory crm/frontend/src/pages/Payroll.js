@@ -153,7 +153,7 @@ const Payroll = () => {
       
       const result = await payrollService.createPayroll(payrollData);
       if (result.success) {
-        alert('Payroll created successfully!');
+        alert(t('payroll.createdSuccess'));
         setShowCreateModal(false);
         fetchPayrolls();
         setNewPayroll({
@@ -163,11 +163,11 @@ const Payroll = () => {
           dueDate: ''
         });
       } else {
-        alert(result.error || 'Failed to create payroll');
+        alert(result.error || t('payroll.failedCreate'));
       }
     } catch (error) {
       console.error('Error creating payroll:', error);
-      alert('Failed to create payroll');
+      alert(t('payroll.failedCreate'));
     }
   };
 
@@ -175,17 +175,17 @@ const Payroll = () => {
     try {
       const result = await payrollService.processPayroll(payrollId);
       if (result.success) {
-        alert('Payroll processed successfully!');
+        alert(t('payroll.processedSuccess'));
         fetchPayrolls();
         if (selectedPayroll?._id === payrollId) {
           setSelectedPayroll(result.payroll);
         }
       } else {
-        alert(result.error || 'Failed to process payroll');
+        alert(result.error || t('payroll.failedProcess'));
       }
     } catch (error) {
       console.error('Error processing payroll:', error);
-      alert('Failed to process payroll');
+      alert(t('payroll.failedProcess'));
     }
   };
 
@@ -196,7 +196,7 @@ const Payroll = () => {
     try {
       const result = await payrollService.approvePayroll(selectedPayroll._id);
       if (result.success) {
-        alert('Payroll approved successfully!');
+        alert(t('payroll.approvedSuccess'));
         setShowApproveModal(false);
         fetchPayrolls();
         const updatedPayroll = { 
@@ -207,11 +207,11 @@ const Payroll = () => {
         };
         setSelectedPayroll(updatedPayroll);
       } else {
-        alert(result.error || 'Failed to approve payroll');
+        alert(result.error || t('payroll.failedApprove'));
       }
     } catch (error) {
       console.error('Error approving payroll:', error);
-      alert('Failed to approve payroll');
+      alert(t('payroll.failedApprove'));
     } finally {
       setApprovingPayroll(false);
     }
@@ -224,7 +224,7 @@ const Payroll = () => {
     try {
       const result = await payrollService.postToFinance(selectedPayroll._id);
       if (result.success) {
-        alert('Payroll posted to finance successfully!');
+        alert(t('payroll.postedToFinanceSuccess'));
         setShowPostModal(false);
         fetchPayrolls();
         const updatedPayroll = { 
@@ -237,11 +237,11 @@ const Payroll = () => {
         };
         setSelectedPayroll(updatedPayroll);
       } else {
-        alert(result.error || 'Failed to post to finance');
+        alert(result.error || t('payroll.failedPost'));
       }
     } catch (error) {
       console.error('Error posting to finance:', error);
-      alert('Failed to post to finance');
+      alert(t('payroll.failedPost'));
     } finally {
       setPostingToFinance(false);
     }
@@ -254,7 +254,7 @@ const Payroll = () => {
     try {
       const result = await payrollService.markAsPaid(selectedPayroll._id);
       if (result.success) {
-        alert('Payroll marked as paid successfully!');
+        alert(t('payroll.markedPaid'));
         setShowPayModal(false);
         fetchPayrolls();
         const updatedPayroll = { 
@@ -264,11 +264,11 @@ const Payroll = () => {
         };
         setSelectedPayroll(updatedPayroll);
       } else {
-        alert(result.error || 'Failed to mark as paid');
+        alert(result.error || t('payroll.failedMarkPaid'));
       }
     } catch (error) {
       console.error('Error marking as paid:', error);
-      alert('Failed to mark as paid');
+      alert(t('payroll.failedMarkPaid'));
     } finally {
       setMarkingAsPaid(false);
     }
@@ -280,16 +280,16 @@ const Payroll = () => {
     try {
       const result = await payrollService.deletePayroll(selectedPayroll._id);
       if (result.success) {
-        alert('Payroll deleted successfully!');
+        alert(t('payroll.deletedSuccess'));
         setShowDeleteModal(false);
         setViewMode('list');
         fetchPayrolls();
       } else {
-        alert(result.error || 'Failed to delete payroll');
+        alert(result.error || t('payroll.failedDelete'));
       }
     } catch (error) {
       console.error('Error deleting payroll:', error);
-      alert('Failed to delete payroll');
+      alert(t('payroll.failedDelete'));
     }
   };
 
@@ -489,7 +489,7 @@ const Payroll = () => {
                         </div>
                         <div className="employee-info">
                           <div className="employee-name">{payroll.month}</div>
-                          <div className="employee-id">Year: {payroll.year}</div>
+                          <div className="employee-id">{t('payroll.year')}: {payroll.year}</div>
                         </div>
                       </div>
                     </td>
@@ -513,7 +513,7 @@ const Payroll = () => {
                     <td>
                       {payroll.postedToFinance ? (
                         <span className="badge badge-success">
-                          <Check size={12} /> Posted
+                          <Check size={12} /> {t('payroll.postedStatus')}
                         </span>
                       ) : (
                         <span className="badge badge-warning">
@@ -553,21 +553,21 @@ const Payroll = () => {
                               setShowApproveModal(true);
                             }}
                           >
-                            <ThumbsUp size={14} /> Approve
+                            <ThumbsUp size={14} /> {t('common.approve')}
                           </button>
                         )}
                         {['draft', 'processed', 'approved'].includes(payroll.status) && !payroll.postedToFinance && canApprovePayroll && (
                           <button 
                             className="btn btn-sm btn-success" 
                             onClick={async () => {
-                              if (window.confirm(`Approve ${payroll.month} payroll (${formatCurrency(payroll.totalNetSalary || 0)}) in one step?`)) {
+                              if (window.confirm(t('payroll.approveInOneStep', { month: payroll.month, amount: formatCurrency(payroll.totalNetSalary || 0) }))) {
                                 try {
                                   const result = await payrollService.approveAllPayroll(payroll._id);
                                   if (result.success) {
-                                    alert('Payroll fully approved!');
+                                    alert(t('payroll.fullyApproved'));
                                     fetchPayrolls();
                                   } else {
-                                    alert(result.error || 'Failed to approve');
+                                    alert(result.error || t('payroll.failedApprove'));
                                   }
                                 } catch (e) {
                                   alert('Error: ' + e.message);
@@ -597,7 +597,7 @@ const Payroll = () => {
                               setShowPayModal(true);
                             }}
                           >
-                            <Banknote size={14} /> Mark Paid
+                            <Banknote size={14} /> {t('payroll.markPaid')}
                           </button>
                         )}
                         {canManagePayroll && payroll.status === 'draft' && (
@@ -666,7 +666,7 @@ const Payroll = () => {
                       value={newPayroll.dueDate}
                       onChange={(e) => setNewPayroll({ ...newPayroll, dueDate: e.target.value })}
                     />
-                    <small className="form-help">Defaults to 5th of next month if not specified</small>
+                    <small className="form-help">{t('payroll.defaultDueDate')}</small>
                   </div>
                   <div className="form-group">
                     <label>{t('common.notes')}</label>
@@ -675,7 +675,7 @@ const Payroll = () => {
                       rows="3"
                       value={newPayroll.notes}
                       onChange={(e) => setNewPayroll({ ...newPayroll, notes: e.target.value })}
-                      placeholder="Optional notes..."
+                      placeholder={t('common.optional') + '...'}
                     />
                   </div>
                   <div className="form-actions">
@@ -1263,31 +1263,31 @@ const Payroll = () => {
           <div className="card finance-status-card">
             <div className="card-header">
               <h3 className="card-title finance-title">
-                <CheckCircle size={18} /> Posted to Finance
+                <CheckCircle size={18} /> {t('payroll.postedToFinance')}
               </h3>
             </div>
             <div className="card-body">
               <div className="finance-info-grid">
                 <div className="info-row">
-                  <span className="info-label">Expense Number:</span>
+                  <span className="info-label">{t('payroll.expenseNumber')}:</span>
                   <span className="info-value font-mono">
                     {selectedPayroll.expenseId || `EXP-SAL-${selectedPayroll.month}`}
                   </span>
                 </div>
                 <div className="info-row">
-                  <span className="info-label">Payable Number:</span>
+                  <span className="info-label">{t('payroll.payableNumber')}:</span>
                   <span className="info-value font-mono">
                     {selectedPayroll.payableId || `PAY-SAL-${selectedPayroll.month}`}
                   </span>
                 </div>
                 <div className="info-row">
-                  <span className="info-label">Posted At:</span>
+                  <span className="info-label">{t('payroll.postedAt')}:</span>
                   <span className="info-value">
                     {selectedPayroll.postedAt ? formatDate(selectedPayroll.postedAt) : 'N/A'}
                   </span>
                 </div>
                 <div className="info-row">
-                  <span className="info-label">Amount:</span>
+                  <span className="info-label">{t('payroll.amountLabel')}:</span>
                   <span className="info-value text-success font-bold">
                     {formatCurrency(selectedPayroll.totalNetSalary || 0)}
                   </span>
@@ -1467,7 +1467,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency }) => {
   const [saving, setSaving] = useState(false);
 
   const net = parseFloat(basic) + parseFloat(allowances) - parseFloat(deductions);
-  const API_BASE = process.env.REACT_APP_API_URL || '/api';
+  const API_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5000') + '/api';
 
   const handleSave = async () => {
     setSaving(true);
@@ -1486,7 +1486,7 @@ const PayrollEmployeeRow = ({ ep, payrollId, formatCurrency }) => {
         setEditing(false);
         window.location.reload();
       } else {
-        alert(data.error || 'Failed to save');
+        alert(data.error || t('payroll.failedSave'));
       }
     } catch (e) {
       alert('Error: ' + e.message);

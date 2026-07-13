@@ -42,7 +42,7 @@ const GRN = () => {
       if (posRes.purchaseOrders) setPurchaseOrders(posRes.purchaseOrders);
       if (grnsRes.grns) setGrnList(grnsRes.grns);
     } catch (err) {
-      setError('Failed to load data: ' + err.message);
+      setError(t('grn.loadFailed') + err.message);
     } finally {
       setLoading(false);
     }
@@ -54,7 +54,7 @@ const GRN = () => {
     setReceiptItems((po.items || []).map(item => ({
       ...item,
       raw_material_id: item.raw_material_id,
-      materialName: item.name || item.raw_material_name || 'Unknown',
+      materialName: item.name || item.raw_material_name || t('grn.unknown'),
       orderedQty: item.quantity || item.quantity_ordered || 0,
       acceptedQty: item.quantity || item.quantity_ordered || 0,
       rejectedQty: 0,
@@ -80,7 +80,7 @@ const GRN = () => {
       setSelectedGRN(res);
       setShowViewModal(true);
     } catch (err) {
-      alert('Failed to load GRN details: ' + err.message);
+      alert(t('grn.grnLoadFailed') + err.message);
     }
   };
 
@@ -157,7 +157,7 @@ const GRN = () => {
       await loadData();
       closeCreateModal();
     } catch (err) {
-      setError('Failed to create GRN: ' + err.message);
+      setError(t('grn.createFailed') + err.message);
     } finally {
       setLoading(false);
     }
@@ -171,7 +171,7 @@ const GRN = () => {
       await loadData();
       if (showViewModal) closeViewModal();
     } catch (err) {
-      alert('Failed to approve GRN: ' + err.message);
+      alert(t('grn.approveFailed') + err.message);
     } finally {
       setLoading(false);
     }
